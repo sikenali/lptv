@@ -1,0 +1,15 @@
+# LPK v2 构建配置 (懒猫微视)
+# buildscript: 构建脚本，在打包前把编译产物/静态资源/启动脚本组装到 _lpk_content/
+buildscript: ./build.sh
+
+# manifest: lpk 包的 manifest.yml 文件路径
+manifest: ./lzc-manifest.yml
+
+# contentdir: 打包到 lpk 中的内容目录
+contentdir: ./_lpk_content
+
+# pkgout: lpk 包输出路径
+pkgout: ./
+
+# icon: 应用图标 (仅允许 png)
+icon: ./icon.png

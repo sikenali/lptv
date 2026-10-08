@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>LPTV</title>
+  <!-- HLS.js (本地打包, 不依赖外部 CDN): 播放同源代理的 m3u8 流 -->
+  <script src="/hls.min.js"></script>
+  <style>
+    html, body { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background: #000; }
+    /* 隐藏官方页面内容，只保留 video 元素（如果有） */
+    #lptv-web-wrapper { position: fixed; inset: 0; z-index: 1; }
+    #lptv-web-wrapper video { position: fixed; inset: 0; width: 100vw; height: 100vh; object-fit: contain; background: #000; z-index: 1; }
+  </style>
+</head>
+<body>
+  <div id="lptv-web-wrapper"></div>
+  <!-- API 适配器：注入 window.pywebview.api -->
+  <script src="/adapter.js"></script>
+  <!-- HLS.js 播放引擎：自建 video + 伪造侧栏 + 监听 playUrl 驱动 hls.js -->
+  <script src="/player.js"></script>
+  <!-- 全部 UI 逻辑：频道面板/节目单/设置/录制/截图等（零修改） -->
+  <script src="/inject.js"></script>
+</body>
+</html>

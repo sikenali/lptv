@@ -1,0 +1,17 @@
+package: cloud.lazycat.app.lptv
+version: 1.0.1
+name: LPTV
+description: LPTV，Web端的频道直播工具
+author: sikenali
+license: MIT
+homepage: https://github.com/sikenali/lptv
+min_os_version: 1.5.0
+unsupported_platforms:
+  - ios
+locales:
+  zh-CN:
+    name: 懒猫微视
+    description: 懒猫微视，IPTV 直播频道聚合播放，内置多源聚合、自动测速与流媒体代理，NAS 端的在线直播工具
+  en:
+    name: LPTV
+    description: IPTV live channel player with M3U source parsing and stream proxy

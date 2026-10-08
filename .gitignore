@@ -1,0 +1,9 @@
+dist/
+
+lzc/_lpk_content/
+
+lzc/*.lpk
+
+node_modules/
+
+pytv/

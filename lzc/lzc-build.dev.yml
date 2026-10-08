@@ -1,0 +1,7 @@
+# 开发态覆盖配置 (project deploy/sync 优先使用)
+# 覆盖 release 安装包 package id，避免覆盖正式版本
+package_override:
+  package: cloud.lazycat.app.lptv.dev
+
+# 留空表示开发态不打包 content 目录（代码通过 sync 同步）
+contentdir:

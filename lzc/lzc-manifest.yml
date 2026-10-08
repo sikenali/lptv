@@ -1,0 +1,23 @@
+# application 是默认前台服务，对应固定 service 名 app
+application:
+  subdomain: lptv # 默认访问子域名前缀
+  # 必须显式指定自带 node 的镜像：本地 lpk install 不解析 package.yml 的 runtime: node
+  image: registry.lazycat.cloud/lzc-music/server:1.0.2
+  routes:
+    # 前端静态资源直接由懒猫网关 serve
+    - /=file:///lzcapp/pkg/content/frontend
+  upstreams:
+    # 后端 API：编译后的 express server（node）
+    # 注意 disable_trim_location: true 会保留 /api 前缀，后端收到的仍是 /api/xxx
+    - location: /api/
+      backend: http://127.0.0.1:8080/
+      disable_trim_location: true
+      backend_launch_command: sh /lzcapp/pkg/content/scripts/start-backend.sh
+  environment:
+    PORT: "8080"
+    DATA_DIR: /lzcapp/var/data
+    NODE_ENV: production
+  health_check:
+    test_url: http://127.0.0.1:8080/health
+    start_period: 120s
+    timeout: 10s
