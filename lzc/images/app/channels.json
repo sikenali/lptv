@@ -1,0 +1,408 @@
+[
+  {
+    "name": "CCTV-1 综合",
+    "pid": "600001859",
+    "cnlid": "2024078201",
+    "category": "央视",
+    "official": "CCTV-1 综合"
+  },
+  {
+    "name": "CCTV-2 财经",
+    "pid": "600001800",
+    "cnlid": "2024075401",
+    "category": "央视",
+    "official": "CCTV-2 财经"
+  },
+  {
+    "name": "CCTV-3 综艺",
+    "pid": "600001801",
+    "cnlid": "2024068501",
+    "category": "央视",
+    "official": "CCTV-3 综艺"
+  },
+  {
+    "name": "CCTV-4 中文国际",
+    "pid": "600001814",
+    "cnlid": "2029797103",
+    "category": "央视",
+    "official": "CCTV-4 中文国际"
+  },
+  {
+    "name": "CCTV-5 体育",
+    "pid": "600001818",
+    "cnlid": "2024078401",
+    "category": "央视",
+    "official": "CCTV-5 体育"
+  },
+  {
+    "name": "CCTV-5+ 体育赛事",
+    "pid": "600001817",
+    "cnlid": "2024078001",
+    "category": "央视",
+    "official": "CCTV-5+ 体育赛事"
+  },
+  {
+    "name": "CCTV-6 电影",
+    "pid": "600108442",
+    "cnlid": "2013693901",
+    "category": "央视",
+    "official": "CCTV-6 电影"
+  },
+  {
+    "name": "CCTV-7 国防军事",
+    "pid": "600004092",
+    "cnlid": "",
+    "category": "央视",
+    "official": "CCTV-7 国防军事"
+  },
+  {
+    "name": "CCTV-8 电视剧",
+    "pid": "600001803",
+    "cnlid": "2029793001",
+    "category": "央视",
+    "official": "CCTV-8 电视剧"
+  },
+  {
+    "name": "CCTV-9 纪录",
+    "pid": "600004078",
+    "cnlid": "2024078601",
+    "category": "央视",
+    "official": "CCTV-9 纪录"
+  },
+  {
+    "name": "CCTV-10 科教",
+    "pid": "600001805",
+    "cnlid": "2024078701",
+    "category": "央视",
+    "official": "CCTV-10 科教"
+  },
+  {
+    "name": "CCTV-11 戏曲",
+    "pid": "600001806",
+    "cnlid": "2027248701",
+    "category": "央视",
+    "official": "CCTV-11 戏曲"
+  },
+  {
+    "name": "CCTV-12 社会与法",
+    "pid": "600001807",
+    "cnlid": "2027248801",
+    "category": "央视",
+    "official": "CCTV-12 社会与法"
+  },
+  {
+    "name": "CCTV-13 新闻",
+    "pid": "600001811",
+    "cnlid": "2024068601",
+    "category": "央视",
+    "official": "CCTV-13 新闻"
+  },
+  {
+    "name": "CCTV-14 少儿",
+    "pid": "600001809",
+    "cnlid": "2024078201",
+    "category": "央视",
+    "official": "CCTV-14 少儿"
+  },
+  {
+    "name": "CCTV-15 音乐",
+    "pid": "600001815",
+    "cnlid": "2024071301",
+    "category": "央视",
+    "official": "CCTV-15 音乐"
+  },
+  {
+    "name": "CCTV-16 奥林匹克",
+    "pid": "600098637",
+    "cnlid": "",
+    "category": "央视",
+    "official": "CCTV-16 奥林匹克"
+  },
+  {
+    "name": "CCTV-16 4K",
+    "pid": "600099502",
+    "cnlid": "",
+    "category": "央视",
+    "official": "CCTV-16 4K"
+  },
+  {
+    "name": "CCTV-4K 超高清",
+    "pid": "600002264",
+    "cnlid": "",
+    "category": "央视",
+    "official": "CCTV-4K 超高清"
+  },
+  {
+    "name": "CCTV-8K 超高清",
+    "pid": "600156816",
+    "cnlid": "",
+    "category": "央视",
+    "official": "CCTV-8K 超高清"
+  },
+  {
+    "name": "CCTV-17 农业农村",
+    "pid": "600001810",
+    "cnlid": "2024075501",
+    "category": "央视",
+    "official": "CCTV-17 农业农村"
+  },
+  {
+    "name": "CGTN",
+    "pid": "600014550",
+    "cnlid": "",
+    "category": "CGTN",
+    "official": "CGTN"
+  },
+  {
+    "name": "CGTN 法语",
+    "pid": "600084704",
+    "cnlid": "2027088301",
+    "category": "CGTN",
+    "official": "CGTN 法语"
+  },
+  {
+    "name": "CGTN 俄语",
+    "pid": "600084758",
+    "cnlid": "2027088401",
+    "category": "CGTN",
+    "official": "CGTN 俄语"
+  },
+  {
+    "name": "CGTN 阿拉伯语",
+    "pid": "600084759",
+    "cnlid": "2027088501",
+    "category": "CGTN",
+    "official": "CGTN 阿拉伯语"
+  },
+  {
+    "name": "CGTN 西班牙语",
+    "pid": "600084779",
+    "cnlid": "2027088601",
+    "category": "CGTN",
+    "official": "CGTN 西班牙语"
+  },
+  {
+    "name": "CGTN 外语纪录",
+    "pid": "600084781",
+    "cnlid": "2027088701",
+    "category": "CGTN",
+    "official": "CGTN 外语纪录"
+  },
+  {
+    "name": "北京卫视",
+    "pid": "600002309",
+    "cnlid": "2027158101",
+    "category": "卫视",
+    "official": "北京卫视"
+  },
+  {
+    "name": "江苏卫视",
+    "pid": "600002521",
+    "cnlid": "2027158201",
+    "category": "卫视",
+    "official": "江苏卫视"
+  },
+  {
+    "name": "东方卫视",
+    "pid": "600002483",
+    "cnlid": "2027158301",
+    "category": "卫视",
+    "official": "东方卫视"
+  },
+  {
+    "name": "浙江卫视",
+    "pid": "600002520",
+    "cnlid": "2027158401",
+    "category": "卫视",
+    "official": "浙江卫视"
+  },
+  {
+    "name": "湖南卫视",
+    "pid": "600002475",
+    "cnlid": "2027158501",
+    "category": "卫视",
+    "official": "湖南卫视"
+  },
+  {
+    "name": "湖北卫视",
+    "pid": "600002508",
+    "cnlid": "2027158601",
+    "category": "卫视",
+    "official": "湖北卫视"
+  },
+  {
+    "name": "广东卫视",
+    "pid": "600002485",
+    "cnlid": "2027158701",
+    "category": "卫视",
+    "official": "广东卫视"
+  },
+  {
+    "name": "广西卫视",
+    "pid": "600002509",
+    "cnlid": "2027158801",
+    "category": "卫视",
+    "official": "广西卫视"
+  },
+  {
+    "name": "深圳卫视",
+    "pid": "600002481",
+    "cnlid": "2027158901",
+    "category": "卫视",
+    "official": "深圳卫视"
+  },
+  {
+    "name": "重庆卫视",
+    "pid": "600152137",
+    "cnlid": "2027159001",
+    "category": "卫视",
+    "official": "重庆卫视"
+  },
+  {
+    "name": "山东卫视",
+    "pid": "600002513",
+    "cnlid": "2027159101",
+    "category": "卫视",
+    "official": "山东卫视"
+  },
+  {
+    "name": "辽宁卫视",
+    "pid": "600002505",
+    "cnlid": "2027159201",
+    "category": "卫视",
+    "official": "辽宁卫视"
+  },
+  {
+    "name": "安徽卫视",
+    "pid": "600002532",
+    "cnlid": "2027159301",
+    "category": "卫视",
+    "official": "安徽卫视"
+  },
+  {
+    "name": "江西卫视",
+    "pid": "600002503",
+    "cnlid": "2027159401",
+    "category": "卫视",
+    "official": "江西卫视"
+  },
+  {
+    "name": "河南卫视",
+    "pid": "600002525",
+    "cnlid": "2027159501",
+    "category": "卫视",
+    "official": "河南卫视"
+  },
+  {
+    "name": "河北卫视",
+    "pid": "600002493",
+    "cnlid": "2027159601",
+    "category": "卫视",
+    "official": "河北卫视"
+  },
+  {
+    "name": "黑龙江卫视",
+    "pid": "600002498",
+    "cnlid": "2027159701",
+    "category": "卫视",
+    "official": "黑龙江卫视"
+  },
+  {
+    "name": "四川卫视",
+    "pid": "600002516",
+    "cnlid": "2027159801",
+    "category": "卫视",
+    "official": "四川卫视"
+  },
+  {
+    "name": "贵州卫视",
+    "pid": "600002490",
+    "cnlid": "2027159901",
+    "category": "卫视",
+    "official": "贵州卫视"
+  },
+  {
+    "name": "云南卫视",
+    "pid": "600190402",
+    "cnlid": "2027160001",
+    "category": "卫视",
+    "official": "云南卫视"
+  },
+  {
+    "name": "海南卫视",
+    "pid": "600002506",
+    "cnlid": "2027160101",
+    "category": "卫视",
+    "official": "海南卫视"
+  },
+  {
+    "name": "甘肃卫视",
+    "pid": "600190408",
+    "cnlid": "2027160201",
+    "category": "卫视",
+    "official": "甘肃卫视"
+  },
+  {
+    "name": "青海卫视",
+    "pid": "600190406",
+    "cnlid": "2027160301",
+    "category": "卫视",
+    "official": "青海卫视"
+  },
+  {
+    "name": "陕西卫视",
+    "pid": "600190400",
+    "cnlid": "2027160401",
+    "category": "卫视",
+    "official": "陕西卫视"
+  },
+  {
+    "name": "山西卫视",
+    "pid": "600190407",
+    "cnlid": "2027160501",
+    "category": "卫视",
+    "official": "山西卫视"
+  },
+  {
+    "name": "吉林卫视",
+    "pid": "600190405",
+    "cnlid": "2027160601",
+    "category": "卫视",
+    "official": "吉林卫视"
+  },
+  {
+    "name": "新疆卫视",
+    "pid": "600152138",
+    "cnlid": "2027160701",
+    "category": "卫视",
+    "official": "新疆卫视"
+  },
+  {
+    "name": "西藏卫视",
+    "pid": "600190403",
+    "cnlid": "2027160801",
+    "category": "卫视",
+    "official": "西藏卫视"
+  },
+  {
+    "name": "内蒙古卫视",
+    "pid": "600190401",
+    "cnlid": "2027160901",
+    "category": "卫视",
+    "official": "内蒙古卫视"
+  },
+  {
+    "name": "宁夏卫视",
+    "pid": "600190737",
+    "cnlid": "2027161001",
+    "category": "卫视",
+    "official": "宁夏卫视"
+  },
+  {
+    "name": "东南卫视",
+    "pid": "600002484",
+    "cnlid": "2027161101",
+    "category": "卫视",
+    "official": "东南卫视"
+  }
+]
