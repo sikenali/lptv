@@ -220,7 +220,7 @@ TIMEOUT_PROBE = 4.5     # 单条线路探测
 PROBE_BUDGET = 6.0      # 探测阶段总预算（超时即放弃，保留线路兜底）
 PROBE_BYTES = 8192      # 探测读取字节数，够判断流魔数
 PROBE_REDIRECTS = 5
-TIMEOUT_STREAM = 30     # /proxy 取流
+TIMEOUT_STREAM = 12     # /proxy 取流：也是套接字读超时，死 CDN 挂起最多拖 12s
 RESOLVE_TTL = 300       # 解析结果缓存秒数
 
 # 极简 Cookie 罐: (host, name) -> value

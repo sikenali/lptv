@@ -72,6 +72,7 @@
 
   var LOAD_TIMEOUT = 8000;      // 单条线路最长等待
   var STALL_TIMEOUT = 6000;     // 流中断多久后换下一条线路
+  var STALL_SHOW_MS = 2000;     // 中断持续多久才盖上注水遮罩（直播补缓冲常 <2s，不算中断）
   var RESOLVE_TIMEOUT = 10000;  // 解析请求超时
   var LINE_TTL = 300000;        // 前端线路缓存有效期 (5 分钟)
   var MAX_LINES = 4;            // 最多顺序尝试的线路数，超出走 fresh 兜底
@@ -148,7 +149,7 @@
   // 播放内核
   // -----------------------------------------------------------------------
   function destroyPlayer() {
-    stallSince = 0; darkCount = 0;
+    stallSince = 0; darkCount = 0; lastTick = 0;
     try { if (hls) { hls.destroy(); hls = null; } } catch (e) {}
     try { if (flv) { flv.destroy(); flv = null; } } catch (e) {}
     try {
@@ -307,27 +308,37 @@
   }
 
   // -----------------------------------------------------------------------
-  // 流中断看门狗：waiting/stalled 持续超过阈值就换下一条线路
+  // 流中断看门狗
+  // -----------------------------------------------------------------------
+  // 注意: 直播流的 waiting/stalled/suspend 会**频繁**触发（补缓冲、浏览器主动暂停拉流、
+  // 关键帧等待）。如果在事件里直接 showSpin()，注水遮罩就会不停盖住再露出播放画面。
+  // 所以事件只记录时间点，持续超过 STALL_SHOW_MS 才遮罩；一旦流动恢复立即撤下。
   // -----------------------------------------------------------------------
   function bindMedia() {
     video.addEventListener("playing", onPlaySuccess);
     ["timeupdate", "canplay"].forEach(function (ev) {
-      video.addEventListener(ev, function () { stallSince = 0; });
+      video.addEventListener(ev, function () {
+        if (!stallSince) return;
+        stallSince = 0;
+        if (isPlaying) hideSpin();          // 从中断恢复 -> 撤下遮罩，交回播放画面
+      });
     });
     ["waiting", "stalled", "suspend"].forEach(function (ev) {
       video.addEventListener(ev, function () {
-        showSpin();
+        if (!isPlaying) return;             // 首播前的缓冲不算中断，遮罩由 loadLine 负责
         if (!stallSince) stallSince = Date.now();
       });
     });
     setInterval(function () {
       if (!stallSince) return;
-      if (Date.now() - stallSince >= STALL_TIMEOUT && lineIdx + 1 < lineBudget()) {
+      var dur = Date.now() - stallSince;
+      if (dur >= STALL_SHOW_MS) showSpin();
+      if (dur >= STALL_TIMEOUT && lineIdx + 1 < lineBudget()) {
         dbgPush("stall line " + (lineIdx + 1) + " -> next");
         stallSince = 0;
         loadLine(lineIdx + 1);
       }
-    }, 1000);
+    }, 500);
   }
 
   // -----------------------------------------------------------------------
@@ -336,17 +347,29 @@
   var darkCanvas = document.createElement("canvas");
   darkCanvas.width = 32; darkCanvas.height = 18;
   var dctx = darkCanvas.getContext("2d");
+  var lastTick = 0;       // 上次采样的 video.currentTime
   function watchDog() {
-    if (!isPlaying || video.paused || video.readyState < 2) { darkCount = 0; return; }
+    if (!isPlaying || video.paused || video.readyState < 2) {
+      darkCount = 0; lastTick = 0; return;
+    }
+    var t = video.currentTime;
+    var frozen = lastTick > 0 && t <= lastTick;
+    lastTick = t;
+    // 必须同时满足「时间轴停摆」才算真卡住。否则夜景、倒计时黑屏等正常暗画面会被
+    // 误判成死流，触发换线/重新解析 -> showSpin() 反复盖住正在播放的画面。
+    // 时间轴在走就不管；冻结在亮帧上则由上面的流中断看门狗兜底。
+    if (!frozen) { darkCount = 0; return; }
+    var mySeq = seq;
     try {
       dctx.drawImage(video, 0, 0, 32, 18);
       var d = dctx.getImageData(0, 0, 32, 18).data;
       var sum = 0; for (var i = 0; i < d.length; i += 4) sum += d[i] + d[i + 1] + d[i + 2];
       var avg = sum / (d.length / 4) / 3;
-      if (avg < 12) { darkCount++; } else { darkCount = 0; }
+      if (avg < 20) { darkCount++; } else { darkCount = 0; }
       if (darkCount >= DARK_LIMIT) {
         dbgPush("black frame -> recover");
         darkCount = 0;
+        if (!alive(mySeq)) return;
         if (lineIdx + 1 < lineBudget()) loadLine(lineIdx + 1);
         else if (current) resolveAndPlay(current, seq, true);
       }
@@ -365,6 +388,15 @@
     }, 3500);
   }
   function wakeUI() { root.classList.remove("lx-hide"); scheduleHide(); }
+  // 底栏：鼠标 Y 进入底部 80px 显示，离开隐藏
+  var CTRL_HOVER_ZONE = 80;
+  document.addEventListener("mousemove", function(e) {
+    if (e.clientY >= window.innerHeight - CTRL_HOVER_ZONE) {
+      ctrl.classList.add("ctrl-show");
+    } else {
+      ctrl.classList.remove("ctrl-show");
+    }
+  }, { passive: true });
   ["mousemove", "touchstart", "keydown"].forEach(function (ev) {
     document.addEventListener(ev, wakeUI, true);
   });

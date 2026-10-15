@@ -55,7 +55,7 @@ button{font-family:inherit;color:inherit;cursor:pointer;border:none;background:n
 .topbar{position:fixed;top:0;left:0;right:0;height:52px;display:flex;align-items:center;
   gap:10px;padding:0 12px;background:linear-gradient(180deg,rgba(0,0,0,.7),rgba(0,0,0,0));
   transition:opacity .3s,transform .3s}
-.lx-hide .topbar,.lx-hide .ctrl{opacity:0;transform:translateY(-6px);pointer-events:none}
+.lx-hide .topbar{opacity:0;transform:translateY(-6px);pointer-events:none}
 .tb-btn{width:40px;height:40px;border-radius:10px;font-size:20px;color:#fff;
   background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center}
 .tb-btn:active{background:rgba(255,255,255,.2)}
@@ -112,9 +112,11 @@ button{font-family:inherit;color:inherit;cursor:pointer;border:none;background:n
 .osd.hidden{display:none}
 @keyframes osdIn{from{opacity:0;transform:translate(-50%,-8px)}to{opacity:1;transform:translate(-50%,0)}}
 
-/* 底部控制条 */
+/* 底部控制条：默认隐藏，hover 底部区域时显示 */
 .ctrl{position:fixed;bottom:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:10px;
-  padding:0 12px;background:linear-gradient(0deg,rgba(0,0,0,.72),rgba(0,0,0,0));transition:opacity .3s,transform .3s}
+  padding:0 12px;background:linear-gradient(0deg,rgba(0,0,0,.72),rgba(0,0,0,0));
+  transition:opacity .25s,transform .25s;opacity:0;transform:translateY(8px);pointer-events:none}
+.ctrl.ctrl-show{opacity:1;transform:none;pointer-events:auto}
 .ctrl-btn{width:42px;height:42px;border-radius:10px;font-size:19px;color:#fff;background:rgba(255,255,255,.08);
   display:flex;align-items:center;justify-content:center}
 .ctrl-btn:active{background:rgba(255,255,255,.2)}
