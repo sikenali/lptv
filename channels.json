@@ -1,0 +1,415 @@
+[
+  {
+    "name": "CCTV-1 综合",
+    "tid": "ys",
+    "id": 1,
+    "category": "央视",
+    "url": "https://www.789iptv.com/?act=play&tid=ys&id=1"
+  },
+  {
+    "name": "CCTV-2 财经",
+    "tid": "ys",
+    "id": 2,
+    "category": "央视",
+    "url": "https://www.789iptv.com/?act=play&tid=ys&id=2"
+  },
+  {
+    "name": "CCTV-3 综艺",
+    "tid": "ys",
+    "id": 3,
+    "category": "央视",
+    "url": "https://www.789iptv.com/?act=play&tid=ys&id=3"
+  },
+  {
+    "name": "CCTV-4 中文国际",
+    "tid": "ys",
+    "id": 4,
+    "category": "央视",
+    "url": "https://www.789iptv.com/?act=play&tid=ys&id=4"
+  },
+  {
+    "name": "CCTV-5 体育",
+    "tid": "ys",
+    "id": 5,
+    "category": "央视",
+    "url": "https://www.789iptv.com/?act=play&tid=ys&id=5"
+  },
+  {
+    "name": "CCTV-5+ 体育赛事",
+    "tid": "ys",
+    "id": 6,
+    "category": "央视",
+    "url": "https://www.789iptv.com/?act=play&tid=ys&id=6"
+  },
+  {
+    "name": "CCTV-6 电影",
+    "tid": "ys",
+    "id": 7,
+    "category": "央视",
+    "url": "https://www.789iptv.com/?act=play&tid=ys&id=7"
+  },
+  {
+    "name": "CCTV-7 国防军事",
+    "tid": "ys",
+    "id": 8,
+    "category": "央视",
+    "url": "https://www.789iptv.com/?act=play&tid=ys&id=8"
+  },
+  {
+    "name": "CCTV-8 电视剧",
+    "tid": "ys",
+    "id": 9,
+    "category": "央视",
+    "url": "https://www.789iptv.com/?act=play&tid=ys&id=9"
+  },
+  {
+    "name": "CCTV-9 纪录",
+    "tid": "ys",
+    "id": 10,
+    "category": "央视",
+    "url": "https://www.789iptv.com/?act=play&tid=ys&id=10"
+  },
+  {
+    "name": "CCTV-10 科教",
+    "tid": "ys",
+    "id": 11,
+    "category": "央视",
+    "url": "https://www.789iptv.com/?act=play&tid=ys&id=11"
+  },
+  {
+    "name": "CCTV-11 戏曲",
+    "tid": "ys",
+    "id": 12,
+    "category": "央视",
+    "url": "https://www.789iptv.com/?act=play&tid=ys&id=12"
+  },
+  {
+    "name": "CCTV-12 社会与法",
+    "tid": "ys",
+    "id": 13,
+    "category": "央视",
+    "url": "https://www.789iptv.com/?act=play&tid=ys&id=13"
+  },
+  {
+    "name": "CCTV-13 新闻",
+    "tid": "ys",
+    "id": 14,
+    "category": "央视",
+    "url": "https://www.789iptv.com/?act=play&tid=ys&id=14"
+  },
+  {
+    "name": "CCTV-14 少儿",
+    "tid": "ys",
+    "id": 15,
+    "category": "央视",
+    "url": "https://www.789iptv.com/?act=play&tid=ys&id=15"
+  },
+  {
+    "name": "CCTV-15 音乐",
+    "tid": "ys",
+    "id": 16,
+    "category": "央视",
+    "url": "https://www.789iptv.com/?act=play&tid=ys&id=16"
+  },
+  {
+    "name": "CCTV-16 奥林匹克",
+    "tid": "ys",
+    "id": 17,
+    "category": "央视",
+    "url": "https://www.789iptv.com/?act=play&tid=ys&id=17"
+  },
+  {
+    "name": "CCTV-17 农业农村",
+    "tid": "ys",
+    "id": 18,
+    "category": "央视",
+    "url": "https://www.789iptv.com/?act=play&tid=ys&id=18"
+  },
+  {
+    "name": "湖南卫视",
+    "tid": "ws",
+    "id": 1,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=1"
+  },
+  {
+    "name": "江苏卫视",
+    "tid": "ws",
+    "id": 2,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=2"
+  },
+  {
+    "name": "浙江卫视",
+    "tid": "ws",
+    "id": 3,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=3"
+  },
+  {
+    "name": "东方卫视",
+    "tid": "ws",
+    "id": 4,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=4"
+  },
+  {
+    "name": "北京卫视",
+    "tid": "ws",
+    "id": 5,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=5"
+  },
+  {
+    "name": "深圳卫视",
+    "tid": "ws",
+    "id": 6,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=6"
+  },
+  {
+    "name": "广东卫视",
+    "tid": "ws",
+    "id": 7,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=7"
+  },
+  {
+    "name": "安徽卫视",
+    "tid": "ws",
+    "id": 8,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=8"
+  },
+  {
+    "name": "东南卫视",
+    "tid": "ws",
+    "id": 9,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=9"
+  },
+  {
+    "name": "河北卫视",
+    "tid": "ws",
+    "id": 10,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=10"
+  },
+  {
+    "name": "黑龙江卫视",
+    "tid": "ws",
+    "id": 11,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=11"
+  },
+  {
+    "name": "湖北卫视",
+    "tid": "ws",
+    "id": 12,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=12"
+  },
+  {
+    "name": "江西卫视",
+    "tid": "ws",
+    "id": 13,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=13"
+  },
+  {
+    "name": "辽宁卫视",
+    "tid": "ws",
+    "id": 14,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=14"
+  },
+  {
+    "name": "海南卫视",
+    "tid": "ws",
+    "id": 15,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=15"
+  },
+  {
+    "name": "山东卫视",
+    "tid": "ws",
+    "id": 16,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=16"
+  },
+  {
+    "name": "四川卫视",
+    "tid": "ws",
+    "id": 17,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=17"
+  },
+  {
+    "name": "天津卫视",
+    "tid": "ws",
+    "id": 18,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=18"
+  },
+  {
+    "name": "重庆卫视",
+    "tid": "ws",
+    "id": 19,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=19"
+  },
+  {
+    "name": "贵州卫视",
+    "tid": "ws",
+    "id": 20,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=20"
+  },
+  {
+    "name": "吉林卫视",
+    "tid": "ws",
+    "id": 21,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=21"
+  },
+  {
+    "name": "广西卫视",
+    "tid": "ws",
+    "id": 22,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=22"
+  },
+  {
+    "name": "河南卫视",
+    "tid": "ws",
+    "id": 23,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=23"
+  },
+  {
+    "name": "甘肃卫视",
+    "tid": "ws",
+    "id": 24,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=24"
+  },
+  {
+    "name": "青海卫视",
+    "tid": "ws",
+    "id": 25,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=25"
+  },
+  {
+    "name": "云南卫视",
+    "tid": "ws",
+    "id": 26,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=26"
+  },
+  {
+    "name": "内蒙古卫视",
+    "tid": "ws",
+    "id": 27,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=27"
+  },
+  {
+    "name": "山西卫视",
+    "tid": "ws",
+    "id": 28,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=28"
+  },
+  {
+    "name": "陕西卫视",
+    "tid": "ws",
+    "id": 29,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=29"
+  },
+  {
+    "name": "兵团卫视",
+    "tid": "ws",
+    "id": 30,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=30"
+  },
+  {
+    "name": "新疆卫视",
+    "tid": "ws",
+    "id": 31,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=31"
+  },
+  {
+    "name": "西藏卫视",
+    "tid": "ws",
+    "id": 32,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=32"
+  },
+  {
+    "name": "宁夏卫视",
+    "tid": "ws",
+    "id": 33,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=33"
+  },
+  {
+    "name": "延边卫视",
+    "tid": "ws",
+    "id": 34,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=34"
+  },
+  {
+    "name": "康巴卫视",
+    "tid": "ws",
+    "id": 35,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=35"
+  },
+  {
+    "name": "大湾区卫视",
+    "tid": "ws",
+    "id": 36,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=36"
+  },
+  {
+    "name": "广东珠江频道",
+    "tid": "ws",
+    "id": 37,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=37"
+  },
+  {
+    "name": "厦门卫视",
+    "tid": "ws",
+    "id": 38,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=38"
+  },
+  {
+    "name": "安多卫视",
+    "tid": "ws",
+    "id": 39,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=39"
+  },
+  {
+    "name": "农林卫视",
+    "tid": "ws",
+    "id": 40,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=40"
+  },
+  {
+    "name": "三沙卫视",
+    "tid": "ws",
+    "id": 41,
+    "category": "卫视",
+    "url": "https://www.789iptv.com/?act=play&tid=ws&id=41"
+  }
+]

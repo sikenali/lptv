@@ -1,0 +1,6 @@
+# LPK Build Configuration (content-only, lzmail-style: no docker image)
+buildscript: ./build.sh
+manifest: ./lzc-manifest.yml
+contentdir: ./_lpk_content
+pkgout: ./
+icon: ./icon.png

@@ -1,0 +1,10 @@
+{
+  "name": "lptv",
+  "version": "1.0.1",
+  "private": true,
+  "type": "module",
+  "description": "LPTV dev scripts (Lazycat LPK workflow, zero runtime deps)",
+  "scripts": {
+    "dev": "cd lzc && lzc-cli project deploy --dev"
+  }
+}

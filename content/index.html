@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>LX TV · Web</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- 画面层 -->
+  <video id="video" playsinline webkit-playsinline></video>
+
+  <!-- 黑帧遮罩 (缓冲/切换时显示) -->
+  <div id="spin" class="spin hidden"><div class="ring"></div><div id="spinTxt" class="spin-txt">缓冲中…</div></div>
+
+  <!-- 覆盖层 UI (移植自 inject.js 的 #lx-root 设计，但作为独立页面而非注入) -->
+  <div id="lx-root">
+    <!-- 顶栏 -->
+    <div id="topbar" class="topbar">
+      <button class="tb-btn" id="btnMenu" title="频道列表 (Esc)">☰</button>
+      <div class="tb-title">
+        <span id="chName">LX TV · Web</span>
+        <span id="chCat" class="ch-cat"></span>
+      </div>
+    </div>
+
+    <!-- 频道面板 -->
+    <div id="panel" class="panel">
+      <div class="panel-head">
+        <input id="search" class="search" type="text" placeholder="搜索频道…" />
+        <button class="panel-close" id="btnPanelClose">✕</button>
+      </div>
+      <div id="favWrap" class="fav-wrap hidden">
+        <div class="cat-title">★ 我的收藏</div>
+        <div id="favList" class="ch-list"></div>
+      </div>
+      <div id="catWrap" class="cat-wrap"></div>
+    </div>
+    <div id="panelMask" class="panel-mask hidden"></div>
+
+    <!-- 设置面板 -->
+    <div id="setWrap" class="set-wrap hidden">
+      <div class="set-card">
+        <div class="set-title">
+          设置
+          <button class="set-close" id="btnSetClose">✕</button>
+        </div>
+        <label class="set-row">音量
+          <input id="setVol" type="range" min="0" max="100" />
+        </label>
+        <label class="set-row">静音
+          <input id="setMute" type="checkbox" />
+        </label>
+        <div class="set-row">画面比例
+          <div class="seg" id="setFit">
+            <button data-fit="contain" class="active">完整</button>
+            <button data-fit="cover">裁剪</button>
+            <button data-fit="fill">拉伸</button>
+          </div>
+        </div>
+        <label class="set-row">自动隐藏控制栏
+          <input id="setAutoHide" type="checkbox" />
+        </label>
+        <label class="set-row">启动恢复上次频道
+          <input id="setResume" type="checkbox" />
+        </label>
+        <button class="set-danger" id="btnClearFav">清空收藏</button>
+      </div>
+    </div>
+
+    <!-- OSD: 切台提示 -->
+    <div id="osd" class="osd hidden"></div>
+    <!-- 底部控制条 -->
+    <div id="ctrl" class="ctrl">
+      <button class="ctrl-btn" id="cPlay" title="播放/暂停 (Space)">⏯</button>
+      <button class="ctrl-btn" id="cMute" title="静音 (M)">🔊</button>
+      <input id="cVol" class="cvol" type="range" min="0" max="100" />
+      <div class="c-right">
+        <button class="tb-btn" id="btnPrev" title="上一个 (↑/PgUp)">⏮</button>
+        <button class="tb-btn" id="btnNext" title="下一个 (↓/PgDn)">⏭</button>
+        <button class="tb-btn" id="btnFs" title="全屏 (F)">⛶</button>
+        <button class="tb-btn" id="btnSettings" title="设置">⚙</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="lib/hls.min.js"></script>
+  <script src="lib/mpegts.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+# LPTV content-pack Manifest (lzmail-style: no docker image)
+# - 前端静态页 + /api + /proxy 全部由 Python server.py 在 8080 端口统一提供
+# - 懒猫默认对应用域名下所有请求强制登录鉴权，用 public_path 放行
+application:
+  subdomain: lptv
+  multi_instance: true
+  public_path:
+    - /
+  routes:
+    - /=exec://8080,/lzcapp/pkg/content/scripts/start.sh
+  environment:
+    BACKEND_PORT: "8080"
+    DATA_DIR: /lzcapp/var/data
+    TZ: Asia/Shanghai
+  health_check:
+    test_url: http://127.0.0.1:8080/api/health
+    start_period: 40s
+    timeout: 10s
