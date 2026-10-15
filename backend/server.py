@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-LX TV Web —— 懒猫微服 web 播放器后端
+LPTV —— 懒猫微服 web 播放器后端
 =====================================
 
 职责 (对应原 EXE 的 bridge / inject.js 中被剥离的「取流」能力):
@@ -350,7 +350,7 @@ def resolve_789(page_url: str):
 # HTTP 服务
 # ---------------------------------------------------------------------------
 class Handler(BaseHTTPRequestHandler):
-    server_version = "LXTVWeb/1.0"
+    server_version = "LPTVWeb/1.0"
     protocol_version = "HTTP/1.1"
 
     def log_message(self, *a):
@@ -517,9 +517,9 @@ def main():
     httpd = ThreadingHTTPServer((args.host, args.port), Handler)
     httpd.content_dir = content_dir
     httpd.channels_file = channels_file
-    print(f"[LXTVWeb] serving static from: {content_dir}")
-    print(f"[LXTVWeb] channels file:       {channels_file}")
-    print(f"[LXTVWeb] listening on http://{args.host}:{args.port}")
+    print(f"[LPTVWeb] serving static from: {content_dir}")
+    print(f"[LPTVWeb] channels file:       {channels_file}")
+    print(f"[LPTVWeb] listening on http://{args.host}:{args.port}")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

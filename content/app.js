@@ -1,4 +1,4 @@
-/* LX TV · Web —— 播放器前端
+/* LPTV —— 播放器前端
  *
  * 这是对原 EXE 版 inject.js 的「改造版」:
  *   - 原 inject.js 是注入到官方 央视频 TV 网页、复用其 video 元素与 CMG 解密
@@ -17,7 +17,7 @@
   // -----------------------------------------------------------------------
   // 配置 (localStorage)
   // -----------------------------------------------------------------------
-  var LS_KEY = "lx.cfg.web";
+  var LS_KEY = "lptv.cfg.web";
   var DEFAULT_CFG = {
     volume: 1, muted: false, fit: "contain",
     autoHide: true, resumeLast: true, favs: []
