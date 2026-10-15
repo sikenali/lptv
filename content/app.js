@@ -1,15 +1,23 @@
-/* LPTV —— 播放器前端
+/* LPTV —— Web 播放器前端
  *
  * 这是对原 EXE 版 inject.js 的「改造版」:
- *   - 原 inject.js 是注入到官方 央视频 TV 网页、复用其 video 元素与 CMG 解密
+ *   - 原 inject.js 注入官方央视频 TV 网页、复用其 video 元素与 CMG 解密
  *     (switchChannel / getPlayUrl / acquireOfficial / installHlsHooks ...)。
- *   - 在懒猫微服的 web 模式下无法加载第三方官方页，因此这里:
+ *   - 懒猫微服 web 模式下无法加载第三方官方页，因此这里:
  *       1) 保留 inject.js 的 UI/UX 设计 (配置、频道面板、OSD、收藏、设置、
  *          黑帧看门狗、快捷键、全屏、fit 比例)；
  *       2) 用自有播放内核替换官方页依赖: 通过后端 /api/resolve 解出真实线路，
- *          用 hls.js / mpegts.js 经 /proxy 取流，并支持多线路容错 (对照原站
- *          switchNextLine)。
- *   - 配置、收藏、上次频道全部存 localStorage，与 inject.js 思路一致。
+ *          用 hls.js / mpegts.js 经 /proxy 取流。
+ *   - 配置、收藏全部存 localStorage。
+ *
+ * 关键机制
+ * --------
+ * * 会话代号 seq: 每次 playChannel 自增，所有异步回调 (解析 / 超时 / 播放器错误)
+ *   先校验 seq，过期即丢弃。旧频道 destroyPlayer 之后残留的 hls/flv 错误回调
+ *   不会再把新频道的线路推进去 —— 这是切台偶发失败的主要根因。
+ * * 线路由后端探测排序: /api/resolve 抓页后并发探测每条线路并按时延升序返回，
+ *   前端只按顺序播，界面上不出现任何线路信息。
+ * * 兜底: 线路耗尽或解析失败 -> fresh=1 强制后端重新抓页再试一轮，仅此一次。
  */
 (function () {
   "use strict";
@@ -17,10 +25,10 @@
   // -----------------------------------------------------------------------
   // 配置 (localStorage)
   // -----------------------------------------------------------------------
-  var LS_KEY = "lptv.cfg.web";
+  var LS_KEY = "lptv.cfg.v2";
   var DEFAULT_CFG = {
     volume: 1, muted: false, fit: "contain",
-    autoHide: true, resumeLast: true, favs: []
+    autoHide: true, favs: []
   };
   function loadCfg() {
     try { return Object.assign({}, DEFAULT_CFG, JSON.parse(localStorage.getItem(LS_KEY) || "{}")); }
@@ -33,14 +41,14 @@
   // DOM 速记
   // -----------------------------------------------------------------------
   function $(id) { return document.getElementById(id); }
-  var video = $("video"), spin = $("spin"), spinTxt = $("spinTxt"), osd = $("osd");
-  var root = $("lx-root"), topbar = $("topbar"), ctrl = $("ctrl");
+  var video = $("video"), spin = $("spin"), osd = $("osd");
+  var root = $("lx-root");
   var btnMenu = $("btnMenu"), btnPrev = $("btnPrev"), btnNext = $("btnNext");
   var btnFs = $("btnFs"), btnSettings = $("btnSettings");
   var panel = $("panel"), panelMask = $("panelMask"), search = $("search");
   var favWrap = $("favWrap"), favList = $("favList"), catWrap = $("catWrap");
   var setWrap = $("setWrap"), setVol = $("setVol"), setMute = $("setMute");
-  var setFit = $("setFit"), setAutoHide = $("setAutoHide"), setResume = $("setResume");
+  var setFit = $("setFit"), setAutoHide = $("setAutoHide");
   var btnClearFav = $("btnClearFav"), btnSetClose = $("btnSetClose");
   var cPlay = $("cPlay"), cMute = $("cMute"), cVol = $("cVol");
   var chName = $("chName"), chCat = $("chCat");
@@ -49,15 +57,25 @@
   // -----------------------------------------------------------------------
   // 全局状态
   // -----------------------------------------------------------------------
-  var channels = [], byId = {}, cats = {};
+  var channels = [], cats = {};
   var current = null;        // 当前频道对象
-  var lines = [];            // 当前频道解出的线路
+  var lines = [];            // 当前频道线路 (后端已探测排序)
   var lineIdx = -1;          // 当前线路下标
   var hls = null, flv = null;
   var loadTimer = null, isPlaying = false;
   var darkCount = 0, dbg = [];
   var uiHideT = null, panelOpen = false, setOpen = false;
-  var LOAD_TIMEOUT = 12000, STALL_TIMEOUT = 8000, DARK_LIMIT = 5;
+  var seq = 0;               // 播放会话代号: 切台即自增，过期回调作废
+  var freshUsed = false;     // 本轮是否已用过 fresh 兜底
+  var stallSince = 0;        // 最近一次流中断时间戳
+  var lineCache = {};        // 频道 url -> {t, lines} 前端线路缓存
+
+  var LOAD_TIMEOUT = 8000;      // 单条线路最长等待
+  var STALL_TIMEOUT = 6000;     // 流中断多久后换下一条线路
+  var RESOLVE_TIMEOUT = 10000;  // 解析请求超时
+  var LINE_TTL = 300000;        // 前端线路缓存有效期 (5 分钟)
+  var MAX_LINES = 4;            // 最多顺序尝试的线路数，超出走 fresh 兜底
+  var DARK_LIMIT = 5;           // 连续黑帧阈值 (2s 采样一次)
 
   // -----------------------------------------------------------------------
   // 工具
@@ -79,9 +97,14 @@
     clearTimeout(showOSD._t);
     showOSD._t = setTimeout(function () { osd.classList.add("hidden"); }, ms || 1600);
   }
-  function showSpin(txt) { spinTxt.textContent = txt || "缓冲中…"; spin.classList.remove("hidden"); }
+  function showSpin() { spin.classList.remove("hidden"); }
   function hideSpin() { spin.classList.add("hidden"); }
-  function dbgPush(s) { dbg.push(s); if (dbg.length > 40) dbg.shift(); if (window.console) console.log("[lx]", s); }
+  function dbgPush(s) {
+    dbg.push(s); if (dbg.length > 40) dbg.shift();
+    if (window.console) console.log("[lptv]", s);
+  }
+  function alive(mySeq) { return mySeq === seq; }
+  function lineBudget() { return Math.min(lines.length, MAX_LINES); }
 
   // -----------------------------------------------------------------------
   // 频道面板 / 收藏
@@ -122,83 +145,155 @@
   function closePanel() { panel.classList.remove("open"); panelMask.classList.add("hidden"); panelOpen = false; }
 
   // -----------------------------------------------------------------------
-  // 播放内核 (改造核心: 替代原 inject.js 的官方页/hls 复用)
+  // 播放内核
   // -----------------------------------------------------------------------
   function destroyPlayer() {
+    stallSince = 0; darkCount = 0;
     try { if (hls) { hls.destroy(); hls = null; } } catch (e) {}
     try { if (flv) { flv.destroy(); flv = null; } } catch (e) {}
-    try { video.removeAttribute("src"); video.load(); } catch (e) {}
+    try {
+      video.pause();
+      video.onerror = null;
+      video.removeAttribute("src");
+      video.load();
+    } catch (e) {}
   }
   function applyFit() { video.style.objectFit = cfg.fit; }
 
+  // 按顺序尝试第 i 条线路。所有回调先校验 mySeq，切台后的残留回调一律作废。
   function loadLine(i) {
-    if (i >= lines.length) { showOSD("⚠ 所有线路已失效，请稍后重试", 3000); showSpin("全部线路失效"); return; }
+    var mySeq = seq;
+    if (i >= lineBudget()) { onAllLinesFailed(mySeq); return; }
     lineIdx = i;
     var ln = lines[i];
     destroyPlayer();
-    showSpin("线路 " + (i + 1) + "/" + lines.length + " 连接中…");
+    showSpin();
     isPlaying = false;
-    var waitingSince = 0;
     clearTimeout(loadTimer);
     loadTimer = setTimeout(function () {
-      if (!isPlaying) { dbgPush("line " + (i + 1) + " timeout -> next"); tryLine(i + 1); }
+      if (!alive(mySeq) || isPlaying) return;
+      dbgPush("line " + (i + 1) + " timeout -> next");
+      loadLine(i + 1);
     }, LOAD_TIMEOUT);
 
     var src = "/proxy?u=" + encodeURIComponent(ln.url);
     if (ln.type === "flv" && window.mpegts && mpegts.isSupported()) {
       flv = mpegts.createPlayer({ type: "flv", isLive: true, url: src, cors: true },
-        { lazyLoad: false, liveBufferLatencyChasing: true, liveBufferLatencyMaxLatency: 8 });
+        { lazyLoad: false, liveBufferLatency: 3, liveBufferLatencyMaxLatency: 5 });
       flv.attachMediaElement(video);
-      flv.on(mpegts.Events.ERROR, function () { dbgPush("flv err -> next"); tryLine(i + 1); });
+      flv.on(mpegts.Events.ERROR, function () {
+        if (!alive(mySeq)) return;
+        dbgPush("flv err -> next");
+        // 延一拍再销毁，避免在播放器自身回调栈里 destroy 造成重入
+        setTimeout(function () { loadLine(i + 1); }, 0);
+      });
       flv.load();
       var p = flv.play();
       if (p && p.catch) p.catch(function () {});
     } else if (window.Hls && Hls.isSupported()) {
-      hls = new Hls({ lowLatencyMode: false, enableWorker: true, capLevelToPlayerSize: true,
-        liveSyncDurationCount: 3, maxBufferLength: 40, maxBufferSize: 0,
-        manifestLoadingTimeOut: 10000, manifestLoadingMaxRetry: 3, fragmentLoadingTimeOut: 10000 });
-      hls.on(Hls.Events.MANIFEST_PARSED, function () { video.play().catch(function () {}); });
+      hls = new Hls({
+        lowLatencyMode: false, enableWorker: true, capLevelToPlayerSize: true,
+        startLevel: 0, liveSyncDurationCount: 1, liveMaxLatencyDurationCount: 3,
+        maxBufferLength: 20, maxBufferSize: 0,
+        manifestLoadingTimeOut: 8000, manifestLoadingMaxRetry: 2,
+        levelLoadingTimeOut: 8000, levelLoadingMaxRetry: 2,
+        fragmentLoadingTimeOut: 8000, fragmentLoadingMaxRetry: 2,
+        enableSoftInactivityDetection: false
+      });
+      hls.on(Hls.Events.MANIFEST_PARSED, function () {
+        if (!alive(mySeq)) return;
+        video.play().catch(function () {});
+      });
       hls.on(Hls.Events.ERROR, function (e, d) {
-        if (d && d.fatal) { dbgPush("hls fatal -> next"); tryLine(i + 1); }
+        if (!alive(mySeq)) return;
+        if (d && d.fatal) {
+          dbgPush("hls fatal -> next");
+          setTimeout(function () { loadLine(i + 1); }, 0);
+        }
       });
       hls.attachMedia(video); hls.loadSource(src);
     } else {
-      // Safari / 原生 HLS
       video.src = src; video.play().catch(function () {});
-      video.onerror = function () { dbgPush("native err -> next"); tryLine(i + 1); };
+      video.onerror = function () {
+        if (!alive(mySeq)) return;
+        dbgPush("native err -> next");
+        loadLine(i + 1);
+      };
     }
   }
-  function tryLine(i) { loadLine(i); }
 
   function onPlaySuccess() {
-    isPlaying = true; hideSpin(); darkCount = 0;
+    isPlaying = true; hideSpin(); darkCount = 0; stallSince = 0;
     clearTimeout(loadTimer);
   }
 
-  function resolveAndPlay(ch) {
-    showSpin("解析频道…");
-    var url = "/api/resolve?url=" + encodeURIComponent(ch.url);
-    fetch(url).then(function (r) { return r.json(); }).then(function (j) {
-      if (!j.lines || !j.lines.length) {
-        showOSD("⚠ 解析失败：无可用线路", 2600); showSpin("无可用线路"); return;
+  // 线路耗尽 / 解析失败：用 fresh=1 强制后端重新抓页再试一轮，仅此一次。
+  function onAllLinesFailed(mySeq) {
+    if (!alive(mySeq)) return;
+    if (!freshUsed) {
+      freshUsed = true;
+      if (!current) return;
+      dbgPush("failover: force fresh resolve");
+      showOSD("⚠ 加载失败，重试中…", 2400);
+      setTimeout(function () {
+        if (alive(mySeq)) resolveAndPlay(current, mySeq, true);
+      }, 350);
+      return;
+    }
+    dbgPush("failover: exhausted");
+    showOSD("⚠ 频道加载失败，请稍后再试", 3200);
+    showSpin();
+  }
+
+  function resolveAndPlay(ch, mySeq, forceFresh) {
+    if (!alive(mySeq)) return;
+    showSpin();
+    if (!forceFresh) {
+      var hit = lineCache[ch.url];
+      if (hit && hit.lines && hit.lines.length && Date.now() - hit.t < LINE_TTL) {
+        dbgPush("line cache hit");
+        lines = hit.lines; lineIdx = -1; loadLine(0);
+        return;
       }
-      lines = j.lines; lineIdx = -1; loadLine(0);
+    }
+    var qs = "?url=" + encodeURIComponent(ch.url) + (forceFresh ? "&fresh=1" : "");
+    var ac = window.AbortController ? new AbortController() : null;
+    var tm = setTimeout(function () { if (ac) ac.abort(); }, RESOLVE_TIMEOUT);
+    fetch("/api/resolve" + qs, ac ? { signal: ac.signal } : {}).then(function (r) {
+      clearTimeout(tm);
+      return r.json();
+    }).then(function (j) {
+      if (!alive(mySeq)) return;
+      if (!j || !j.lines || !j.lines.length) {
+        dbgPush("resolve: empty");
+        onAllLinesFailed(mySeq);
+        return;
+      }
+      lines = j.lines; lineIdx = -1;
+      lineCache[ch.url] = { t: Date.now(), lines: j.lines };
+      loadLine(0);
     }).catch(function (e) {
-      dbgPush("resolve err: " + e); showOSD("⚠ 解析失败 (网络/后端)", 2600); showSpin("解析失败");
+      clearTimeout(tm);
+      if (!alive(mySeq)) return;
+      dbgPush("resolve err: " + ((e && e.message) || e));
+      onAllLinesFailed(mySeq);
     });
   }
 
-  function playChannel(ch) {
+  function playChannel(ch, opts) {
     if (!ch) return;
+    seq++;
+    var mySeq = seq;
+    freshUsed = false;
+    clearTimeout(loadTimer); loadTimer = null;
+    destroyPlayer();
     current = ch;
     chName.textContent = ch.name;
     chCat.textContent = ch.category || "";
-    // 高亮面板
     Array.prototype.forEach.call(document.querySelectorAll(".ch-row"), function (r) {
       r.classList.toggle("active", r.dataset.id === String(ch.id));
     });
-    if (cfg.resumeLast) { cfg._lastId = ch.id; saveCfg(); }
-    resolveAndPlay(ch);
+    resolveAndPlay(ch, mySeq, !!(opts && opts.fresh));
   }
 
   function stepChannel(dir) {
@@ -206,8 +301,33 @@
     var idx = channels.indexOf(current);
     if (idx < 0) idx = 0;
     idx = (idx + dir + channels.length) % channels.length;
-    showOSD("切换：" + channels[idx].name);
-    playChannel(channels[idx]);
+    var ch = channels[idx];
+    showOSD("切换：" + ch.name);
+    playChannel(ch);
+  }
+
+  // -----------------------------------------------------------------------
+  // 流中断看门狗：waiting/stalled 持续超过阈值就换下一条线路
+  // -----------------------------------------------------------------------
+  function bindMedia() {
+    video.addEventListener("playing", onPlaySuccess);
+    ["timeupdate", "canplay"].forEach(function (ev) {
+      video.addEventListener(ev, function () { stallSince = 0; });
+    });
+    ["waiting", "stalled", "suspend"].forEach(function (ev) {
+      video.addEventListener(ev, function () {
+        showSpin();
+        if (!stallSince) stallSince = Date.now();
+      });
+    });
+    setInterval(function () {
+      if (!stallSince) return;
+      if (Date.now() - stallSince >= STALL_TIMEOUT && lineIdx + 1 < lineBudget()) {
+        dbgPush("stall line " + (lineIdx + 1) + " -> next");
+        stallSince = 0;
+        loadLine(lineIdx + 1);
+      }
+    }, 1000);
   }
 
   // -----------------------------------------------------------------------
@@ -225,10 +345,10 @@
       var avg = sum / (d.length / 4) / 3;
       if (avg < 12) { darkCount++; } else { darkCount = 0; }
       if (darkCount >= DARK_LIMIT) {
-        dbgPush("black frame -> switch line");
+        dbgPush("black frame -> recover");
         darkCount = 0;
-        if (lineIdx + 1 < lines.length) tryLine(lineIdx + 1);
-        else { video.currentTime += 1; }   // 轻微跳播尝试恢复
+        if (lineIdx + 1 < lineBudget()) loadLine(lineIdx + 1);
+        else if (current) resolveAndPlay(current, seq, true);
       }
     } catch (e) {}
   }
@@ -258,7 +378,6 @@
     setVol.value = Math.round(cfg.volume * 100);
     setMute.checked = cfg.muted;
     setAutoHide.checked = cfg.autoHide;
-    setResume.checked = cfg.resumeLast;
     Array.prototype.forEach.call(setFit.children, function (b) {
       b.classList.toggle("active", b.dataset.fit === cfg.fit);
     });
@@ -266,14 +385,14 @@
   function bindSettings() {
     setVol.oninput = function () {
       cfg.volume = setVol.value / 100; cfg.muted = false; saveCfg();
-      video.volume = cfg.volume; video.muted = false; cVol.value = setVol.value; cMute.textContent = "🔊";
+      video.volume = cfg.volume; video.muted = false; cVol.value = setVol.value;
+      cMute.textContent = "🔊"; setMute.checked = false;
     };
     setMute.onchange = function () {
       cfg.muted = setMute.checked; saveCfg(); video.muted = cfg.muted;
       cMute.textContent = cfg.muted ? "🔇" : "🔊";
     };
     setAutoHide.onchange = function () { cfg.autoHide = setAutoHide.checked; saveCfg(); scheduleHide(); };
-    setResume.onchange = function () { cfg.resumeLast = setResume.checked; saveCfg(); };
     Array.prototype.forEach.call(setFit.children, function (b) {
       b.onclick = function () {
         cfg.fit = b.dataset.fit; saveCfg(); applyFit(); syncSettings();
@@ -311,25 +430,10 @@
     };
     cVol.oninput = function () {
       cfg.volume = cVol.value / 100; cfg.muted = false; saveCfg();
-      video.volume = cfg.volume; video.muted = false; cMute.textContent = "🔊"; setVol.value = cVol.value;
+      video.volume = cfg.volume; video.muted = false; cMute.textContent = "🔊";
+      setVol.value = cVol.value; setMute.checked = false;
     };
     search.oninput = renderPanel;
-    video.addEventListener("playing", onPlaySuccess);
-    var waitingSince = 0;
-    var STALL_LIMIT = 10000;
-    video.addEventListener("waiting", function () {
-      if (!waitingSince) waitingSince = Date.now();
-      var elapsed = Date.now() - waitingSince;
-      if (elapsed >= STALL_LIMIT && !isPlaying && lineIdx + 1 < lines.length) {
-        waitingSince = 0;
-        dbgPush("stall " + (lineIdx + 1) + " -> next");
-        tryLine(lineIdx + 1);
-      } else {
-        showSpin("缓冲中…");
-      }
-    });
-    video.addEventListener("playing", function () { waitingSince = 0; hideSpin(); });
-    video.addEventListener("stalled", function () { showSpin("网络缓慢…"); });
     document.addEventListener("fullscreenchange", scheduleHide);
   }
 
@@ -352,24 +456,31 @@
   // -----------------------------------------------------------------------
   // 启动
   // -----------------------------------------------------------------------
+  // 默认频道：CCTV-1 综合。注意 channels.json 里 id 只在单个 tid 内唯一
+  // (CCTV-1 与湖南卫视都是 id:1)，所以必须按名称匹配，不能按 id。
+  function pickDefaultChannel() {
+    var re = /^cctv[- ]?1\b/i;
+    for (var i = 0; i < channels.length; i++) {
+      if (re.test((channels[i].name || "").trim())) return channels[i];
+    }
+    return channels[0] || null;
+  }
+
   function boot() {
     applyFit();
-    bindControls(); bindSettings(); syncSettings();
-    video.volume = cfg.volume; video.muted = cfg.muted;
+    bindMedia(); bindControls(); bindSettings(); syncSettings();
+    video.volume = cfg.volume; video.muted = cfg.muted; video.preload = "auto";
     cVol.value = Math.round(cfg.volume * 100); cMute.textContent = cfg.muted ? "🔇" : "🔊";
-    showSpin("加载频道列表…");
+    showSpin();
     fetch("/api/channels").then(function (r) { return r.json(); }).then(function (list) {
       channels = list;
       cats = {};
       channels.forEach(function (c) {
         var k = c.category || "其他";
         (cats[k] = cats[k] || []).push(c);
-        byId[c.id] = c;
       });
       renderPanel();
-      hideSpin();
-      // 恢复上次 / 默认第一个
-      var start = (cfg.resumeLast && byId[cfg._lastId]) ? byId[cfg._lastId] : channels[0];
+      var start = pickDefaultChannel();
       if (start) playChannel(start); else showOSD("无频道", 2000);
     }).catch(function () { showOSD("⚠ 频道列表加载失败", 2400); });
     scheduleHide();

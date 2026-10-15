@@ -32,8 +32,11 @@ import os
 import re
 import ssl
 import threading
+import time
 import urllib.parse
 import urllib.request
+import urllib.error
+from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 # ---------------------------------------------------------------------------
@@ -195,9 +198,30 @@ CTX = ssl.create_default_context()
 CTX.check_hostname = False
 CTX.verify_mode = ssl.CERT_NONE
 
+# 禁用自动跟重定向，由我们手动跟（带 cookie 传递），避免 302 循环
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args, **kwargs):
+        return None
+
+class _InsecureHTTPS(urllib.request.HTTPSHandler):
+    def __init__(self, **kwargs):
+        kwargs["context"] = CTX
+        super().__init__(**kwargs)
+
+_OPENER = urllib.request.build_opener(_NoRedirect(), _InsecureHTTPS())
+
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
 REFERER_ORIGIN = "https://www.789iptv.com/"
+
+# 各类请求的超时预算：抓页快失败快重试，探测短超时并发跑，取流保持宽松。
+TIMEOUT_PAGE = 12       # 抓 789iptv 播放页
+TIMEOUT_PROBE = 4.5     # 单条线路探测
+PROBE_BUDGET = 6.0      # 探测阶段总预算（超时即放弃，保留线路兜底）
+PROBE_BYTES = 8192      # 探测读取字节数，够判断流魔数
+PROBE_REDIRECTS = 5
+TIMEOUT_STREAM = 30     # /proxy 取流
+RESOLVE_TTL = 300       # 解析结果缓存秒数
 
 # 极简 Cookie 罐: (host, name) -> value
 _COOKIE_LOCK = threading.Lock()
@@ -237,21 +261,22 @@ def _referer_for(url: str) -> str:
     return f"{urllib.parse.urlparse(url).scheme}://{host}/"
 
 
-def fetch_stream(url: str, max_redirects: int = 8):
+def fetch_stream(url: str, max_redirects: int = 8, timeout: float = TIMEOUT_STREAM):
     """
     跟随重定向取到最终响应体。
     返回 (body_bytes, content_type, final_url)。
     """
-    resp = _open_upstream(url, max_redirects)
+    resp = _open_upstream(url, max_redirects, timeout)
     ct = resp.headers.get("Content-Type", "")
     body = resp.read()
     return body, ct, resp.geturl()
 
 
-def _open_upstream(url: str, max_redirects: int = 8):
+def _open_upstream(url: str, max_redirects: int = 8, timeout: float = TIMEOUT_STREAM):
     """
     跟随重定向打开上游连接，返回 resp 对象（不读 body）。
     用于 FLV 直播流等需要流式转发的场景。
+    timeout 为**单跳**超时；重定向链整体可能耗时更久，调用方按需给小值快失败。
     """
     cur = url
     for _ in range(max_redirects):
@@ -266,21 +291,36 @@ def _open_upstream(url: str, max_redirects: int = 8):
         if cookie:
             req.add_header("Cookie", cookie)
         try:
-            resp = urllib.request.urlopen(req, timeout=30, context=CTX)
+            resp = _OPENER.open(req, timeout=timeout)
         except urllib.error.HTTPError as e:
             loc = e.headers.get("Location")
-            if loc and e.code in (301, 302, 303, 307, 308):
-                cur = urllib.parse.urljoin(cur, loc)
-                _store_cookies_from_headers(_host_of(cur), e.headers)
-                continue
+            if e.code in (301, 302, 303, 307, 308):
+                if loc:
+                    cur = urllib.parse.urljoin(cur, loc)
+                    _store_cookies_from_headers(_host_of(cur), e.headers)
+                    continue
+                # 空 Location：尝试 <meta refresh>
+                body = e.read(4096).decode("utf-8", "ignore")
+                m = re.search(r'http-equiv=["\']?refresh["\']?[^>]*url=([^"\'>\s]+)', body, re.I)
+                if m:
+                    cur = m.group(1).strip()
+                    continue
+                raise RuntimeError(f"30{e.code-300} redirect with empty Location at {cur[:80]}")
             raise
         _store_cookies_from_headers(host, resp.headers)
         code = resp.getcode()
         if code in (301, 302, 303, 307, 308):
             loc = resp.headers.get("Location")
-            if not loc:
-                raise RuntimeError(f"redirect without Location (HTTP {code})")
-            cur = urllib.parse.urljoin(cur, loc)
+            if loc:
+                cur = urllib.parse.urljoin(cur, loc)
+                continue
+            # 空 Location：尝试 <meta refresh>
+            body = resp.read(4096).decode("utf-8", "ignore")
+            m = re.search(r'http-equiv=["\']?refresh["\']?[^>]*url=([^"\'>\s]+)', body, re.I)
+            if m:
+                cur = m.group(1).strip()
+                continue
+            raise RuntimeError(f"HTTP {code} redirect with empty Location at {cur[:80]}")
             continue
         return resp
     raise RuntimeError(f"too many redirects for {url}")
@@ -315,12 +355,12 @@ _OPTION_RE = re.compile(
 _OPT_VAL_RE = re.compile(r'<option[^>]*value=["\']([^"\']+)["\']', re.I)
 
 
-def resolve_789(page_url: str):
+def resolve_789_raw(page_url: str):
     """
-    抓取 789iptv 播放页，提取 #playURL 各线路并解密。
+    抓取 789iptv 播放页，提取 #playURL 各线路并解密（不探测、不排序）。
     返回 [{"label": "线路N", "url": "<真实地址>", "type": "hls|flv"}, ...]
     """
-    body, _, _ = fetch_stream(page_url)
+    body, _, _ = fetch_stream(page_url, max_redirects=8, timeout=TIMEOUT_PAGE)
     try:
         html = body.decode("utf-8", "ignore")
     except Exception:
@@ -346,6 +386,119 @@ def resolve_789(page_url: str):
     return lines
 
 
+def probe_line(url: str, timeout: float = TIMEOUT_PROBE):
+    """并发探测单条线路：拉取前若干字节并校验流魔数。
+
+    成功返回时延毫秒数（int）；未通过返回 None。
+    返回 None **不代表线路真失效**——超时、CDN 抖动、并发限流都会误杀，
+    因此调用方仍须把未通过的线路排在末尾兜底，不能丢弃。
+    """
+    t0 = time.monotonic()
+    resp = None
+    try:
+        resp = _open_upstream(url, max_redirects=PROBE_REDIRECTS, timeout=timeout)
+        code = resp.getcode()
+        if code is not None and not 200 <= code < 300:
+            return None
+        chunk = resp.read(PROBE_BYTES)
+    except Exception:
+        return None
+    finally:
+        if resp is not None:
+            try:
+                resp.close()
+            except Exception:
+                pass
+    if not chunk or len(chunk) < 16:
+        return None
+    head = chunk[:64]
+    ok = (
+        chunk[:3] == b"FLV"               # FLV 直播
+        or chunk[:1] == b"\x47"           # MPEG-TS 同步字节
+        or head.lstrip()[:4] == b"#EXT"   # HLS 播放列表
+        or b"ftyp" in chunk[:32]          # MP4 / fMP4
+    )
+    if not ok:
+        return None
+    return int((time.monotonic() - t0) * 1000)
+
+
+_RESOLVE_CACHE = {}
+_RESOLVE_LOCK = threading.Lock()
+
+
+def resolve_789(page_url: str, fresh: bool = False):
+    """解析频道线路：抓页 -> 解密 -> 并发探测 -> 按可用性与时延排序 -> 缓存。
+
+    返回 {"lines": [...], "ready": 可用条数, "probe_ms": 探测耗时, "cached": bool}
+    lines 元素为 {"label","url","type","latency_ms"}（探测未通过时 latency_ms 为 null）。
+    排序规则：可用线路按时延升序在前，未通过线路原样留在末尾兜底。
+    fresh=True 绕过缓存强制重新抓页，用于全线路失败后的兜底重试。
+    """
+    now = time.monotonic()
+    with _RESOLVE_LOCK:
+        hit = _RESOLVE_CACHE.get(page_url)
+        if hit and not fresh and now - hit[0] < RESOLVE_TTL:
+            payload = dict(hit[1])
+            payload["cached"] = True
+            return payload
+
+    # 抓页失败重试一次：播放页抓取常因瞬时网络抖动失败
+    lines, last_err = None, None
+    for attempt in range(2):
+        try:
+            lines = resolve_789_raw(page_url)
+            break
+        except Exception as e:
+            last_err = e
+            if attempt == 0:
+                time.sleep(0.3)
+    if lines is None:
+        raise last_err or RuntimeError("resolve failed")
+
+    probed, probe_ms = [], 0
+    if lines:
+        t0 = time.monotonic()
+        deadline = t0 + PROBE_BUDGET
+        # 不用 with 上下文：__exit__ 会 shutdown(wait=True)，被最慢的一条线程拖住，
+        # 使探测阶段远超预算。这里显式 wait=False 收尾。
+        ex = ThreadPoolExecutor(max_workers=max(1, min(8, len(lines))))
+        futs = [ex.submit(probe_line, ln["url"]) for ln in lines]
+        results = []
+        for f in futs:
+            left = deadline - time.monotonic()
+            if left <= 0:
+                results.append(None)
+                continue
+            try:
+                results.append(f.result(timeout=left))
+            except Exception:
+                results.append(None)
+        try:
+            ex.shutdown(wait=False, cancel_futures=True)
+        except TypeError:
+            ex.shutdown(wait=False)
+        probe_ms = int((time.monotonic() - t0) * 1000)
+        for ln, r in zip(lines, results):
+            item = dict(ln)
+            item["latency_ms"] = r
+            probed.append(item)
+
+    ready = [l for l in probed if l["latency_ms"] is not None]
+    dead = [l for l in probed if l["latency_ms"] is None]
+    ready.sort(key=lambda l: l["latency_ms"])
+    payload = {
+        "lines": ready + dead,
+        "ready": len(ready),
+        "probe_ms": probe_ms,
+    }
+    with _RESOLVE_LOCK:
+        _RESOLVE_CACHE[page_url] = (now, payload)
+        if len(_RESOLVE_CACHE) > 256:
+            _RESOLVE_CACHE.pop(next(iter(_RESOLVE_CACHE)), None)
+    return payload
+
+
 # ---------------------------------------------------------------------------
 # HTTP 服务
 # ---------------------------------------------------------------------------
@@ -359,17 +512,20 @@ class Handler(BaseHTTPRequestHandler):
     def _send(self, code, body, ctype="application/json; charset=utf-8", extra=None):
         if isinstance(body, str):
             body = body.encode("utf-8")
-        self.send_response(code)
-        self.send_header("Content-Type", ctype)
-        self.send_header("Content-Length", str(len(body)))
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Cache-Control", "no-store")
-        if extra:
-            for k, v in extra.items():
-                self.send_header(k, v)
-        self.end_headers()
-        if self.command != "HEAD":
-            self.wfile.write(body)
+        try:
+            self.send_response(code)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Cache-Control", "no-store")
+            if extra:
+                for k, v in extra.items():
+                    self.send_header(k, v)
+            self.end_headers()
+            if self.command != "HEAD":
+                self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
 
     def _stream_proxy(self, resp, ctype):
         """FLV 直播流：边收边发，不读完整 body。"""
@@ -455,9 +611,11 @@ class Handler(BaseHTTPRequestHandler):
             if not page:
                 self._send(400, json.dumps({"error": "missing url"}))
                 return
+            # fresh=1 绕过缓存强制重新抓页，供前端全线路失败后兜底重试
+            fresh = (qs.get("fresh") or ["0"])[0] in ("1", "true", "yes", "on")
             try:
-                lines = resolve_789(page)
-                self._send(200, json.dumps({"lines": lines}, ensure_ascii=False))
+                payload = resolve_789(page, fresh=fresh)
+                self._send(200, json.dumps(payload, ensure_ascii=False))
             except Exception as e:
                 self._send(502, json.dumps({"error": str(e)}, ensure_ascii=False))
             return

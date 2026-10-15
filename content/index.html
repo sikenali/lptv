@@ -10,8 +10,15 @@
   <!-- 画面层 -->
   <video id="video" playsinline webkit-playsinline></video>
 
-  <!-- 黑帧遮罩 (缓冲/切换时显示) -->
-  <div id="spin" class="spin hidden"><div class="ring"></div><div id="spinTxt" class="spin-txt">缓冲中…</div></div>
+  <!-- 缓冲/切换遮罩：LPTV 四格注水，无文字 -->
+  <div id="spin" class="spin hidden">
+    <div class="lptv">
+      <span class="cell"><i class="liq"></i><span class="ch">L</span></span>
+      <span class="cell"><i class="liq"></i><span class="ch">P</span></span>
+      <span class="cell"><i class="liq"></i><span class="ch">T</span></span>
+      <span class="cell"><i class="liq"></i><span class="ch">V</span></span>
+    </div>
+  </div>
 
   <!-- 覆盖层 UI (移植自 inject.js 的 #lx-root 设计，但作为独立页面而非注入) -->
   <div id="lx-root">
@@ -60,9 +67,6 @@
         </div>
         <label class="set-row">自动隐藏控制栏
           <input id="setAutoHide" type="checkbox" />
-        </label>
-        <label class="set-row">启动恢复上次频道
-          <input id="setResume" type="checkbox" />
         </label>
         <button class="set-danger" id="btnClearFav">清空收藏</button>
       </div>

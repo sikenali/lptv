@@ -13,14 +13,39 @@ button{font-family:inherit;color:inherit;cursor:pointer;border:none;background:n
 #video{position:fixed;inset:0;width:100vw;height:100vh;background:#000;object-fit:contain;z-index:1}
 /* 黑帧看门狗失败时画面仍在，仅遮罩 */
 
-/* 缓冲/切换遮罩 */
-.spin{position:fixed;inset:0;z-index:2147483000;display:flex;flex-direction:column;
-  align-items:center;justify-content:center;background:rgba(0,0,0,.55);backdrop-filter:blur(2px)}
+/* 缓冲/切换遮罩：LPTV 四格注水，无文字 */
+.spin{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;
+  justify-content:center;background:#000}
 .spin.hidden{display:none}
-.ring{width:54px;height:54px;border:4px solid rgba(255,255,255,.18);border-top-color:var(--accent);
-  border-radius:50%;animation:spin .8s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-.spin-txt{margin-top:14px;color:var(--muted);font-size:15px;letter-spacing:1px}
+.lptv{display:flex;gap:14px}
+.lptv .cell{position:relative;width:78px;height:78px;border-radius:18px;overflow:hidden;
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);
+  display:flex;align-items:center;justify-content:center}
+.lptv .ch{position:relative;z-index:2;font-size:34px;font-weight:800;letter-spacing:1px;
+  color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.6)}
+/* 液体本体：高度在 8%~92% 间往返 */
+.lptv .liq{position:absolute;left:0;right:0;bottom:0;height:8%;z-index:1;
+  background:var(--accent);animation:liqRise 1.8s cubic-bezier(.55,.06,.45,.94) infinite}
+/* 液面波浪：遮罩裁出凸起，颜色与液体本体严格一致 */
+.lptv .liq::before{content:"";position:absolute;left:-20px;right:-20px;top:-5.5px;height:14px;
+  background:var(--accent);
+  -webkit-mask-image:radial-gradient(circle at 10px 5.5px,#000 5.5px,transparent 6.5px);
+          mask-image:radial-gradient(circle at 10px 5.5px,#000 5.5px,transparent 6.5px);
+  -webkit-mask-size:20px 14px;mask-size:20px 14px;
+  -webkit-mask-repeat:repeat-x;mask-repeat:repeat-x;
+  animation:liqWave 1.1s linear infinite}
+/* 负延迟错峰：任意时刻四格都在动，没有集体停顿的死区 */
+.lptv .cell:nth-child(1) .liq{animation-delay:-1.8s}
+.lptv .cell:nth-child(2) .liq{animation-delay:-1.35s}
+.lptv .cell:nth-child(3) .liq{animation-delay:-0.9s}
+.lptv .cell:nth-child(4) .liq{animation-delay:-0.45s}
+@keyframes liqRise{
+  0%{height:8%}
+  42%{height:92%}
+  62%{height:92%}
+  100%{height:8%}
+}
+@keyframes liqWave{to{transform:translateX(-20px)}}
 
 /* 覆盖层根 */
 #lx-root{position:fixed;inset:0;z-index:2147483002;pointer-events:none}
