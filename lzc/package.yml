@@ -1,5 +1,5 @@
 package: cloud.lazycat.app.lptv
-version: 1.0.1
+version: 1.0.2
 name: LPTV
 description: LPTV，Web端的频道直播工具
 author: sikenali
