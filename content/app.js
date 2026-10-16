@@ -28,7 +28,7 @@
   var LS_KEY = "lptv.cfg.v2";
   var DEFAULT_CFG = {
     volume: 1, muted: false, fit: "contain",
-    autoHide: true, favs: [], defMute: false, showLines: false
+    favs: [], defMute: false, showLines: false
   };
   function loadCfg() {
     try { return Object.assign({}, DEFAULT_CFG, JSON.parse(localStorage.getItem(LS_KEY) || "{}")); }
@@ -63,7 +63,7 @@
   var hls = null, flv = null;
   var loadTimer = null, isPlaying = false;
   var darkCount = 0, dbg = [];
-  var uiHideT = null, panelOpen = false, setOpen = false;
+  var panelOpen = false, setOpen = false;
   var seq = 0;               // 播放会话代号: 切台即自增，过期回调作废
   var freshUsed = false;     // 本轮是否已用过 fresh 兜底
   var stallSince = 0;        // 最近一次流中断时间戳
@@ -454,14 +454,6 @@
   // -----------------------------------------------------------------------
   // 自动隐藏控制栏
   // -----------------------------------------------------------------------
-  function scheduleHide() {
-    clearTimeout(uiHideT);
-    if (!cfg.autoHide) return;
-    uiHideT = setTimeout(function () {
-      if (!panelOpen && !setOpen) root.classList.add("lx-hide");
-    }, 3500);
-  }
-  function wakeUI() { root.classList.remove("lx-hide"); scheduleHide(); }
   // 底栏：鼠标 Y 进入底部 80px 显示，离开隐藏
   var CTRL_HOVER_ZONE = 80;
   document.addEventListener("mousemove", function(e) {
@@ -485,10 +477,6 @@
       }, 3000);
     });
   }
-  ["mousemove", "touchstart", "keydown"].forEach(function (ev) {
-    document.addEventListener(ev, wakeUI, true);
-  });
-
   // -----------------------------------------------------------------------
   // 设置面板
   // -----------------------------------------------------------------------
@@ -588,7 +576,6 @@
       b.addEventListener("blur", hideTip);
     });
     document.addEventListener("click", hideTip, true);
-    document.addEventListener("fullscreenchange", scheduleHide);
   }
 
   // -----------------------------------------------------------------------
@@ -668,7 +655,6 @@
       var start = pickDefaultChannel();
       if (start) playChannel(start); else showOSD("无频道", 2000);
     }).catch(function () { showOSD("⚠ 频道列表加载失败", 2400); });
-    scheduleHide();
   }
   boot();
 })();
