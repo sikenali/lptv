@@ -46,7 +46,7 @@
   var btnMenu = $("btnMenu"), btnPrev = $("btnPrev"), btnNext = $("btnNext");
   var btnFs = $("btnFs"), btnSettings = $("btnSettings");
   var panel = $("panel"), panelMask = $("panelMask"), search = $("search");
-  var favWrap = $("favWrap"), favList = $("favList"), catWrap = $("catWrap");
+  var tabBar = $("tabBar"), catWrap = $("catWrap");
   var setWrap = $("setWrap"), setVol = $("setVol"), setMute = $("setMute");
   var setFit = $("setFit"), setAutoHide = $("setAutoHide");
   var btnClearFav = $("btnClearFav"), btnSetClose = $("btnSetClose");
@@ -85,7 +85,7 @@
   function favToggle(id) {
     var i = cfg.favs.indexOf(id);
     if (i >= 0) cfg.favs.splice(i, 1); else cfg.favs.push(id);
-    saveCfg(); renderFav(); renderPanel();
+    saveCfg(); renderPanel();
   }
   function el(tag, cls, html) {
     var e = document.createElement(tag);
@@ -108,41 +108,50 @@
   function lineBudget() { return Math.min(lines.length, MAX_LINES); }
 
   // -----------------------------------------------------------------------
-  // 频道面板 / 收藏
+  // 频道面板 / 收藏：央视 / 卫视 / 收藏 三个 tab 切换显示
   // -----------------------------------------------------------------------
+  var activeTab = "央视";
   function channelRow(ch) {
     var row = el("div", "ch-row");
-    row.dataset.id = ch.id;
+    row.dataset.key = ch.url;   // url 全局唯一（id 只在单个 tid 内唯一，不能做 key）
     var nm = el("span", "nm", ch.name);
     var star = el("span", "star" + (isFav(ch.id) ? " on" : ""), "★");
     star.onclick = function (e) { e.stopPropagation(); favToggle(ch.id); };
     row.appendChild(nm); row.appendChild(star);
     row.onclick = function () { playChannel(ch); closePanel(); };
-    if (current && ch.id === current.id) row.classList.add("active");
+    if (current && ch.url === current.url) row.classList.add("active");
     return row;
   }
-  function renderFav() {
-    favList.innerHTML = "";
-    var favs = channels.filter(function (c) { return isFav(c.id); });
-    favWrap.classList.toggle("hidden", favs.length === 0);
-    favs.forEach(function (c) { favList.appendChild(channelRow(c)); });
+  function syncTabs() {
+    Array.prototype.forEach.call(tabBar.children, function (b) {
+      b.classList.toggle("active", b.dataset.tab === activeTab);
+    });
   }
+  function matchQ(c, q) { return !q || c.name.toLowerCase().indexOf(q) >= 0; }
   function renderPanel() {
+    syncTabs();
     var q = (search.value || "").trim().toLowerCase();
     catWrap.innerHTML = "";
-    Object.keys(cats).forEach(function (cat) {
-      var list = cats[cat].filter(function (c) {
-        return !q || c.name.toLowerCase().indexOf(q) >= 0;
-      });
-      if (!list.length) return;
-      catWrap.appendChild(el("div", "cat-title", cat));
-      var box = el("div", "ch-list");
-      list.forEach(function (c) { box.appendChild(channelRow(c)); });
-      catWrap.appendChild(box);
-    });
-    renderFav();
+    var list, hint = "";
+    if (activeTab === "收藏") {
+      list = channels.filter(function (c) { return isFav(c.id) && matchQ(c, q); });
+      if (!list.length) hint = q ? "收藏里没有匹配的频道" : "暂无收藏<br>点击频道旁的 ★ 即可收藏";
+    } else {
+      list = (cats[activeTab] || []).filter(function (c) { return matchQ(c, q); });
+      if (!list.length) hint = q ? "没有匹配的频道" : "该分类暂无频道";
+    }
+    if (hint) { catWrap.appendChild(el("div", "empty-hint", hint)); return; }
+    var box = el("div", "ch-list");
+    list.forEach(function (c) { box.appendChild(channelRow(c)); });
+    catWrap.appendChild(box);
   }
-  function openPanel() { panel.classList.add("open"); panelMask.classList.remove("hidden"); panelOpen = true; }
+  function openPanel() {
+    if (current && (current.category === "央视" || current.category === "卫视")) {
+      activeTab = current.category;
+    }
+    renderPanel();
+    panel.classList.add("open"); panelMask.classList.remove("hidden"); panelOpen = true;
+  }
   function closePanel() { panel.classList.remove("open"); panelMask.classList.add("hidden"); panelOpen = false; }
 
   // -----------------------------------------------------------------------
@@ -292,7 +301,7 @@
     chName.textContent = ch.name;
     chCat.textContent = ch.category || "";
     Array.prototype.forEach.call(document.querySelectorAll(".ch-row"), function (r) {
-      r.classList.toggle("active", r.dataset.id === String(ch.id));
+      r.classList.toggle("active", r.dataset.key === ch.url);
     });
     resolveAndPlay(ch, mySeq, !!(opts && opts.fresh));
   }
@@ -430,7 +439,7 @@
         cfg.fit = b.dataset.fit; saveCfg(); applyFit(); syncSettings();
       };
     });
-    btnClearFav.onclick = function () { cfg.favs = []; saveCfg(); renderFav(); renderPanel(); };
+    btnClearFav.onclick = function () { cfg.favs = []; saveCfg(); renderPanel(); };
   }
 
   // -----------------------------------------------------------------------
@@ -449,6 +458,9 @@
     btnMenu.onclick = function () { panelOpen ? closePanel() : openPanel(); };
     btnPanelClose.onclick = closePanel;
     panelMask.onclick = closePanel;
+    Array.prototype.forEach.call(tabBar.children, function (b) {
+      b.onclick = function () { activeTab = b.dataset.tab; renderPanel(); };
+    });
     btnPrev.onclick = function () { stepChannel(-1); };
     btnNext.onclick = function () { stepChannel(1); };
     btnFs.onclick = toggleFs;

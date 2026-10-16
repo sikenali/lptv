@@ -64,35 +64,45 @@ button{font-family:inherit;color:inherit;cursor:pointer;border:none;background:n
 .ch-cat{font-size:12px;color:var(--muted)}
 .tb-right{display:flex;gap:8px}
 
-/* 频道面板 */
-.panel{position:fixed;top:0;left:0;bottom:0;width:320px;max-width:86vw;background:var(--panel);
+/* 频道面板：和底部控制条一样的透明渐变底 */
+.panel{position:fixed;top:0;left:0;bottom:0;width:320px;max-width:86vw;
+  background:linear-gradient(90deg,rgba(0,0,0,.72),rgba(0,0,0,0));
   transform:translateX(-105%);transition:transform .28s ease;display:flex;flex-direction:column;
-  box-shadow:2px 0 24px rgba(0,0,0,.5);backdrop-filter:blur(8px);z-index:5}
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);z-index:5}
 .panel.open{transform:translateX(0)}
 .panel-head{display:flex;gap:8px;padding:12px;border-bottom:1px solid var(--line);align-items:center}
 .search{flex:1;height:38px;border-radius:9px;border:1px solid var(--line);background:rgba(255,255,255,.06);
   color:#fff;padding:0 12px;font-size:14px;outline:none}
 .panel-close{width:38px;height:38px;border-radius:9px;background:rgba(255,255,255,.08);font-size:18px}
+/* 分类 tab：央视 / 卫视 / 收藏 */
+.tab-bar{display:flex;gap:6px;padding:10px 12px 8px;border-bottom:1px solid var(--line)}
+.tab{flex:1;padding:7px 0;font-size:14px;letter-spacing:2px;color:var(--muted);
+  border-radius:9px;background:rgba(255,255,255,.06);text-shadow:0 1px 6px rgba(0,0,0,.6)}
+.tab.active{background:rgba(255,59,48,.22);color:#fff;box-shadow:inset 0 -2px 0 var(--accent)}
 .cat-title{padding:10px 14px 6px;color:var(--accent);font-size:13px;font-weight:700;letter-spacing:1px}
-.fav-wrap,.cat-wrap{flex:1;overflow-y:auto;padding-bottom:10px}
-.ch-list{padding:0 8px}
-.ch-row{display:flex;align-items:center;gap:8px;padding:11px 12px;border-radius:10px;margin:2px 0;
-  cursor:pointer;font-size:15px}
+.cat-wrap{flex:1;overflow-y:auto;padding-bottom:10px}
+.ch-list{padding:0 6px}
+.ch-row{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;margin:1px 0;
+  cursor:pointer;font-size:13px;text-shadow:0 1px 6px rgba(0,0,0,.6)}
 .ch-row:hover{background:rgba(255,255,255,.07)}
 .ch-row.active{background:rgba(255,59,48,.18);color:#fff}
 .ch-row .nm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ch-row .star{font-size:16px;color:var(--muted);width:22px;text-align:center}
+.ch-row .star{font-size:13px;color:var(--muted);width:20px;text-align:center}
 .ch-row .star.on{color:#ffcc00}
 .ch-row.hidden{display:none}
+.empty-hint{padding:28px 16px;text-align:center;color:var(--muted);font-size:13px;line-height:1.8}
 .panel-mask{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:4}
 .hidden{display:none}
 
-/* 设置面板 */
+/* 设置面板：和频道面板一样的透明底 */
 .set-wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
-  background:rgba(0,0,0,.5);z-index:6}
+  background:rgba(0,0,0,.25);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);z-index:6}
 .set-wrap.hidden{display:none}
-.set-card{width:340px;max-width:90vw;background:var(--panel);border-radius:16px;padding:18px;
-  box-shadow:0 10px 40px rgba(0,0,0,.6)}
+.set-card{width:340px;max-width:90vw;border-radius:16px;padding:18px;
+  background:linear-gradient(135deg,rgba(0,0,0,.72),rgba(0,0,0,.25));
+  border:1px solid rgba(255,255,255,.12);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  text-shadow:0 1px 6px rgba(0,0,0,.6)}
 .set-title{font-size:18px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between}
 .set-close{width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,.08);
   font-size:16px;color:var(--muted);display:flex;align-items:center;justify-content:center}
