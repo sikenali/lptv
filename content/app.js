@@ -28,7 +28,7 @@
   var LS_KEY = "lptv.cfg.v2";
   var DEFAULT_CFG = {
     volume: 1, muted: false, fit: "contain",
-    autoHide: true, favs: []
+    autoHide: true, favs: [], defMute: false, showLines: false
   };
   function loadCfg() {
     try { return Object.assign({}, DEFAULT_CFG, JSON.parse(localStorage.getItem(LS_KEY) || "{}")); }
@@ -42,17 +42,16 @@
   // -----------------------------------------------------------------------
   function $(id) { return document.getElementById(id); }
   var video = $("video"), spin = $("spin"), osd = $("osd");
+  var tip = $("tip");
   var root = $("lx-root");
   var btnMenu = $("btnMenu"), btnPrev = $("btnPrev"), btnNext = $("btnNext");
   var btnFs = $("btnFs"), btnSettings = $("btnSettings");
-  var panel = $("panel"), panelMask = $("panelMask"), search = $("search");
+  var panel = $("panel"), panelMask = $("panelMask");
   var tabBar = $("tabBar"), catWrap = $("catWrap");
-  var setWrap = $("setWrap"), setVol = $("setVol"), setMute = $("setMute");
-  var setFit = $("setFit"), setAutoHide = $("setAutoHide");
-  var btnClearFav = $("btnClearFav"), btnSetClose = $("btnSetClose");
+  var setWrap = $("setWrap"), setFit = $("setFit");
+  var setDefMute = $("setDefMute"), setShowLines = $("setShowLines");
+  var btnLines = $("btnLines"), linePop = $("linePop"), linePopList = $("linePopList");
   var cPlay = $("cPlay"), cMute = $("cMute"), cVol = $("cVol");
-  var chName = $("chName"), chCat = $("chCat");
-  var btnPanelClose = $("btnPanelClose");
 
   // -----------------------------------------------------------------------
   // 全局状态
@@ -69,6 +68,7 @@
   var freshUsed = false;     // 本轮是否已用过 fresh 兜底
   var stallSince = 0;        // 最近一次流中断时间戳
   var lineCache = {};        // 频道 url -> {t, lines} 前端线路缓存
+  var chState = {};          // 频道 url -> "ok"(播通过) / "bad"(播失败)，行首小圆点用
 
   var LOAD_TIMEOUT = 30000;     // 单条线路最长等待（FLV直播流需缓冲时间）
   var STALL_TIMEOUT = 6000;     // 流中断多久后换下一条线路
@@ -93,6 +93,16 @@
     if (html != null) e.innerHTML = html;
     return e;
   }
+  // 线条图标（currentColor 着色，随 .on / .active 变色）
+  var ICONS = {
+    play: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 20 12 6 21 6 3"/></svg>',
+    pause: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="5" y="4" width="4" height="16" rx="1"/><rect x="15" y="4" width="4" height="16" rx="1"/></svg>',
+    vol: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>',
+    mute: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><line x1="22" x2="16" y1="9" y2="15"/><line x1="16" x2="22" y1="9" y2="15"/></svg>',
+    star: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>'
+  };
+  function setPlayIcon() { cPlay.innerHTML = video.paused ? ICONS.play : ICONS.pause; }
+  function setMuteIcon() { cMute.innerHTML = video.muted ? ICONS.mute : ICONS.vol; }
   function showOSD(txt, ms) {
     osd.innerHTML = txt; osd.classList.remove("hidden");
     clearTimeout(showOSD._t);
@@ -100,6 +110,22 @@
   }
   function showSpin() { spin.classList.remove("hidden"); }
   function hideSpin() { spin.classList.add("hidden"); }
+  // 悬停提示：显示在图标正上方居中，贴边时自动收进屏幕内
+  function showTip(elm) {
+    var t = elm.dataset ? elm.dataset.tip : null;
+    if (!t) return;
+    tip.textContent = t;
+    tip.classList.remove("hidden");
+    var r = elm.getBoundingClientRect();
+    var tw = tip.offsetWidth, th = tip.offsetHeight;
+    var x = r.left + r.width / 2 - tw / 2;
+    x = Math.max(8, Math.min(x, window.innerWidth - tw - 8));
+    var y = r.top - th - 10;
+    if (y < 8) y = r.bottom + 10;
+    tip.style.left = x + "px";
+    tip.style.top = y + "px";
+  }
+  function hideTip() { tip.classList.add("hidden"); }
   function dbgPush(s) {
     dbg.push(s); if (dbg.length > 40) dbg.shift();
     if (window.console) console.log("[lptv]", s);
@@ -111,16 +137,44 @@
   // 频道面板 / 收藏：央视 / 卫视 / 收藏 三个 tab 切换显示
   // -----------------------------------------------------------------------
   var activeTab = "央视";
+  // 台号：央视 1~N，卫视接着往下排（收藏 tab 沿用同一套号）
+  var numByKey = {}, chByNum = {}, maxDigits = 2;
+  var numBuf = "", numTimer = null;
+  function buildNumbers() {
+    numByKey = {}; chByNum = {};
+    var n = 0;
+    ["央视", "卫视"].forEach(function (cat) {
+      (cats[cat] || []).forEach(function (c) {
+        n++;
+        numByKey[c.url] = n;
+        chByNum[n] = c;
+      });
+    });
+    maxDigits = String(n).length;
+  }
   function channelRow(ch) {
     var row = el("div", "ch-row");
     row.dataset.key = ch.url;   // url 全局唯一（id 只在单个 tid 内唯一，不能做 key）
+    var num = el("span", "num", numByKey[ch.url] || "");
     var nm = el("span", "nm", ch.name);
-    var star = el("span", "star" + (isFav(ch.id) ? " on" : ""), "★");
+    // 状态小圆点：ok=绿(播通过) / bad=红(播失败) / 无类=灰(未知)
+    var st = chState[ch.url];
+    var dot = el("span", "dot" + (st === "ok" ? " ok" : st === "bad" ? " bad" : ""));
+    var star = el("span", "star" + (isFav(ch.id) ? " on" : ""), ICONS.star);
     star.onclick = function (e) { e.stopPropagation(); favToggle(ch.id); };
-    row.appendChild(nm); row.appendChild(star);
+    row.appendChild(num); row.appendChild(nm); row.appendChild(dot); row.appendChild(star);
     row.onclick = function () { playChannel(ch); closePanel(); };
     if (current && ch.url === current.url) row.classList.add("active");
     return row;
+  }
+  // 只刷新可见行的小圆点，不重建列表（避免滚动位置跳动）
+  function paintDots() {
+    Array.prototype.forEach.call(document.querySelectorAll(".ch-row"), function (r) {
+      var d = r.querySelector(".dot");
+      if (!d) return;
+      var st = chState[r.dataset.key];
+      d.className = "dot" + (st === "ok" ? " ok" : st === "bad" ? " bad" : "");
+    });
   }
   function syncTabs() {
     Array.prototype.forEach.call(tabBar.children, function (b) {
@@ -130,7 +184,7 @@
   function matchQ(c, q) { return !q || c.name.toLowerCase().indexOf(q) >= 0; }
   function renderPanel() {
     syncTabs();
-    var q = (search.value || "").trim().toLowerCase();
+    var q = "";
     catWrap.innerHTML = "";
     var list, hint = "";
     if (activeTab === "收藏") {
@@ -176,6 +230,7 @@
     if (i >= lineBudget()) { onAllLinesFailed(mySeq); return; }
     lineIdx = i;
     var ln = lines[i];
+    if (linesOpen) renderLines();
     destroyPlayer();
     showSpin();
     isPlaying = false;
@@ -235,6 +290,7 @@
   function onPlaySuccess() {
     isPlaying = true; hideSpin(); darkCount = 0; stallSince = 0;
     clearTimeout(loadTimer);
+    if (current) { chState[current.url] = "ok"; paintDots(); }
   }
 
   // 线路耗尽 / 解析失败：用 fresh=1 强制后端重新抓页再试一轮，仅此一次。
@@ -253,6 +309,7 @@
     dbgPush("failover: exhausted");
     showOSD("⚠ 频道加载失败，请稍后再试", 3200);
     showSpin();
+    if (current) { chState[current.url] = "bad"; paintDots(); }
   }
 
   function resolveAndPlay(ch, mySeq, forceFresh) {
@@ -296,10 +353,9 @@
     var mySeq = seq;
     freshUsed = false;
     clearTimeout(loadTimer); loadTimer = null;
+    closeLines();
     destroyPlayer();
     current = ch;
-    chName.textContent = ch.name;
-    chCat.textContent = ch.category || "";
     Array.prototype.forEach.call(document.querySelectorAll(".ch-row"), function (r) {
       r.classList.toggle("active", r.dataset.key === ch.url);
     });
@@ -325,6 +381,8 @@
   // -----------------------------------------------------------------------
   function bindMedia() {
     video.addEventListener("playing", onPlaySuccess);
+    video.addEventListener("playing", setPlayIcon);
+    video.addEventListener("pause", setPlayIcon);
     ["timeupdate", "canplay"].forEach(function (ev) {
       video.addEventListener(ev, function () {
         if (!stallSince) return;
@@ -413,33 +471,55 @@
   // -----------------------------------------------------------------------
   // 设置面板
   // -----------------------------------------------------------------------
-  function openSettings() { setOpen = true; setWrap.classList.remove("hidden"); }
-  function closeSettings() { setOpen = false; setWrap.classList.add("hidden"); }
+  function openSettings() { setOpen = true; syncSettings(); setWrap.classList.add("open"); }
+  function closeSettings() { setOpen = false; setWrap.classList.remove("open"); }
   function syncSettings() {
-    setVol.value = Math.round(cfg.volume * 100);
-    setMute.checked = cfg.muted;
-    setAutoHide.checked = cfg.autoHide;
+    setDefMute.checked = !!cfg.defMute;
+    setShowLines.checked = !!cfg.showLines;
     Array.prototype.forEach.call(setFit.children, function (b) {
       b.classList.toggle("active", b.dataset.fit === cfg.fit);
     });
   }
   function bindSettings() {
-    setVol.oninput = function () {
-      cfg.volume = setVol.value / 100; cfg.muted = false; saveCfg();
-      video.volume = cfg.volume; video.muted = false; cVol.value = setVol.value;
-      cMute.textContent = "🔊"; setMute.checked = false;
-    };
-    setMute.onchange = function () {
-      cfg.muted = setMute.checked; saveCfg(); video.muted = cfg.muted;
-      cMute.textContent = cfg.muted ? "🔇" : "🔊";
-    };
-    setAutoHide.onchange = function () { cfg.autoHide = setAutoHide.checked; saveCfg(); scheduleHide(); };
     Array.prototype.forEach.call(setFit.children, function (b) {
       b.onclick = function () {
         cfg.fit = b.dataset.fit; saveCfg(); applyFit(); syncSettings();
       };
     });
-    btnClearFav.onclick = function () { cfg.favs = []; saveCfg(); renderPanel(); };
+    setDefMute.onchange = function () {
+      cfg.defMute = setDefMute.checked; saveCfg();
+      video.muted = cfg.defMute;
+      setMuteIcon();
+    };
+    setShowLines.onchange = function () {
+      cfg.showLines = setShowLines.checked; saveCfg(); syncLineBtn();
+    };
+  }
+
+  // -----------------------------------------------------------------------
+  // 线路切换浮层：勾选设置后在播放键左侧出现 ⇄，点开横排显示所有线路名
+  // -----------------------------------------------------------------------
+  var linesOpen = false;
+  function renderLines() {
+    linePopList.innerHTML = "";
+    if (!lines.length) {
+      linePopList.appendChild(el("div", "line-empty", "暂无线路"));
+      return;
+    }
+    lines.forEach(function (ln, i) {
+      var b = el("button", "line-chip" + (i === lineIdx ? " active" : ""),
+        ln.label || ("线路" + (i + 1)));
+      b.onclick = (function (idx) {
+        return function () { loadLine(idx); closeLines(); };
+      })(i);
+      linePopList.appendChild(b);
+    });
+  }
+  function openLines() { renderLines(); linesOpen = true; linePop.classList.add("open"); }
+  function closeLines() { linesOpen = false; linePop.classList.remove("open"); }
+  function syncLineBtn() {
+    btnLines.classList.toggle("hidden", !cfg.showLines);
+    if (!cfg.showLines) closeLines();
   }
 
   // -----------------------------------------------------------------------
@@ -456,7 +536,7 @@
   // -----------------------------------------------------------------------
   function bindControls() {
     btnMenu.onclick = function () { panelOpen ? closePanel() : openPanel(); };
-    btnPanelClose.onclick = closePanel;
+    
     panelMask.onclick = closePanel;
     Array.prototype.forEach.call(tabBar.children, function (b) {
       b.onclick = function () { activeTab = b.dataset.tab; renderPanel(); };
@@ -464,36 +544,71 @@
     btnPrev.onclick = function () { stepChannel(-1); };
     btnNext.onclick = function () { stepChannel(1); };
     btnFs.onclick = toggleFs;
+    btnLines.onclick = function () { linesOpen ? closeLines() : openLines(); };
     btnSettings.onclick = function () { setOpen ? closeSettings() : openSettings(); };
-    btnSetClose.onclick = closeSettings;
+    
     setWrap.onclick = function (e) { if (e.target === setWrap) closeSettings(); };
     cPlay.onclick = function () { if (video.paused) video.play(); else video.pause(); };
     cMute.onclick = function () {
       cfg.muted = !cfg.muted; video.muted = cfg.muted; saveCfg();
-      cMute.textContent = cfg.muted ? "🔇" : "🔊"; setMute.checked = cfg.muted;
+      setMuteIcon();
     };
     cVol.oninput = function () {
       cfg.volume = cVol.value / 100; cfg.muted = false; saveCfg();
-      video.volume = cfg.volume; video.muted = false; cMute.textContent = "🔊";
-      setVol.value = cVol.value; setMute.checked = false;
+      video.volume = cfg.volume; video.muted = false; setMuteIcon();
     };
-    search.oninput = renderPanel;
+    
+    Array.prototype.forEach.call(document.querySelectorAll("[data-tip]"), function (b) {
+      b.addEventListener("mouseenter", function () { showTip(b); });
+      b.addEventListener("mouseleave", hideTip);
+      b.addEventListener("focus", function () { showTip(b); });
+      b.addEventListener("blur", hideTip);
+    });
+    document.addEventListener("click", hideTip, true);
     document.addEventListener("fullscreenchange", scheduleHide);
   }
 
   // -----------------------------------------------------------------------
+  // 数字换台：输 1 位停 1.5s 等第二位，输满位数立即跳；Enter 立即确认，Esc 取消
+  function commitNum() {
+    clearTimeout(numTimer);
+    var n = parseInt(numBuf, 10);
+    numBuf = "";
+    var ch = chByNum[n];
+    if (!ch) {
+      if (n) showOSD("无此台号：" + n, 1500);
+      return;
+    }
+    showOSD("切换：" + ch.name);
+    playChannel(ch);
+  }
+  function numInput(d) {
+    if (!channels.length) return;
+    numBuf += d;
+    if (numBuf.length >= maxDigits) { commitNum(); return; }
+    showOSD("换台：" + numBuf, 1500);
+    clearTimeout(numTimer);
+    numTimer = setTimeout(commitNum, 1500);
+  }
+
   // 键盘快捷键 (对照 inject.js)
   // -----------------------------------------------------------------------
   document.addEventListener("keydown", function (e) {
     if (e.target && e.target.tagName === "INPUT") return;
+    if (e.key >= "0" && e.key <= "9" && e.key.length === 1) { numInput(e.key); return; }
     switch (e.key) {
+      case "Enter": if (numBuf) commitNum(); break;
       case "f": case "F": toggleFs(); break;
       case " ": e.preventDefault(); if (video.paused) video.play(); else video.pause(); break;
       case "m": case "M": cfg.muted = !cfg.muted; video.muted = cfg.muted; saveCfg();
-        cMute.textContent = cfg.muted ? "🔇" : "🔊"; setMute.checked = cfg.muted; break;
+        setMuteIcon(); break;
       case "ArrowUp": case "PageUp": e.preventDefault(); stepChannel(-1); break;
       case "ArrowDown": case "PageDown": e.preventDefault(); stepChannel(1); break;
-      case "Escape": if (setOpen) closeSettings(); else if (panelOpen) closePanel(); break;
+      case "Escape":
+        numBuf = ""; clearTimeout(numTimer);
+        if (linesOpen) closeLines();
+        else if (setOpen) closeSettings(); else if (panelOpen) closePanel();
+        break;
     }
   });
 
@@ -513,8 +628,10 @@
   function boot() {
     applyFit();
     bindMedia(); bindControls(); bindSettings(); syncSettings();
-    video.volume = cfg.volume; video.muted = cfg.muted; video.preload = "auto";
-    cVol.value = Math.round(cfg.volume * 100); cMute.textContent = cfg.muted ? "🔇" : "🔊";
+    video.volume = cfg.volume; video.muted = !!(cfg.defMute || cfg.muted); video.preload = "auto";
+    cVol.value = Math.round(cfg.volume * 100); setMuteIcon(); setPlayIcon();
+    syncLineBtn();
+    $("setYear").textContent = "©" + new Date().getFullYear() + " LPTV";
     showSpin();
     fetch("/api/channels").then(function (r) { return r.json(); }).then(function (list) {
       channels = list;
@@ -523,6 +640,7 @@
         var k = c.category || "其他";
         (cats[k] = cats[k] || []).push(c);
       });
+      buildNumbers();
       renderPanel();
       var start = pickDefaultChannel();
       if (start) playChannel(start); else showOSD("无频道", 2000);

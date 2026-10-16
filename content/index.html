@@ -11,33 +11,23 @@
   <!-- 画面层 -->
   <video id="video" playsinline webkit-playsinline></video>
 
-  <!-- 缓冲/切换遮罩：LPTV 四格注水，无文字 -->
+  <!-- 缓冲/切换遮罩：LPTV 四字母颜色流动，无文字 -->
   <div id="spin" class="spin hidden">
-    <div class="lptv">
-      <span class="cell"><i class="liq"></i><span class="ch">L</span></span>
-      <span class="cell"><i class="liq"></i><span class="ch">P</span></span>
-      <span class="cell"><i class="liq"></i><span class="ch">T</span></span>
-      <span class="cell"><i class="liq"></i><span class="ch">V</span></span>
-    </div>
+    <div class="lptv"><span class="ch">L</span><span class="ch">P</span><span class="ch">T</span><span class="ch">V</span></div>
+  </div>
+
+  <div id="tip" class="hidden"></div>
+
+  <!-- 线路切换浮层：底栏上方居中横排 -->
+  <div id="linePop" class="line-pop">
+    <div class="line-title">线路切换</div>
+    <div id="linePopList" class="line-list"></div>
   </div>
 
   <!-- 覆盖层 UI (移植自 inject.js 的 #lx-root 设计，但作为独立页面而非注入) -->
   <div id="lx-root">
-    <!-- 顶栏 -->
-    <div id="topbar" class="topbar">
-      <button class="tb-btn" id="btnMenu" title="频道列表 (Esc)">☰</button>
-      <div class="tb-title">
-        <span id="chName">LPTV</span>
-        <span id="chCat" class="ch-cat"></span>
-      </div>
-    </div>
-
     <!-- 频道面板 -->
     <div id="panel" class="panel">
-      <div class="panel-head">
-        <input id="search" class="search" type="text" placeholder="搜索频道…" />
-        <button class="panel-close" id="btnPanelClose">✕</button>
-      </div>
       <div class="tab-bar" id="tabBar">
         <button class="tab active" data-tab="央视">央视</button>
         <button class="tab" data-tab="卫视">卫视</button>
@@ -47,45 +37,53 @@
     </div>
     <div id="panelMask" class="panel-mask hidden"></div>
 
-    <!-- 设置面板 -->
-    <div id="setWrap" class="set-wrap hidden">
+    <!-- 设置面板：右侧滑出，上/中/下三段 -->
+    <div id="setWrap" class="set-wrap">
       <div class="set-card">
-        <div class="set-title">
-          设置
-          <button class="set-close" id="btnSetClose">✕</button>
+        <div class="set-head">
+          <img class="set-logo" src="favicon.png" alt="LPTV" />
+          <span class="set-appname">在线直播Web软件</span>
         </div>
-        <label class="set-row">音量
-          <input id="setVol" type="range" min="0" max="100" />
-        </label>
-        <label class="set-row">静音
-          <input id="setMute" type="checkbox" />
-        </label>
-        <div class="set-row">画面比例
-          <div class="seg" id="setFit">
-            <button data-fit="contain" class="active">完整</button>
-            <button data-fit="cover">裁剪</button>
-            <button data-fit="fill">拉伸</button>
+        <div class="set-body">
+          <div class="set-row"><span>画面比例</span>
+            <div class="seg" id="setFit">
+              <button data-fit="contain" class="active">完整</button>
+              <button data-fit="cover">剪裁</button>
+              <button data-fit="fill">拉伸</button>
+            </div>
           </div>
+          <label class="set-row"><span>默认静音</span>
+            <input id="setDefMute" type="checkbox" />
+          </label>
+          <label class="set-row"><span>线路切换</span>
+            <input id="setShowLines" type="checkbox" />
+          </label>
         </div>
-        <label class="set-row">自动隐藏控制栏
-          <input id="setAutoHide" type="checkbox" />
-        </label>
-        <button class="set-danger" id="btnClearFav">清空收藏</button>
+        <div class="set-foot">
+          <div id="setYear">©2026 LPTV</div>
+          <div>Powered by <a href="https://lazycat.cloud/" target="_blank" rel="noopener">LightOS</a></div>
+        </div>
       </div>
     </div>
 
+    <!-- 线路切换浮层 -->
+
     <!-- OSD: 切台提示 -->
     <div id="osd" class="osd hidden"></div>
-    <!-- 底部控制条 -->
+    <!-- 底部控制条：菜单最左，播放三控件居中 -->
     <div id="ctrl" class="ctrl">
-      <button class="ctrl-btn" id="cPlay" title="播放/暂停 (Space)">⏯</button>
-      <button class="ctrl-btn" id="cMute" title="静音 (M)">🔊</button>
-      <input id="cVol" class="cvol" type="range" min="0" max="100" />
+      <button class="tb-btn" id="btnMenu" data-tip="频道列表 (Esc)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/></svg></button>
+      <div class="c-center">
+        <button class="ctrl-btn hidden" id="btnLines" data-tip="线路切换"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg></button>
+        <button class="ctrl-btn" id="cPlay" data-tip="播放/暂停 (Space)"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 20 12 6 21 6 3"/></svg></button>
+        <button class="ctrl-btn" id="cMute" data-tip="静音 (M)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></button>
+        <input id="cVol" class="cvol" type="range" min="0" max="100" />
+      </div>
       <div class="c-right">
-        <button class="tb-btn" id="btnPrev" title="上一个 (↑/PgUp)">⏮</button>
-        <button class="tb-btn" id="btnNext" title="下一个 (↓/PgDn)">⏭</button>
-        <button class="tb-btn" id="btnFs" title="全屏 (F)">⛶</button>
-        <button class="tb-btn" id="btnSettings" title="设置">⚙</button>
+        <button class="tb-btn" id="btnPrev" data-tip="上一个 (↑/PgUp)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="19 20 9 12 19 4 19 20" fill="currentColor" stroke="none"/><line x1="5" x2="5" y1="19" y2="5"/></svg></button>
+        <button class="tb-btn" id="btnNext" data-tip="下一个 (↓/PgDn)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4" fill="currentColor" stroke="none"/><line x1="19" x2="19" y1="5" y2="19"/></svg></button>
+        <button class="tb-btn" id="btnFs" data-tip="全屏 (F)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>
+        <button class="tb-btn" id="btnSettings" data-tip="设置"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="2" x2="6" y1="14" y2="14"/><line x1="10" x2="14" y1="8" y2="8"/><line x1="18" x2="22" y1="16" y2="16"/></svg></button>
       </div>
     </div>
   </div>
