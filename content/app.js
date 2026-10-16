@@ -70,7 +70,7 @@
   var stallSince = 0;        // 最近一次流中断时间戳
   var lineCache = {};        // 频道 url -> {t, lines} 前端线路缓存
 
-  var LOAD_TIMEOUT = 8000;      // 单条线路最长等待
+  var LOAD_TIMEOUT = 30000;     // 单条线路最长等待（FLV直播流需缓冲时间）
   var STALL_TIMEOUT = 6000;     // 流中断多久后换下一条线路
   var STALL_SHOW_MS = 2000;     // 中断持续多久才盖上注水遮罩（直播补缓冲常 <2s，不算中断）
   var RESOLVE_TIMEOUT = 10000;  // 解析请求超时
