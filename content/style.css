@@ -81,7 +81,6 @@ button{font-family:inherit;color:inherit;cursor:pointer;border:none;background:n
 .ch-row.hidden{display:none}
 .empty-hint{padding:28px 16px;text-align:center;color:var(--muted);font-size:13px;line-height:1.8}
 .panel-mask{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:4}
-.hidden{display:none}
 
 /* 设置面板：和频道列表一样的右侧滑出面板，分上/中/下三段 */
 .set-wrap{position:fixed;inset:0;z-index:6;display:flex;justify-content:flex-end;
@@ -146,7 +145,17 @@ button{font-family:inherit;color:inherit;cursor:pointer;border:none;background:n
 /* 播放三控件相对整条控制栏绝对居中 */
 .c-center{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
   display:flex;align-items:center;gap:10px}
-.cvol{flex:0 0 120px;max-width:30vw}
+.cvol-wrap{flex:0 0 120px;max-width:30vw;display:flex;flex-direction:column;gap:3px}
+.cvol{flex:none;width:100%;-webkit-appearance:none;appearance:none;
+  height:4px;border-radius:2px;background:rgba(255,255,255,.15);outline:none;cursor:pointer}
+.cvol::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:14px;height:14px;
+  border-radius:50%;background:#fff;border:none;box-shadow:0 1px 6px rgba(0,0,0,.55);cursor:pointer}
+.cvol::-moz-range-thumb{width:14px;height:14px;border:none;border-radius:50%;background:#fff}
+.cvol::-moz-range-track{height:4px;border-radius:2px;background:rgba(255,255,255,.15)}
+.cvol::-moz-range-progress{height:4px;border-radius:2px;background:var(--accent)}
+/* 音量刻度：5 档(0/25/50/75/100)，左右各留 6px 与滑块行程对齐 */
+.cvol-ticks{display:flex;justify-content:space-between;padding:0 6px}
+.cvol-ticks i{width:2px;height:4px;border-radius:1px;background:rgba(255,255,255,.35)}
 .c-right{margin-left:auto;display:flex;align-items:center;gap:8px}
 
 /* 悬停提示：图标正上方居中，透明毛玻璃 */
@@ -155,3 +164,6 @@ button{font-family:inherit;color:inherit;cursor:pointer;border:none;background:n
   border:1px solid rgba(255,255,255,.14);border-radius:8px;
   color:#fff;font-size:12px;letter-spacing:.5px;padding:6px 10px;
   text-shadow:0 1px 4px rgba(0,0,0,.6)}
+
+/* 通用隐藏工具类：必须放在文件最后，保证能覆盖同优先级 display 规则 */
+.hidden{display:none}

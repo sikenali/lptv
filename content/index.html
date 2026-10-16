@@ -77,7 +77,10 @@
         <button class="ctrl-btn hidden" id="btnLines" data-tip="线路切换"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg></button>
         <button class="ctrl-btn" id="cPlay" data-tip="播放/暂停 (Space)"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 20 12 6 21 6 3"/></svg></button>
         <button class="ctrl-btn" id="cMute" data-tip="静音 (M)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></button>
-        <input id="cVol" class="cvol" type="range" min="0" max="100" />
+        <div class="cvol-wrap">
+          <input id="cVol" class="cvol" type="range" min="0" max="100" step="1" />
+          <div class="cvol-ticks"><i></i><i></i><i></i><i></i><i></i></div>
+        </div>
       </div>
       <div class="c-right">
         <button class="tb-btn" id="btnPrev" data-tip="上一个 (↑/PgUp)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="19 20 9 12 19 4 19 20" fill="currentColor" stroke="none"/><line x1="5" x2="5" y1="19" y2="5"/></svg></button>

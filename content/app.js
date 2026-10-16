@@ -103,6 +103,13 @@
   };
   function setPlayIcon() { cPlay.innerHTML = video.paused ? ICONS.play : ICONS.pause; }
   function setMuteIcon() { cMute.innerHTML = video.muted ? ICONS.mute : ICONS.vol; }
+  // 音量条 UI：滑块位置 + 轨道填充百分比（下方 5 档手动刻度对齐滑块行程）
+  function syncVolUI() {
+    var v = Math.round(cfg.volume * 100);
+    cVol.value = v;
+    cVol.style.background = "linear-gradient(90deg,var(--accent) " + v +
+      "%,rgba(255,255,255,.15) " + v + "%)";
+  }
   function showOSD(txt, ms) {
     osd.innerHTML = txt; osd.classList.remove("hidden");
     clearTimeout(showOSD._t);
@@ -555,7 +562,7 @@
     };
     cVol.oninput = function () {
       cfg.volume = cVol.value / 100; cfg.muted = false; saveCfg();
-      video.volume = cfg.volume; video.muted = false; setMuteIcon();
+      video.volume = cfg.volume; video.muted = false; setMuteIcon(); syncVolUI();
     };
     
     Array.prototype.forEach.call(document.querySelectorAll("[data-tip]"), function (b) {
@@ -629,7 +636,7 @@
     applyFit();
     bindMedia(); bindControls(); bindSettings(); syncSettings();
     video.volume = cfg.volume; video.muted = !!(cfg.defMute || cfg.muted); video.preload = "auto";
-    cVol.value = Math.round(cfg.volume * 100); setMuteIcon(); setPlayIcon();
+    syncVolUI(); setMuteIcon(); setPlayIcon();
     syncLineBtn();
     $("setYear").textContent = "©" + new Date().getFullYear() + " LPTV";
     showSpin();
