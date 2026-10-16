@@ -157,6 +157,10 @@ button{font-family:inherit;color:inherit;cursor:pointer;border:none;background:n
 .cvol-ticks{display:flex;justify-content:space-between;padding:0 6px}
 .cvol-ticks i{width:2px;height:4px;border-radius:1px;background:rgba(255,255,255,.35)}
 .c-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+/* 刘海屏安全区：底栏和线路浮层往上让出 Home 条高度 */
+.ctrl{padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));
+  padding-bottom:env(safe-area-inset-bottom)}
+.line-pop{bottom:calc(64px + env(safe-area-inset-bottom))}
 
 /* 悬停提示：图标正上方居中，透明毛玻璃 */
 #tip{position:fixed;z-index:2147483005;pointer-events:none;white-space:nowrap;
@@ -167,3 +171,20 @@ button{font-family:inherit;color:inherit;cursor:pointer;border:none;background:n
 
 /* 通用隐藏工具类：必须放在文件最后，保证能覆盖同优先级 display 规则 */
 .hidden{display:none}
+
+/* 移动端：按钮/行/tab 禁双击缩放，保留 pinch */
+button,.tab,.line-chip,.ch-row,.cvol{touch-action:manipulation}
+.cat-wrap,.line-list{-webkit-overflow-scrolling:touch}
+
+/* 窄屏（手机竖屏）：取消绝对居中改自然流式（☰ ▶🔊 … ⏮⏭⛶⚙ 一行排开），
+   音量条收起（用系统音量键），按钮缩到 38px，加载字缩小 */
+@media (max-width:600px){
+  .ctrl{gap:6px}
+  .c-center{position:static;transform:none;gap:8px}
+  .cvol-wrap{display:none}
+  .c-right{gap:6px}
+  .ctrl-btn,.tb-btn{width:38px;height:38px}
+  .lptv .ch{font-size:48px}
+  .line-pop{max-width:94vw}
+  .osd{font-size:14px;max-width:92vw;text-align:center}
+}

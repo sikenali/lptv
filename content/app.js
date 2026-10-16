@@ -471,6 +471,20 @@
       ctrl.classList.remove("ctrl-show");
     }
   }, { passive: true });
+  // 移动端没有 hover：点画面一下呼出底栏，3s 无操作自动收起（面板打开时不收）
+  var IS_TOUCH = ("ontouchstart" in window) || (navigator.maxTouchPoints > 0);
+  var ctrlTimer = null;
+  if (IS_TOUCH) {
+    video.addEventListener("click", function () {
+      var bar = $("ctrl");
+      clearTimeout(ctrlTimer);
+      if (bar.classList.contains("ctrl-show")) { bar.classList.remove("ctrl-show"); return; }
+      bar.classList.add("ctrl-show");
+      ctrlTimer = setTimeout(function () {
+        if (!panelOpen && !setOpen && !linesOpen) bar.classList.remove("ctrl-show");
+      }, 3000);
+    });
+  }
   ["mousemove", "touchstart", "keydown"].forEach(function (ev) {
     document.addEventListener(ev, wakeUI, true);
   });
@@ -534,7 +548,9 @@
   // -----------------------------------------------------------------------
   function toggleFs() {
     if (!document.fullscreenElement) {
-      (video.requestFullscreen || video.webkitRequestFullscreen || function () {}).call(video);
+      // iOS Safari 只有 video.webkitEnterFullscreen（注意不是 webkitRequestFullscreen）
+      (video.requestFullscreen || video.webkitEnterFullscreen ||
+       video.webkitRequestFullscreen || function () {}).call(video);
     } else { document.exitFullscreen(); }
   }
 
