@@ -325,6 +325,21 @@ class Bridge:
             win.start_drag()
         return {"ok": True}
 
+    def win_pos(self):
+        win = self._window()
+        if not win:
+            return {"ok": False}
+        try:
+            return {"ok": True, "x": int(win.x), "y": int(win.y)}
+        except Exception:
+            return {"ok": False}
+
+    def move_win(self, x, y):
+        win = self._window()
+        if win:
+            win.move(int(x), int(y))
+        return {"ok": True}
+
     def close_window(self):
         win = self._window()
         if win:

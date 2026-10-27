@@ -885,7 +885,7 @@
 
   /* 顶部毛玻璃功能区: 拖拽区 + 窗口控制按钮 (无边框沉浸窗口用) */
   #lx-topbar{position:absolute;top:0;left:0;right:0;height:36px;z-index:12;
-    display:none !important;align-items:center;-webkit-app-region:drag;
+    align-items:center;-webkit-app-region:drag;
     background:linear-gradient(180deg,rgba(10,16,32,.74),rgba(10,16,32,.42) 60%,transparent);
     backdrop-filter:blur(18px) saturate(1.4);-webkit-backdrop-filter:blur(18px) saturate(1.4);
     opacity:0;transition:opacity .25s;pointer-events:none;color:#e8eefc;user-select:none}
@@ -902,7 +902,10 @@
   #lx-tb-btns{display:flex;height:100%;-webkit-app-region:no-drag;flex-shrink:0}
   .lx-tb-btn{width:46px;height:100%;display:flex;align-items:center;justify-content:center;
     border:none;background:transparent;color:#c9d6f2;cursor:default;transition:background .15s;
-    font-family:"Segoe MDL2 Assets",Webdings,sans-serif;font-size:13px}
+    line-height:0}
+  .lx-tb-btn svg{pointer-events:none}
+  #lx-topbar .lx-tb-logo{width:18px;height:18px;border-radius:4px;object-fit:contain;
+    background:rgba(255,255,255,.08);flex-shrink:0}
   .lx-tb-btn:hover{background:rgba(120,160,255,.16);color:#fff}
   .lx-tb-btn.close:hover{background:#e81123;color:#fff}
   .lx-tb-btn.on{color:#4f7cff}
@@ -1078,8 +1081,16 @@
 
     // 顶部毛玻璃功能区: 整条可拖拽, 按钮区 no-drag (无边框窗口)
     var topbar = el("div", { id: "lx-topbar" });
+    var LX_ICO = {
+      min: '<svg viewBox="0 0 16 16" width="14" height="14"><rect x="2.5" y="7.5" width="11" height="1.6" rx="0.8" fill="currentColor"/></svg>',
+      pin: '<svg viewBox="0 0 16 16" width="14" height="14"><path d="M9.6 1.5l4.9 4.9-1.9.7-3.2 1.2-.4 3.2-2.3-2.3-3.2 3.2-.9-.9 3.2-3.2-2.3-2.3 3.2-.4z" fill="currentColor"/></svg>',
+      fs: '<svg viewBox="0 0 16 16" width="14" height="14"><path d="M2 5V2h3L2 5zm12 0L11 2h3v3zM2 11v3h3L2 11zm12 0l-3 3h3v-3z" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>',
+      max: '<svg viewBox="0 0 16 16" width="14" height="14"><rect x="2.5" y="2.5" width="11" height="11" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>',
+      close: '<svg viewBox="0 0 16 16" width="14" height="14"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+      float: '<svg viewBox="0 0 24 24" width="15" height="15"><rect x="3" y="4.5" width="18" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="12" y="12" width="7" height="5.2" rx="1" fill="currentColor"/></svg>'
+    };
     topbar.innerHTML =
-      '<span class="lx-tb-title"><b>LX TV</b></span>' +
+      '<span class="lx-tb-title"><img class="lx-tb-logo" src="/assets/lptv-logo.png" alt=""><b>LPTV</b></span>' +
       '<span class="lx-tb-meta"><span class="dot"></span><span id="lx-tb-ch">--</span></span>' +
       '<span class="lx-tb-sp"></span>' +
       '<span id="lx-tb-btns">' +
@@ -1090,13 +1101,12 @@
       '<button class="lx-tb-btn" id="lx-tb-max" title="最大化/还原 (保留任务栏)"></button>' +
       '<button class="lx-tb-btn close" id="lx-tb-close" title="关闭"></button>' +
       "</span>";
-    topbar.querySelector("#lx-tb-min").textContent = "\uE921";
-    topbar.querySelector("#lx-tb-pin").textContent = "\uE718";
-    topbar.querySelector("#lx-tb-fs").textContent = "\uE740";
-    topbar.querySelector("#lx-tb-max").textContent = "\uE922";
-    topbar.querySelector("#lx-tb-close").textContent = "\uE8BB";
-    topbar.querySelector("#lx-tb-float").innerHTML =
-      '<svg viewBox="0 0 24 24" width="15" height="15"><rect x="3" y="4.5" width="18" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="12" y="12" width="7" height="5.2" rx="1" fill="currentColor"/></svg>';
+    topbar.querySelector("#lx-tb-min").innerHTML = LX_ICO.min;
+    topbar.querySelector("#lx-tb-pin").innerHTML = LX_ICO.pin;
+    topbar.querySelector("#lx-tb-fs").innerHTML = LX_ICO.fs;
+    topbar.querySelector("#lx-tb-max").innerHTML = LX_ICO.max;
+    topbar.querySelector("#lx-tb-close").innerHTML = LX_ICO.close;
+    topbar.querySelector("#lx-tb-float").innerHTML = LX_ICO.float;
     topbar.classList.add("show");
 
     root.appendChild(osd);
@@ -2229,7 +2239,9 @@
     function wvApi() { return (window.pywebview && window.pywebview.api) ? window.pywebview.api : null; }
     function setMaxIcon(isMax) {
       var b = document.getElementById("lx-tb-max");
-      if (b) b.textContent = isMax ? "\uE923" : "\uE922";
+      if (b) b.innerHTML = isMax
+        ? '<svg viewBox="0 0 16 16" width="14" height="14"><rect x="3" y="5" width="8" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 3h6.5a1 1 0 0 1 1 1V11" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>'
+        : '<svg viewBox="0 0 16 16" width="14" height="14"><rect x="2.5" y="2.5" width="11" height="11" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
     }
     function setPinIcon(pinned) {
       var b = document.getElementById("lx-tb-pin");
@@ -2257,6 +2269,28 @@
       if (a && a.close_window) a.close_window();
       else window.close();
     });
+    // 无边框窗口拖动：按住标题区移动鼠标 → bridge.move_win（容器无 WM，
+    // pywebview easy_drag / _NET_WM_MOVERESIZE 都不可用，只能 JS 拖动）。
+    (function () {
+      var tbTitle = topbar.querySelector(".lx-tb-title");
+      var dragging = false, sx = 0, sy = 0, wx = 0, wy = 0;
+      tbTitle.addEventListener("mousedown", function (e) {
+        if (e.button !== 0) return;
+        dragging = true; sx = e.screenX; sy = e.screenY;
+        if (a && a.win_pos) {
+          a.win_pos().then(function (r) {
+            if (r && r.ok) { wx = r.x; wy = r.y; }
+          });
+        }
+        e.preventDefault();
+      });
+      window.addEventListener("mousemove", function (e) {
+        if (!dragging) return;
+        var dx = e.screenX - sx, dy = e.screenY - sy;
+        if (a && a.move_win) a.move_win(wx + dx, wy + dy);
+      });
+      window.addEventListener("mouseup", function () { dragging = false; });
+    })();
     if (a && a.is_maximized) {
       setInterval(function () { a.is_maximized().then(function (r) { setMaxIcon(r && r.maximized); }); }, 2000);
     }
