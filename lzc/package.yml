@@ -1,0 +1,29 @@
+# LPTV 远程应用包信息（对标 cloud.lazycat.catlink.chrome.lpk）
+package: cloud.lazycat.catlink.lptv
+version: 1.0.2
+name: 懒猫微视
+min_os_version: v1.4.3
+unsupported_platforms:
+  - android
+  - ios
+  - tvos
+locales:
+  zh:
+    name: 懒猫微视
+    description: LPTV 电视客户端（pywebview + 真 Chrome/CDP 后端）
+  en:
+    name: LPTV
+    description: LPTV — TV client (pywebview + Chromium/CDP backend)
+permissions:
+  required:
+    - lzcapp.stop_inhibit
+    - net.internet          # 必须：LPTV 要访问央视频官方域名
+  optional:
+    - device.dri.render     # GPU 硬解（DRM 视频解码加分项）
+    - net.lan
+    - document.read
+    - document.write
+    - media.read
+    - media.write
+    - power.shutdown.inhibit
+    - user.notify

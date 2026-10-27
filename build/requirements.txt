@@ -1,0 +1,8 @@
+# LPTV AppImage 虚拟环境依赖
+# pywebview[qt] 拉入 PyQt6（qt 后端仅作调试用；央视频需真 Chrome，走自研 chromium 平台）
+pywebview[qt]
+# 远端/无显示环境下复制 m3u8 到剪贴板（尽力而为，失败不报错）
+pyperclip
+#
+# 注意：自研的 webview/platforms/chromium.py 用纯标准库手撸了 RFC6455 WebSocket
+# 客户端（见文件内 _CDPClient），因此**不需要**额外安装 websockets/aiohttp。
