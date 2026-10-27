@@ -398,7 +398,9 @@ def _launch_chrome(window) -> tuple[int, str]:
         '--disable-session-crashed-bubble',
         # 翻译提示：央视频页面本身就是中文。--lang=zh-CN 让浏览器 UI 语言与页面
         # 语言一致，翻译器就不会再弹；feature 关闭是第二道保险。
-        '--disable-features=Translate,TranslateUI,TranslateAutodownload',
+        # UnsupportedFlagWarning：抑制 "You are using an unsupported command-line
+        # flag: --no-sandbox" 的顶部警告条（--no-sandbox 是容器内 root 必需）。
+        '--disable-features=Translate,TranslateUI,TranslateAutodownload,UnsupportedFlagWarning',
         '--lang=zh-CN',
         '--accept-lang=zh-CN,zh',
         '--disable-background-timer-throttling',
