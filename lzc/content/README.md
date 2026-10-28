@@ -11,7 +11,7 @@
 | `run.sh` | LPK 入口：准备 Xpra 配置/补丁，启动 xpra seamless | LPTV 模板（可改用 chrome 的 run.sh） |
 | `launch_lptv.sh` | 首个浏览器连接后启动 LPTV AppImage | LPTV 自写 |
 | `90_lzc.conf` | Xpra seamless 配置（start-child-after-connect=launch_lptv.sh） | LPTV 改编 |
-| `appimage/LPTV.AppImage` | LPTV 本体（Electron 单包，自带 H.264） | 由 `build/build_electron.sh` 产出 |
+| `appimage/LPTV.AppImage` | LPTV 本体（Electron 单包，自带 H.264，LPK 内运行时路径） | 打包时由 `assemble_lpk.sh` 从 `electron/dist/` 取 `LPTV-<os>-<arch>-<version>.AppImage` 放入 |
 | `cde-supervisor` `rim` `drop` `web/` `dummyscreen.sh` `patch/compress.py` | catlink 会话骨架（Xpra 渲染 / 输入 / 拖拽 / SPA） | **复用 chrome LPK**，经 `assemble_lpk.sh` 拷入 |
 
 ## 数据流（远程化路径）

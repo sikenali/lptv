@@ -40,12 +40,10 @@ ICON_SRC="${LPTV_LZC}/icon.png"
 
 find_app() {
   if [ -f "$APP" ]; then echo "$APP"; return 0; fi
-  # 版本化产物：dist/LPTV-linux-<arch>-<version>.AppImage（build_electron.sh）
+  # 唯一产物来源：electron/dist/LPTV-<os>-<arch>-<version>.AppImage（build_electron.sh）
   local c
   c="$(ls "$LPTV_ROOT/electron/dist"/LPTV-*.AppImage 2>/dev/null | head -1 || true)"
   [ -f "$c" ] && { echo "$c"; return 0; }
-  # 回退：lzc/content/appimage/LPTV.AppImage（启动用固定名副本）
-  [ -f "$LPTV_ROOT/lzc/content/appimage/LPTV.AppImage" ] && { echo "$LPTV_ROOT/lzc/content/appimage/LPTV.AppImage"; return 0; }
   return 1
 }
 
