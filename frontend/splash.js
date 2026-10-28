@@ -1,8 +1,8 @@
 /* ---------------------------------------------------------------------------
  * LPTV 启动动画 —— 静态图片字标 + 加载条 (全覆盖不露央视频)
  *
- * 由 electron/main.js 在 BrowserWindow 的 dom-ready 时注入（executeJavaScript），
- * 先注入 __LPTV_SPLASH_CFG 再跑本脚本，早于央视频自己的 HTML / JS 解析完成。
+ * 由 electron/preload.js 在页面 document-start 同步执行（隔离世界共享 DOM），
+ * 直接建 #lptv-splash 遮罩，早于央视频自己的 HTML / JS 解析与首帧绘制。
  * 因此在导航期间屏幕上始终是本动画，不会闪现央视频裸页。
  *
  * 切台走官方 SPA 的 pushState（window.__lptv.switchChannel），不构成新的

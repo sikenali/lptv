@@ -6,6 +6,8 @@
  * 的 JS API 返回 Promise 契约一致，inject.js 的 .then() 用法零改动）。
  * ------------------------------------------------------------------------- */
 const { contextBridge, ipcRenderer } = require('electron');
+const fs = require('fs');
+const path = require('path');
 
 function invoke(name) {
   return (...args) => ipcRenderer.invoke('lptv:' + name, ...args);
@@ -48,3 +50,40 @@ contextBridge.exposeInMainWorld('lptv', {
   play_channel: invoke('play_channel'),
   copy_m3u8: invoke('copy_m3u8'),
 });
+
+/* ---------------------------------------------------------------------------
+ * 启动动画（splash）：document-start 同步建遮罩
+ *
+ * preload 在页面文档起始处同步执行（早于官方页任何脚本与首帧），隔离世界与
+ * 页面共享 DOM —— 直接创建 #lptv-splash 遮罩即可盖住官方页，无需 executeJavaScript
+ * 注入（后者排队执行晚于官方页首帧，会闪出央视频裸页）。
+ *
+ * 只在【首次】真实页面导航展示一次：preload 每次导航都会跑，经
+ * 'lptv:claim-splash'（main 侧 splashShown 只放行第一次 http(s)）决定。
+ * ------------------------------------------------------------------------- */
+function showSplash() {
+  try {
+    // 初始 about:blank 等非 http(s) 文档不消费名额、不展示
+    if (!/^https?:/i.test(String(location.href))) return;
+    const claim = ipcRenderer.sendSync('lptv:claim-splash', location.href);
+    if (!claim || !claim.first) return;
+    const dir = (() => {
+      try {
+        const { app } = require('electron');
+        if (app && app.isPackaged) return path.join(process.resourcesPath, 'frontend');
+      } catch (e) {}
+      return path.join(__dirname, '..', 'frontend');
+    })();
+    const b64 = fs.readFileSync(path.join(dir, 'lptv.png')).toString('base64');
+    const icon = fs.readFileSync(path.join(dir, 'icon.png')).toString('base64');
+    const js = fs.readFileSync(path.join(dir, 'splash.js'), 'utf8');
+    if (!js) return;
+    window.__LPTV_SPLASH_CFG = {
+      banner: 'data:image/png;base64,' + b64,
+      icon: 'data:image/png;base64,' + icon,
+      title: 'LPTV',
+    };
+    (0, eval)(js);   // 在隔离世界全局作用域执行 splash.js（其自身为 IIFE）
+  } catch (e) {}
+}
+showSplash();

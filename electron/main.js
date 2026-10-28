@@ -165,30 +165,13 @@ function channelsList() {
 }
 
 // ---- 注入：启动动画 + inject.js ------------------------------------------
-function iconDataUri() {
-  const p = assetFile('icon.png');
-  try {
-    const img = nativeImage.createFromPath(p);
-    return img.isEmpty() ? '' : img.toDataURL();
-  } catch (e) { return ''; }
-}
-
-// lptv.png 字标 → data URI，注入 splash 作为注水动画主体（字母掩膜 + 上升水色）。
-function bannerDataUri() {
-  const p = assetFile('lptv.png');
-  try {
-    if (!fs.existsSync(p)) return '';
-    const mime = 'image/png';
-    const b64 = fs.readFileSync(p).toString('base64');
-    return 'data:' + mime + ';base64,' + b64;
-  } catch (e) { return ''; }
-}
-
+// splash 由 preload 在 document-start 同步建遮罩（隔离世界共享 DOM，早于官方页
+// 首帧，杜绝官方页闪现），此处不再用 executeJavaScript 注入。inject.js 仍在此
+// did-finish-load 注入。
 function injectUi() {
   if (!win || win.isDestroyed()) return;
-  // 只注入 UI 脚本；splash 由 injectSplashOnce 独占（did-start-navigation,
-  // 带 banner 配置, 且 splashShown 只放行首次）。这里不再混入 splash,
-  // 避免 __LPTV_SPLASH_CFG 被覆盖成无 banner 且 __lptvSplash 被重置后再闪现。
+  // 只注入 UI 脚本；splash 由 preload 在 document-start 同步处理，这里不再混入
+  // splash，避免 __LPTV_SPLASH_CFG 被覆盖成无 banner 且 __lptvSplash 被重置后再闪现。
   const inject = readText(assetFile('inject.js'));
   if (!inject) return;
   win.webContents.executeJavaScript(inject).catch((e) => {
@@ -241,25 +224,7 @@ function createWindow() {
 
   win.webContents.setUserAgent(CHROME_UA);
 
-  // 注入时机：splash 在 did-start-navigation（文档起点，覆盖黑屏空窗），
-  // inject 在 load 完成后。splash.js 自带 __lptvSplash 守卫，重复注入无副作用。
-  // 注意：LPTV 启动动画只在【首次打开】展示一次。切台走官方 SPA 的 pushState 不
-  // 触发导航；但部分频道会回退到 location.href（整页导航），若每次导航都注入
-  // splash，切台时就会反复播启动动画。用 splashShown 只放行第一次导航。
-  const splashSrc = (() => {
-    const splash = readText(assetFile('splash.js'));
-    if (!splash) return '';
-  const cfg = JSON.stringify({ icon: iconDataUri(), banner: bannerDataUri(), title: 'LPTV' });
-    return '(function(){window.__LPTV_SPLASH_CFG=' + cfg + ';})();\n' + splash;
-  })();
-  let splashShown = false;
-  const injectSplashOnce = () => {
-    if (splashShown || !splashSrc || !win || win.isDestroyed()) return;
-    splashShown = true;
-    win.webContents.executeJavaScript(splashSrc).catch(() => {});
-  };
-  win.webContents.on('did-start-navigation', injectSplashOnce);
-  win.webContents.on('dom-ready', injectSplashOnce);
+  // inject 在 load 完成后注入；splash 由 preload 在 document-start 同步处理。
   win.webContents.on('did-finish-load', injectUi);
 
   win.on('closed', () => { win = null; });
@@ -284,6 +249,17 @@ function registerIpc() {
   const h = (name, fn) => ipcMain.handle('lptv:' + name, async (_e, ...args) => {
     try { return await fn(...args); }
     catch (e) { return { ok: false, error: String(e && e.message || e) }; }
+  });
+
+  // ---- 启动动画守卫：preload 每次导航都会跑，只放行第一次真实页面 ----------
+  // preload 传 location.href，仅当是 http(s) 且首次才授予 splash（about:blank
+  // 等初始文档不消费名额）。返回 {first} 告知 preload 是否展示启动动画。
+  let splashShown = false;
+  ipcMain.on('lptv:claim-splash', (e, href) => {
+    const isReal = typeof href === 'string' && /^https?:/i.test(href);
+    const first = !splashShown && isReal;
+    if (first) splashShown = true;
+    e.returnValue = { first };
   });
 
   // ---- 窗口 ----------------------------------------------------------------
@@ -398,7 +374,7 @@ function registerIpc() {
     }
     if (!fs.existsSync(p)) return { ok: false, error: 'asset missing', src: '' };
     const ext = path.extname(name).toLowerCase();
-    const mime = ext === '.png' ? 'image/png' : ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : 'application/octet-stream';
+    const mime = ext === '.png' ? 'image/png' : ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : ext === '.webp' ? 'image/webp' : 'application/octet-stream';
     try {
       const b64 = fs.readFileSync(p).toString('base64');
       return { ok: true, src: 'data:' + mime + ';base64,' + b64 };
