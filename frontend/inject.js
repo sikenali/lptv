@@ -104,7 +104,7 @@
       "#lptv-bootmask{position:fixed;inset:0;background:#000;z-index:2147483003;}\n" +
       "#lptv-bootmask .lptv-bmask-spin{position:absolute;left:50%;top:50%;width:46px;height:46px;" +
       "margin:-29px 0 0 -29px;border-radius:50%;border:3px solid rgba(255,255,255,.15);" +
-      "border-top-color:#4f7cff;animation:lxbmaskspin .8s linear infinite}\n" +
+      "border-top-color:#4f7cff;animation:lptvbmaskspin .8s linear infinite}\n" +
       "@keyframes lptvbmaskspin{to{transform:rotate(360deg)}}";
     (document.head || document.documentElement).appendChild(st);
     var m = el("div", { id: "lptv-bootmask" });
@@ -577,8 +577,8 @@
 
   #lptv-spin{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:none;z-index:3;
     width:46px;height:46px;border-radius:50%;border:3px solid rgba(255,255,255,.15);
-    border-top-color:var(--acc);animation:lxspin .8s linear infinite;pointer-events:none}
-  @keyframes lxspin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+    border-top-color:var(--acc);animation:lptvspin .8s linear infinite;pointer-events:none}
+  @keyframes lptvspin{to{transform:translate(-50%,-50%) rotate(360deg)}}
 
   #lptv-osd{position:absolute;left:16px;bottom:64px;pointer-events:none;opacity:0;z-index:10;
     transition:opacity .35s;max-width:70vw;text-shadow:0 2px 12px rgba(0,0,0,.9)}
@@ -611,8 +611,8 @@
   .lptv-ctl-now{flex:1;justify-content:center;min-width:0;overflow:hidden;padding:0 4px}
   .lptv-ctl-side{gap:2px}
   .lptv-now-dot{width:7px;height:7px;border-radius:50%;background:var(--red);
-    box-shadow:0 0 7px var(--red);flex-shrink:0;animation:lxnow 2s ease-in-out infinite}
-  @keyframes lxnow{0%,100%{opacity:1}50%{opacity:.35}}
+    box-shadow:0 0 7px var(--red);flex-shrink:0;animation:lptvnow 2s ease-in-out infinite}
+  @keyframes lptvnow{0%,100%{opacity:1}50%{opacity:.35}}
   .lptv-now-sep{color:var(--tx3);margin:0 2px}
   .lptv-now-prog{font-size:11.5px;color:var(--tx2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .lptv-vol-txt{font-size:11.5px;color:var(--tx2);width:26px;text-align:center}
@@ -648,7 +648,7 @@
   .lptv-btn[data-tip]:hover::after{opacity:1;transform:translateX(-50%)}
   .lptv-btn[data-tip]:hover::before{opacity:1}
   .lptv-btn.rec-on,#lptv-b-rec.rec-on{background:rgba(255,77,77,.85);color:#fff}
-  #lptv-b-rec.rec-on svg{color:#fff;animation:lxrec 1.2s ease-in-out infinite}
+  #lptv-b-rec.rec-on svg{color:#fff;animation:lptvrec 1.2s ease-in-out infinite}
   #lptv-b-full.on,#lptv-b-float.on{background:rgba(61,155,255,.22);color:#9ccbff}
   #lptv-b-mute .lptv-mute-x{display:none}
   #lptv-b-mute.muted .lptv-waves{display:none}
@@ -702,14 +702,14 @@
     border:1px solid rgba(255,77,77,.45);box-shadow:0 4px 18px rgba(0,0,0,.45)}
   #lptv-rec-badge.show{display:flex}
   #lptv-rec-badge .lptv-rec-dot{width:7px;height:7px;border-radius:50%;background:var(--red);
-    box-shadow:0 0 8px var(--red);animation:lxrec 1.2s ease-in-out infinite}
+    box-shadow:0 0 8px var(--red);animation:lptvrec 1.2s ease-in-out infinite}
   @keyframes lptvrec{0%,100%{opacity:1}50%{opacity:.25}}
   #lptv-rec-badge #lptv-rec-time{font-size:11.5px;font-weight:600;color:#ffd7d7;
     font-family:Consolas,monospace;letter-spacing:1px}
   /* 截图白闪 */
   #lptv-shot-flash{position:fixed;inset:0;background:#fff;opacity:0;z-index:2147483005;
     pointer-events:none}
-  #lptv-shot-flash.go{animation:lxflash .35s ease-out}
+  #lptv-shot-flash.go{animation:lptvflash .35s ease-out}
   @keyframes lptvflash{0%{opacity:.85}100%{opacity:0}}
 
   /* 侧面板: 频道列表(左) / 节目单(右) —— 与 interface-preview.html .panel 一致
@@ -2333,7 +2333,7 @@
     ctrlTimer = setTimeout(function () {
       lptv.ui.controls.classList.remove("show");
       lptv.ui.root.classList.remove("ctrl-on");
-      lptv.ui.settings.classList.remove("open");  // 离开底部区域: 设置面板一并隐藏
+      // 设置弹窗不再随底部区域离开自动隐藏: 只允许点 ✕ 关闭 (用户需求)
     }, 900);
   }
   function cancelHideControls() {
@@ -2645,7 +2645,7 @@
         if (!inDrawer && tap) {
           if (lptv.ui.panel.classList.contains("open")) { hidePanel(); return; }
           if (lptv.ui.epg.classList.contains("open")) { hideEpg(); return; }
-          if (lptv.ui.settings.classList.contains("open")) { lptv.ui.settings.classList.remove("open"); return; }
+          // 设置弹窗只允许点 ✕ 关闭, 点外部不再关闭
           // 点画面: 切换控制栏显隐
           if (lptv.ui.controls.classList.contains("show")) { lptv.ui.root.classList.remove("ctrl-on"); lptv.ui.controls.classList.remove("show"); }
           else showControls();
@@ -2747,7 +2747,7 @@
     lptv.ui.controls.addEventListener("mouseenter", cancelHideControls);
     lptv.ui.controls.addEventListener("mouseleave", scheduleHideControls);
     lptv.ui.settings.addEventListener("mouseenter", cancelHideControls);
-    lptv.ui.settings.addEventListener("mouseleave", scheduleHideControls);
+    // 设置弹窗移开不自动关闭 (只允许点 ✕), 故不绑定 mouseleave -> scheduleHideControls
 
     // 频道面板: 行点击切台 / 星标收藏 / 分类 tab 切换
     document.getElementById("lptv-panel-body").addEventListener("click", function (e) {
@@ -2998,7 +2998,7 @@
         if (isTyping()) return;
         fullToggle();
       }
-      else if (k === "Escape") { hidePanel(); hideEpg(); lptv.ui.settings.classList.remove("open"); }
+      else if (k === "Escape") { hidePanel(); hideEpg(); }  // 设置弹窗只允许点 ✕ 关闭
       wake();
     }, true);
 
