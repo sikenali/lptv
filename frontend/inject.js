@@ -363,8 +363,10 @@
   }
 
   function syncFit() {
-    var sel = document.getElementById("lx-s-fit");
-    if (sel) sel.value = cfg.fit;
+    var group = document.getElementById("lx-s-fit");
+    if (!group) return;
+    var radio = group.querySelector('input[value="' + cfg.fit + '"]');
+    if (radio) radio.checked = true;
   }
 
   /* 低频保活: 官方元素被替换/样式复位时重铺; 窗口 resize 后官方可能改回样式;
@@ -735,8 +737,8 @@
   /* 收藏星标 */
   .lx-ch .lx-ch-fav{flex-shrink:0;width:22px;height:22px;display:flex;align-items:center;justify-content:center;
     color:#5b6884;cursor:pointer;border-radius:6px;transition:all .12s}
-  .lx-ch .lx-ch-fav:hover{color:#ffd166;background:rgba(255,209,102,.14)}
-  .lx-ch .lx-ch-fav.on{color:var(--acc2)}
+  .lx-ch .lx-ch-fav:hover{color:#ff8fb3;background:rgba(255,107,157,.14)}
+  .lx-ch .lx-ch-fav.on{color:#ff6b9d}
   .lx-ch .lx-ch-fav svg{width:14px;height:14px}
   /* 面板分类 tab */
   #lx-panel-tabs{display:flex;gap:4px;padding:9px 14px;flex-wrap:wrap}
@@ -744,8 +746,8 @@
     background:rgba(255,255,255,.06);border:1px solid transparent;transition:all .12s}
   .lx-ptab:hover{color:#fff}
   .lx-ptab.on{color:#b9dcff;background:rgba(61,155,255,.2);border-color:rgba(61,155,255,.45)}
-  .lx-ptab b{display:inline-block;min-width:14px;height:14px;line-height:14px;margin-left:4px;
-    border-radius:7px;background:var(--acc2);color:#08202a;font-size:9px;font-weight:700;padding:0 3px}
+  .lx-ptab b{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;margin-left:5px;
+    border-radius:50%;background:var(--acc2);color:#08202a;font-size:9.5px;font-weight:700;padding:0}
   .lx-panel-empty{padding:30px 20px;text-align:center;color:var(--tx3);font-size:13px;line-height:1.7}
 
   /* 节目单 (右侧): 行样式与 .epg-row 一致 */
@@ -809,19 +811,38 @@
     color:var(--tx3);font-size:15px;cursor:pointer;transition:all .12s}
   .lx-res-x:hover{background:rgba(255,77,77,.25);color:#ff8f9a}
 
-  #lx-settings{position:absolute;right:26px;bottom:86px;width:320px;z-index:6;
-    background:var(--glass-2);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border-radius:14px;
-    border:1px solid var(--line);padding:16px;display:none;
-    box-shadow:0 10px 40px rgba(0,0,0,.6)}
-  #lx-settings.open{display:block}
-  .lx-set-title{font-size:13.5px;font-weight:650;letter-spacing:6px;color:var(--tx);margin-bottom:8px;padding:5px 0}
+  /* 设置 / 关于: 统一居中弹窗 (左右布局, 左侧设置/关于两个标签) */
+  #lx-settings{position:fixed;inset:0;z-index:2147483005;display:none;align-items:center;justify-content:center;
+    background:rgba(6,8,13,.62);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+  #lx-settings.open{display:flex}
+  .lx-modal-card{display:flex;width:560px;max-width:92vw;max-height:86vh;overflow:hidden;
+    background:linear-gradient(160deg,rgba(34,40,58,.97),rgba(18,22,34,.97));
+    backdrop-filter:blur(24px) saturate(1.5);-webkit-backdrop-filter:blur(24px) saturate(1.5);
+    border-radius:16px;border:1px solid var(--line);
+    box-shadow:0 30px 90px rgba(0,0,0,.7);color:var(--tx);
+    animation:lx-about-in .22s ease}
+  @keyframes lx-about-in{from{opacity:0;transform:translateY(14px) scale(.97)}to{opacity:1;transform:none}}
+  .lx-modal-side{width:128px;flex-shrink:0;display:flex;flex-direction:column;gap:4px;padding:18px 10px;
+    background:rgba(255,255,255,.03);border-right:1px solid var(--line)}
+  .lx-side-item{display:flex;align-items:center;gap:9px;padding:10px 13px;border-radius:10px;
+    font-size:13px;color:var(--tx2);cursor:pointer;transition:all .12s;user-select:none;white-space:nowrap}
+  .lx-side-item svg{width:16px;height:16px;flex-shrink:0}
+  .lx-side-item:hover{background:rgba(255,255,255,.07);color:#fff}
+  .lx-side-item.on{color:#b9dcff;background:rgba(61,155,255,.2)}
+  .lx-modal-main{flex:1;min-width:0;overflow-y:auto;padding:20px 22px 14px;position:relative}
+  .lx-modal-x{position:absolute;top:10px;right:12px;width:26px;height:26px;line-height:24px;text-align:center;
+    border-radius:6px;color:var(--tx3);font-size:14px;cursor:pointer;transition:all .12s;user-select:none}
+  .lx-modal-x:hover{background:rgba(255,255,255,.1);color:#fff}
+  .lx-pane{display:none}
+  .lx-pane.on{display:block}
+  /* 设置卡片: 3 个 section, 每块一张卡 */
+  .lx-set-card{border:1px solid var(--line);border-radius:12px;padding:4px 14px 8px;margin-bottom:12px;
+    background:rgba(255,255,255,.03)}
+  .lx-set-card-t{font-size:10.5px;color:var(--tx3);letter-spacing:2.5px;padding:9px 0 2px}
   .lx-set-row{display:flex;align-items:center;justify-content:space-between;gap:10px;
-    padding:9px 0;font-size:12.5px;color:var(--tx)}
+    padding:8px 0;font-size:12.5px;color:var(--tx)}
   .lx-set-row label{display:flex;align-items:center;gap:9px;cursor:pointer}
   .lx-set-row input[type=checkbox]{accent-color:var(--acc);width:15px;height:15px;cursor:pointer}
-  .lx-set-row select{background:rgba(255,255,255,.08);color:var(--tx);border:1px solid var(--line);
-    border-radius:6px;padding:4px 7px;font-size:12px;cursor:pointer}
-  .lx-set-sep{height:1px;background:var(--line);margin:3px 0}
   .lx-set-url{font-size:10.5px;color:var(--tx3);word-break:break-all;max-height:44px;overflow:hidden;line-height:1.45}
   .lx-link{color:var(--acc);cursor:pointer;font-size:11.5px}
   .lx-link:hover{text-decoration:underline}
@@ -832,40 +853,33 @@
   .lx-set-dir-l .lx-set-url{margin-top:0}
   .lx-set-dir-btns{display:flex;gap:10px;flex-shrink:0;justify-content:flex-end;margin-top:5px}
   .lx-set-dir-btns .lx-link{white-space:nowrap}
-  .lx-kmap{font-size:11px;color:var(--tx3);line-height:1.75}
-
-  /* 关于应用: 全屏毛玻璃弹窗 (与 .about-card 一致) */
-  #lx-about{position:fixed;inset:0;z-index:2147483005;display:none;align-items:center;justify-content:center;
-    background:rgba(6,8,13,.62);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
-  #lx-about.open{display:flex}
-  .lx-about-card{position:relative;width:430px;max-width:92vw;max-height:92vh;overflow-y:auto;
-    background:linear-gradient(160deg,rgba(34,40,58,.96),rgba(18,22,34,.96));
-    backdrop-filter:blur(24px) saturate(1.5);
-    -webkit-backdrop-filter:blur(24px) saturate(1.5);border-radius:16px;
-    border:1px solid var(--line);padding:26px 26px 20px;
-    box-shadow:0 30px 90px rgba(0,0,0,.7);color:var(--tx);
-    animation:lx-about-in .22s ease}
-  @keyframes lx-about-in{from{opacity:0;transform:translateY(14px) scale(.97)}to{opacity:1;transform:none}}
-  .lx-about-x{position:absolute;top:12px;right:14px;width:26px;height:26px;line-height:24px;text-align:center;
-    border-radius:6px;color:var(--tx3);font-size:14px;cursor:pointer;transition:all .12s;user-select:none}
-  .lx-about-x:hover{background:rgba(255,255,255,.1);color:#fff}
-  .lx-about-app{display:flex;align-items:center;gap:14px;margin-bottom:14px}
-  .lx-about-logo{width:52px;height:52px;border-radius:12px;flex-shrink:0;object-fit:cover;
-    background:linear-gradient(140deg,#3d9bff,#4fd1c5)}
-  .lx-about-appname{font-size:18px;font-weight:700;color:var(--tx);letter-spacing:.5px}
-  .lx-about-ver{font-size:11.5px;color:var(--tx3);margin-top:1px;font-family:Consolas,monospace}
-  .lx-about-desc{font-size:12.5px;color:var(--tx2);line-height:1.85;margin:0 0 14px;
-    padding-bottom:14px;border-bottom:1px solid var(--line)}
-  .lx-about-brand{padding:14px 0;border-bottom:1px solid var(--line)}
-  .lx-about-brandname{font-size:14px;font-weight:650;color:var(--acc2)}
-  .lx-about-slogan{font-size:12px;color:var(--tx);margin-top:3px}
-  .lx-about-quote{font-size:11.5px;color:var(--tx3);line-height:1.75;margin-top:6px}
-  .lx-about-qr{display:flex;gap:14px;align-items:center;padding-top:14px}
-  .lx-about-qr img{width:96px;height:96px;border-radius:10px;display:block;flex-shrink:0;
-    background:#fff;padding:6px;object-fit:contain}
-  .lx-about-qr-t{font-size:12px;font-weight:600;color:var(--tx)}
-  .lx-about-qr-s{font-size:11px;color:var(--tx3);margin-top:3px;line-height:1.6}
-  .lx-about-foot{text-align:center;font-size:11px;color:var(--tx3);padding-top:14px}
+  /* 画面模式: radio 横向选中 (去下拉框) */
+  .lx-fit{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+  .lx-fit label{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--tx2);
+    padding:5px 11px;border-radius:8px;border:1px solid var(--line);
+    background:rgba(255,255,255,.05);transition:all .12s}
+  .lx-fit label:hover{color:#fff}
+  .lx-fit input{accent-color:var(--acc);cursor:pointer}
+  .lx-fit label:has(input:checked){border-color:rgba(61,155,255,.5);background:rgba(61,155,255,.14);color:#b9dcff}
+  /* 快捷键: 一行一个, 名称 + 按键图标 */
+  .lx-kmap{display:flex;flex-direction:column;padding:4px 0}
+  .lx-krow{display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:5px 0;font-size:12px;color:var(--tx2)}
+  .lx-krow .lx-kkeys{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+  #lx-settings kbd{font-family:inherit;font-size:10.5px;color:var(--tx);background:rgba(255,255,255,.09);
+    border:1px solid rgba(255,255,255,.16);border-bottom-width:2px;border-radius:5px;
+    padding:2px 6px;min-width:16px;text-align:center;line-height:1.4}
+  /* 关于: 居中 logo 换行 LPTV 换行版本号 + 一段文字 + 底部 Powered by */
+  .lx-about-pane{text-align:center;padding:10px 6px 6px}
+  .lx-about-logo{width:76px;height:76px;border-radius:18px;object-fit:cover;margin:0 auto 16px;
+    background:linear-gradient(140deg,#3d9bff,#4fd1c5);display:block;box-shadow:0 8px 26px rgba(61,155,255,.35)}
+  .lx-about-appname{font-size:42px;font-weight:800;line-height:1;letter-spacing:.04em;
+    background:linear-gradient(120deg,#7fe0ff,#4fd1c5,#ff5fa8);
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .lx-about-ver{font-size:12px;color:var(--tx3);margin-top:10px;font-family:Consolas,monospace}
+  .lx-about-desc{font-size:12.5px;color:var(--tx2);line-height:1.95;margin:20px auto 0;max-width:340px}
+  .lx-about-foot{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);
+    font-size:11px;color:var(--tx3);letter-spacing:.5px}
 
   #lx-toast{position:absolute;left:50%;top:48px;transform:translateX(-50%) translateY(-16px);z-index:9;
     background:rgba(16,19,28,.92);color:var(--tx);padding:8px 16px;border-radius:20px;
@@ -1003,8 +1017,8 @@
         '<button class="lx-btn lx-btn-ico" id="lx-b-full" title="全屏 / 退出全屏"><svg viewBox="0 0 24 24"><path d="M4 9V5a1 1 0 011-1h4M20 9V5a1 1 0 00-1-1h-4M4 15v4a1 1 0 001 1h4M20 15v4a1 1 0 01-1 1h-4" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>' +
       '</div>' +
       '<div class="lx-ctl-seg lx-ctl-side">' +
-        '<button class="lx-btn lx-btn-txt" id="lx-b-epg" title="节目单 (E)">节目单</button>' +
-        '<button class="lx-btn lx-btn-txt" id="lx-b-panel" title="频道列表 (S)">频道</button>' +
+        '<button class="lx-btn lx-btn-ico" id="lx-b-epg" title="节目单 (E)"><svg viewBox="0 0 24 24"><path d="M8.5 6h11M8.5 12h11M8.5 18h11" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="4.6" cy="6" r="1.1" fill="currentColor" stroke="none"/><circle cx="4.6" cy="12" r="1.1" fill="currentColor" stroke="none"/><circle cx="4.6" cy="18" r="1.1" fill="currentColor" stroke="none"/></svg></button>' +
+        '<button class="lx-btn lx-btn-ico" id="lx-b-panel" title="频道列表 (S)"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7.2" height="7.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="13.3" y="3.5" width="7.2" height="7.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="3.5" y="13.3" width="7.2" height="7.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="13.3" y="13.3" width="7.2" height="7.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>' +
         '<button class="lx-btn lx-btn-ico" id="lx-b-set" title="设置"><svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zm9 4a7 7 0 01-.1 1.2l2 1.6-2 3.4-2.4-1a7 7 0 01-2 1.2L16 21h-4l-.4-2.6a7 7 0 01-2-1.2l-2.5 1-2-3.4 2-1.6A7 7 0 017 12a7 7 0 01.1-1.2l-2-1.6 2-3.4 2.4 1a7 7 0 012-1.2L10 3h4l.4 2.6a7 7 0 012 1.2l2.5-1 2 3.4-2 1.6c.1.4.1.8.1 1.2z" fill="none" stroke-width="1.6"/></svg></button>' +
       '</div>' });
     controls.querySelector("#lx-c-vol").value = Math.round(cfg.volume * 100);
@@ -1037,51 +1051,71 @@
     if (dLabel) dLabel.textContent = epgDateLabel(new Date());
 
     var settings = el("div", { id: "lx-settings", html:
-      '<div class="lx-set-title">设 置</div>' +
-      '<div class="lx-set-row"><label><input type="checkbox" id="lx-s-resume" ' + (cfg.resumeLast !== false ? "checked" : "") + '>启动时恢复上次频道</label></div>' +
-      '<div class="lx-set-row"><label><input type="checkbox" id="lx-s-autofs">启动时自动全屏</label></div>' +
-      '<div class="lx-set-row"><label><input type="checkbox" id="lx-s-autostart">开机自启动</label></div>' +
-      '<div class="lx-set-row"><label><input type="checkbox" id="lx-s-perf">流畅模式（降低毛玻璃特效）</label></div>' +
-      '<div class="lx-set-sep"></div>' +
-      '<div class="lx-set-row"><span>画面模式</span>' +
-      '<select id="lx-s-fit"><option value="contain">完整画面（黑边）</option><option value="cover">铺满（裁剪）</option><option value="fill">拉伸铺满（不裁切）</option></select></div>' +
-      '<div class="lx-set-sep"></div>' +
-      '<div class="lx-set-dir" data-kind="rec">' +
-        '<div class="lx-set-dir-l"><span>录制</span><div class="lx-set-url" id="lx-s-recdir-val" title="">--</div></div>' +
-        '<div class="lx-set-dir-btns"><span class="lx-link" id="lx-s-recdir-pick">更改</span><span class="lx-link" id="lx-s-recdir-open">打开</span></div>' +
-      '</div>' +
-      '<div class="lx-set-dir" data-kind="shot">' +
-        '<div class="lx-set-dir-l"><span>截图</span><div class="lx-set-url" id="lx-s-shotdir-val" title="">--</div></div>' +
-        '<div class="lx-set-dir-btns"><span class="lx-link" id="lx-s-shotdir-pick">更改</span><span class="lx-link" id="lx-s-shotdir-open">打开</span></div>' +
-      '</div>' +
-      '<div class="lx-set-sep"></div>' +
-      '<div class="lx-set-row"><span>快捷键</span><span style="font-size:11px;color:#6b7fae">↑↓ 切台 · ←→ 音量 · 空格 播放<br>数字选台 · S 频道 · E 节目单 · M 静音<br>R 录制 · X 截图 · 双击/F11 全屏</span></div>' +
-      '<div class="lx-set-sep"></div>' +
-      '<div class="lx-set-row" id="lx-s-about" style="cursor:pointer"><span>关于应用</span><span class="lx-link">关于 ›</span></div>' +
+      '<div class="lx-modal-card">' +
+        '<div class="lx-modal-side">' +
+          '<span class="lx-side-item on" data-pane="set"><svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zm9 4a7 7 0 01-.1 1.2l2 1.6-2 3.4-2.4-1a7 7 0 01-2 1.2L16 21h-4l-.4-2.6a7 7 0 01-2-1.2l-2.5 1-2-3.4 2-1.6A7 7 0 017 12a7 7 0 01.1-1.2l-2-1.6 2-3.4 2.4 1a7 7 0 012-1.2L10 3h4l.4 2.6a7 7 0 012 1.2l2.5-1 2 3.4-2 1.6c.1.4.1.8.1 1.2z" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>设置</span>' +
+          '<span class="lx-side-item" data-pane="about"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 11v5M12 7.5v.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>关于</span>' +
+        '</div>' +
+        '<div class="lx-modal-main">' +
+          '<span class="lx-modal-x" id="lx-set-x" title="关闭">✕</span>' +
+          '<div class="lx-pane on" id="lx-pane-set">' +
+            '<div class="lx-set-card"><div class="lx-set-card-t">通用</div>' +
+              '<div class="lx-set-row"><label><input type="checkbox" id="lx-s-resume" ' + (cfg.resumeLast !== false ? "checked" : "") + '>启动时恢复上次频道</label></div>' +
+              '<div class="lx-set-row"><label><input type="checkbox" id="lx-s-autofs">启动时自动全屏</label></div>' +
+              '<div class="lx-set-row"><label><input type="checkbox" id="lx-s-autostart">开机自启动</label></div>' +
+              '<div class="lx-set-row"><label><input type="checkbox" id="lx-s-perf">流畅模式（降低毛玻璃特效）</label></div>' +
+            '</div>' +
+            '<div class="lx-set-card"><div class="lx-set-card-t">画面</div>' +
+              '<div class="lx-set-row"><span>画面模式</span>' +
+                '<div class="lx-fit" id="lx-s-fit">' +
+                  '<label><input type="radio" name="fit" value="contain"><span>完整画面</span></label>' +
+                  '<label><input type="radio" name="fit" value="cover"><span>铺满</span></label>' +
+                  '<label><input type="radio" name="fit" value="fill"><span>拉伸</span></label>' +
+                '</div></div>' +
+              '<div class="lx-set-dir" data-kind="rec">' +
+                '<div class="lx-set-dir-l"><span>录制</span><div class="lx-set-url" id="lx-s-recdir-val" title="">--</div></div>' +
+                '<div class="lx-set-dir-btns"><span class="lx-link" id="lx-s-recdir-pick">更改</span><span class="lx-link" id="lx-s-recdir-open">打开</span></div>' +
+              '</div>' +
+              '<div class="lx-set-dir" data-kind="shot">' +
+                '<div class="lx-set-dir-l"><span>截图</span><div class="lx-set-url" id="lx-s-shotdir-val" title="">--</div></div>' +
+                '<div class="lx-set-dir-btns"><span class="lx-link" id="lx-s-shotdir-pick">更改</span><span class="lx-link" id="lx-s-shotdir-open">打开</span></div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="lx-set-card"><div class="lx-set-card-t">快捷键</div><div class="lx-kmap" id="lx-s-kmap"></div></div>' +
+          '</div>' +
+          '<div class="lx-pane lx-about-pane" id="lx-pane-about">' +
+            '<img class="lx-about-logo" id="lx-about-logo-img" alt="LPTV">' +
+            '<div class="lx-about-appname">LPTV</div>' +
+            '<div class="lx-about-ver" id="lx-about-ver">版本 --</div>' +
+            '<div class="lx-about-desc">xxxx展位<br>LPTV 是一款为懒猫盒子打造的央视频远程播放客户端，支持频道收藏、节目单预约、录制截图、置顶浮窗。</div>' +
+            '<div class="lx-about-foot">Powered by LightOS · Made for LCMD</div>' +
+          '</div>' +
+        '</div>' +
       '</div>' });
 
-    // 关于应用: 全屏毛玻璃弹窗
-    var about = el("div", { id: "lx-about", html:
-      '<div class="lx-about-card">' +
-        '<span class="lx-about-x" id="lx-about-x" title="关闭">✕</span>' +
-        '<div class="lx-about-app">' +
-          '<img class="lx-about-logo" id="lx-about-logo-img" alt="LX TV">' +
-          '<div><div class="lx-about-appname">LX TV</div>' +
-          '<div class="lx-about-ver" id="lx-about-ver">版本 --</div></div>' +
-        '</div>' +
-        '<div class="lx-about-desc">Y视频官方直播源 · Windows 桌面客户端<br>毛玻璃极简界面 · 频道收藏 · 节目单预约 · 录制截图 · 置顶浮窗</div>' +
-        '<div class="lx-about-brand">' +
-          '<div class="lx-about-brandname">泷芯码匠</div>' +
-          '<div class="lx-about-slogan">与其搬运，不如原创</div>' +
-          '<div class="lx-about-quote">把灵感淬成代码，用原创软件为生活和工作的难题提供优雅解法。</div>' +
-        '</div>' +
-        '<div class="lx-about-qr">' +
-          '<img id="lx-about-qr-img" alt="公众号二维码">' +
-          '<div class="lx-about-qr-t">关注公众号，获取更新与更多原创软件</div>' +
-          '<div class="lx-about-qr-s">有任何想法？后台留言，你的点子可能就是下一个作品</div>' +
-        '</div>' +
-        '<div class="lx-about-foot">LX TV · 泷芯码匠出品</div>' +
-      '</div>' });
+    // 快捷键清单: 一行一个「名称 + 按键图标」, 填充到 #lx-s-kmap
+    (function () {
+      var km = settings.querySelector("#lx-s-kmap");
+      if (!km) return;
+      var SC = [
+        ["切换频道", ["↑", "↓"]],
+        ["音量调节", ["←", "→"]],
+        ["播放 / 暂停", ["空格"]],
+        ["数字选台", ["0-9"]],
+        ["频道列表", ["S"]],
+        ["节目单", ["E"]],
+        ["静音", ["M"]],
+        ["录制节目", ["R"]],
+        ["截图", ["X"]],
+        ["全屏 / 浮窗", ["F11", "双击"]]
+      ];
+      km.innerHTML = SC.map(function (r) {
+        return '<div class="lx-krow"><span>' + r[0] + '</span>' +
+          '<span class="lx-kkeys">' + r[1].map(function (k) {
+            return '<kbd>' + k + '</kbd>';
+          }).join("") + '</span></div>';
+      }).join("");
+    })();
 
     var toastEl = el("div", { id: "lx-toast" });
     var hint = el("div", { id: "lx-hint" });
@@ -1128,7 +1162,6 @@
     root.appendChild(panel);
     root.appendChild(epg);
     root.appendChild(settings);
-    root.appendChild(about);
     root.appendChild(toastEl);
     root.appendChild(hint);
     root.appendChild(shotFlash);
@@ -1151,7 +1184,7 @@
     });
 
     Lx.ui = { root: root, osd: osd, digit: digit, vol: vol,
-              controls: controls, nextch: nextch, panel: panel, epg: epg, settings: settings, about: about,
+              controls: controls, nextch: nextch, panel: panel, epg: epg, settings: settings,
               toast: toastEl, hint: hint, topbar: topbar, floatCtl: floatCtl, volRange: range, volRange2: controls.querySelector("#lx-c-vol"),
               chlabel: controls.querySelector("#lx-chlabel"),
               spin: spinRoot };
@@ -1184,7 +1217,7 @@
       });
       html += '<div class="lx-cat">我的收藏 · ' + favList.length + '</div>';
       if (!favList.length) {
-        html += '<div class="lx-panel-empty">暂无收藏频道<br><span style="font-size:11px">点击频道行的 ☆ 即可收藏</span></div>';
+        html += '<div class="lx-panel-empty">暂无收藏频道<br><span style="font-size:11px">点击频道行的 ♥ 即可收藏</span></div>';
       }
       favList.forEach(function (c) { html += chRowHtml(c); });
     } else {
@@ -1214,7 +1247,8 @@
   }
 
   function favStarSvg(on) {
-    return '<svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9-5.2-2.8-5.2 2.8 1-5.9-4.3-4.1 5.9-.8z" ' +
+    /* 收藏图标: 爱心 (原五角星) */
+    return '<svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" ' +
       (on ? 'fill="currentColor" stroke="none"/>' : 'fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>');
   }
 
@@ -1519,8 +1553,8 @@
        每个 blob: f1(eventId str) f2(节目名 utf8) f3(开始epoch秒) f4(结束epoch秒)
                   f5("HH:MM"开始) f6("HH:MM"结束) f7(时长秒) f9/f10(len1 "1") */
 
-  var EPG_DAY_PAST = 3;     // 过去最多 3 天
-  var EPG_DAY_FUTURE = 1;   // 未来最多 1 天 (共 5 天: 前3 + 今天 + 后1, 后面少一天)
+  var EPG_DAY_PAST = 2;     // 过去最多 2 天
+  var EPG_DAY_FUTURE = 2;   // 未来最多 2 天 (共 5 天: 前2 + 今天 + 后2)
 
   function utf8Bytes(bytes, a, n) {
     try {
@@ -1702,7 +1736,7 @@
     if (Lx.currentPid === pid && Lx.epg._day === (Lx.epg._dayMap || {})[ymd]) epgRender();
   }
 
-  /* EPG 日期偏移: 0=今天, 范围 -3(过去) ~ +1(未来); 面板头部按钮切换 */
+  /* EPG 日期偏移: 0=今天, 范围 -2(过去) ~ +2(未来); 面板头部按钮切换 */
   function epgDayOffset() { return Lx.epg._day || 0; }
 
   function epgYmdOf(off) {
@@ -1767,7 +1801,7 @@
     var pid = Lx.currentPid;
     var avail = Lx.epg.avail || {};
     var html = "";
-    // 官方可用窗口 (前3天~后1天): 已知无数据的日期不展示, 杜绝空白日; 当前选中日始终保留
+    // 官方可用窗口 (前2天~后2天): 已知无数据的日期不展示, 杜绝空白日; 当前选中日始终保留
     for (var off = -EPG_DAY_PAST; off <= EPG_DAY_FUTURE; off++) {
       var d = new Date();
       d.setDate(d.getDate() + off);
@@ -1927,7 +1961,18 @@
   }
 
   function toggleSettings() {
+    var willOpen = !Lx.ui.settings.classList.contains("open");
     Lx.ui.settings.classList.toggle("open");
+    if (willOpen) {
+      // 每次打开默认回到「设置」面板 (左侧标签复位)
+      Lx.ui.settings.querySelectorAll(".lx-side-item").forEach(function (it) {
+        it.classList.toggle("on", it.dataset.pane === "set");
+      });
+      var sp = Lx.ui.settings.querySelector("#lx-pane-set");
+      var ap = Lx.ui.settings.querySelector("#lx-pane-about");
+      if (sp) sp.classList.add("on");
+      if (ap) ap.classList.remove("on");
+    }
     var a9 = window.lptv ? window.lptv : null;
     if (a9) {
       // 填充 自动全屏 (来自持久状态)
@@ -2530,7 +2575,7 @@
         var t = e.changedTouches[0];
         var dx = t.clientX - _tsX, dy = t.clientY - _tsY, dt = Date.now() - _tsT;
         var tap = Math.abs(dx) < 12 && Math.abs(dy) < 12 && dt < 400;
-        var inDrawer = _tsTarget && _tsTarget.closest && _tsTarget.closest("#lx-panel,#lx-epg,#lx-settings,#lx-controls,#lx-topbar,#lx-about");
+        var inDrawer = _tsTarget && _tsTarget.closest && _tsTarget.closest("#lx-panel,#lx-epg,#lx-settings,#lx-controls,#lx-topbar");
         // 右缘 -> 频道抽屉
         if (!inDrawer && (_tsX >= innerWidth - 60) && (dx < -30 || tap)) {
           e.preventDefault();
@@ -2800,7 +2845,7 @@
           });
         }
       }
-      if (t.id === "lx-s-fit") { cfg.fit = t.value; styleOfficial(); pyStatePush({ fit: t.value }); }
+      if (t.name === "fit") { cfg.fit = t.value; styleOfficial(); pyStatePush({ fit: t.value }); }
       if (t.id === "lx-s-perf") { setPerfMode(t.checked); pyStatePush({ perfMode: t.checked }); }
       saveCfg();
     });
@@ -2817,7 +2862,24 @@
       });
     }
     Lx.ui.settings.addEventListener("click", function (e) {
-      if (e.target.closest("#lx-s-about")) { openAbout(); return; }
+      /* 左侧标签切换 设置/关于; 关闭按钮/遮罩关闭弹窗 */
+      var tab = e.target.closest(".lx-side-item[data-pane]");
+      if (tab) {
+        var want = tab.dataset.pane;
+        Lx.ui.settings.querySelectorAll(".lx-side-item").forEach(function (it) {
+          it.classList.toggle("on", it === tab);
+        });
+        var setPane = Lx.ui.settings.querySelector("#lx-pane-set");
+        var aboutPane = Lx.ui.settings.querySelector("#lx-pane-about");
+        if (setPane) setPane.classList.toggle("on", want === "set");
+        if (aboutPane) aboutPane.classList.toggle("on", want === "about");
+        if (want === "about") loadAbout();
+        return;
+      }
+      if (e.target.id === "lx-set-x" || e.target === Lx.ui.settings) {
+        Lx.ui.settings.classList.remove("open");
+        return;
+      }
       var id = e.target.id, kind = "";
       if (id === "lx-s-recdir-pick" || id === "lx-s-shotdir-pick") kind = id.indexOf("recdir") > 0 ? "rec" : "shot";
       else if (id === "lx-s-recdir-open" || id === "lx-s-shotdir-open") {
@@ -2834,10 +2896,8 @@
     });
     setInterval(dirRefresh, 5000);
 
-    /* 关于应用弹窗: 打开时收起设置面板, 版本号与二维码经桥异步获取 */
-    function openAbout() {
-      Lx.ui.settings.classList.remove("open");
-      Lx.ui.about.classList.add("open");
+    /* 关于面板: 切换到时经桥异步填 logo 与版本号 */
+    function loadAbout() {
       var a = window.lptv ? window.lptv : null;
       if (a && a.get_version) a.get_version().then(function (v) {
         var t = document.getElementById("lx-about-ver");
@@ -2848,15 +2908,8 @@
           var img = document.getElementById("lx-about-logo-img");
           if (img && r && r.ok) img.src = r.src;
         }).catch(function () {});
-        a.get_asset_image("wechat_qr.jpg").then(function (r) {
-          var img = document.getElementById("lx-about-qr-img");
-          if (img && r && r.ok) img.src = r.src;
-        }).catch(function () {});
       }
     }
-    Lx.ui.about.addEventListener("click", function (e) {
-      if (e.target.id === "lx-about" || e.target.id === "lx-about-x") Lx.ui.about.classList.remove("open");
-    });
 
     document.addEventListener("keydown", function (e) {
       if (e.ctrlKey && (e.key === "d" || e.key === "D")) { e.preventDefault(); devToggle(); return; }
@@ -2884,7 +2937,7 @@
         if (isTyping()) return;
         fullToggle();
       }
-      else if (k === "Escape") { hidePanel(); hideEpg(); Lx.ui.settings.classList.remove("open"); Lx.ui.about.classList.remove("open"); }
+      else if (k === "Escape") { hidePanel(); hideEpg(); Lx.ui.settings.classList.remove("open"); }
       wake();
     }, true);
 

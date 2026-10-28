@@ -82,7 +82,7 @@
       '  background:radial-gradient(48% 36% at 50% 40%, rgba(28,86,196,.20), rgba(0,0,0,0) 72%)}',
       '.lx-letters{position:relative;display:flex;align-items:flex-end;',
       '  font-family:"LXAnton","Noto Sans",system-ui,sans-serif;',
-      '  font-size:clamp(110px,19vh,230px);line-height:.92;font-weight:400;',
+      '  font-size:clamp(130px,23vh,300px);line-height:.92;font-weight:400;',
       '  letter-spacing:-.045em;gap:0}',
       '.lx-wl{position:relative;display:inline-block;overflow:hidden;',
       '  color:rgba(170,210,255,.07);-webkit-text-stroke:2.5px rgba(255,255,255,.30);',
@@ -97,19 +97,6 @@
       '  background:radial-gradient(50% 100% at 50% 100%,',
       '    rgba(255,255,255,.6), rgba(255,255,255,0) 72%);filter:blur(2px)}',
       '@keyframes lxRise{from{height:0}to{height:101%}}',
-      '.lx-tag{position:relative;margin-top:46px;display:flex;flex-direction:column;',
-      '  align-items:center;gap:16px}',
-      '.lx-bar{width:min(300px,52vw);height:3px;border-radius:2px;',
-      '  background:rgba(255,255,255,.09);overflow:hidden}',
-      '.lx-bar i{display:block;height:100%;width:0;border-radius:2px;',
-      '  background:linear-gradient(90deg,#3fa2ff,#5ce6ff);',
-      '  animation:lxBar 3.6s cubic-bezier(.3,.1,.2,1) forwards}',
-      '@keyframes lxBar{to{width:100%}}',
-      '.lx-cap{font:500 13px/1.6 system-ui,"Segoe UI",Roboto,Arial,sans-serif;',
-      '  letter-spacing:.34em;color:rgba(210,230,255,.46);text-indent:.34em}',
-      '.lx-sub{position:absolute;left:0;right:0;bottom:26px;text-align:center;',
-      '  font:500 11px/1.6 system-ui,Arial,sans-serif;letter-spacing:.30em;',
-      '  color:rgba(190,215,255,.26);text-indent:.30em}',
       ''
     ].join('\n');
     (document.head || document.documentElement).appendChild(st);
@@ -143,26 +130,7 @@
       letters.appendChild(s);
     });
 
-    var tag = document.createElement('div');
-    tag.className = 'lx-tag';
-    var bar = document.createElement('div');
-    bar.className = 'lx-bar';
-    var bfill = document.createElement('i');
-    bar.appendChild(bfill);
-    var cap = document.createElement('div');
-    cap.className = 'lx-cap';
-    cap.id = 'lx-splash-cap';
-    cap.textContent = '正在接入直播';
-    tag.appendChild(bar);
-    tag.appendChild(cap);
-
-    var sub = document.createElement('div');
-    sub.className = 'lx-sub';
-    sub.textContent = 'LPTV \u00b7 CENTRAL TV REMOTE PLAYER';
-
     mask.appendChild(letters);
-    mask.appendChild(tag);
-    mask.appendChild(sub);
     (document.body || document.documentElement).appendChild(mask);
     return mask;
   }

@@ -5,7 +5,7 @@
  * 编解码器（ffmpeg_branding=Chrome），央视频（H.264-over-MSE）直接能播。
  *
  * 职责（与迁移文档 electron-migration.md 对齐）：
- *   - BrowserWindow 创建（无边框 1280x720）+ 窗口控制（原生 API）
+ *   - BrowserWindow 创建（无边框 1920x1080）+ 窗口控制（原生 API）
  *   - ipcMain.handle('lptv:xxx') 实现 inject.js 桥契约（25 个方法）
  *   - did-finish-load 时注入 frontend/inject.js（协议层已改 window.lptv.*）
  *   - 懒猫容器无 WM：最小化/最大化退回 setBounds 模拟，浮窗/置顶/全屏用
@@ -14,7 +14,7 @@
  * 与旧 bridge.py 的返回值契约保持一致（inject.js 读 r.ok/r.floating/r.maximized
  * /r.pinned/r.id/r.enabled 等），保证前端零逻辑改动。
  * ------------------------------------------------------------------------- */
-const { app, BrowserWindow, ipcMain, dialog, shell, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, nativeImage, screen } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -191,9 +191,15 @@ function injectUi() {
 
 // ---- 窗口控制 -------------------------------------------------------------
 function createWindow() {
+  // 窗口上限 = 屏幕可用区：1920x1080 是期望值，但容器/小屏会被裁剪，
+  // 一旦窗口大于可见屏幕，底部/右缘的 hover 触发带（CTRL_ZONE/EPG_EDGE）落到
+  // 屏幕外，控制栏/节目单永远滑不出来 → 必须按屏幕尺寸收敛。
+  const wa = screen.getPrimaryDisplay().workAreaSize;
+  const W = Math.min(1920, (wa && wa.width) || 1920);
+  const H = Math.min(1080, (wa && wa.height) || 1080);
   win = new BrowserWindow({
-    width: 1280,
-    height: 720,
+    width: W,
+    height: H,
     minWidth: 360,
     minHeight: 220,
     frame: false,
@@ -373,7 +379,7 @@ function registerIpc() {
   h('get_version', () => app.getVersion());
 
   h('get_asset_image', (name) => {
-    const allowed = ['icon.png', 'wechat_qr.jpg'];
+    const allowed = ['icon.png'];
     if (allowed.indexOf(name) < 0) return { ok: false, error: 'asset not allowed', src: '' };
     const p = assetFile(name);
     if (!fs.existsSync(p)) return { ok: false, error: 'asset missing', src: '' };
