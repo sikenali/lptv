@@ -2,7 +2,7 @@
   "name": "lptv",
   "productName": "LPTV",
   "version": "1.0.0",
-  "description": "LPTV 远程电视客户端 (Electron) — 央视频 Linux 移植版",
+  "description": "LPTV 远程电视客户端 (Electron)",
   "main": "main.js",
   "author": "LPTV",
   "license": "MIT",
