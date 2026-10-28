@@ -1,0 +1,52 @@
+{
+  "name": "lptv",
+  "productName": "LPTV",
+  "version": "1.0.0",
+  "description": "LPTV 远程电视客户端 (Electron) — 央视频 Linux 移植版",
+  "main": "main.js",
+  "author": "LPTV",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron . --no-sandbox",
+    "dist": "electron-builder --linux AppImage"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "cn.lazycat.lptv",
+    "productName": "LPTV",
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "channels.json",
+      "assets/**"
+    ],
+    "extraResources": [
+      {
+        "from": "../frontend",
+        "to": "frontend",
+        "filter": ["**/*"]
+      }
+    ],
+    "linux": {
+      "target": ["AppImage"],
+      "category": "AudioVideo",
+      "icon": "assets/icon.png",
+      "executableName": "lptv",
+      "artifactName": "LPTV.${ext}",
+      "desktop": {
+        "Name": "LPTV",
+        "Comment": "LPTV 远程电视"
+      }
+    },
+    "appImage": {
+      "license": "MIT"
+    }
+  }
+}

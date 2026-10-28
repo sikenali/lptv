@@ -11,13 +11,13 @@
 | `run.sh` | LPK 入口：准备 Xpra 配置/补丁，启动 xpra seamless | LPTV 模板（可改用 chrome 的 run.sh） |
 | `launch_lptv.sh` | 首个浏览器连接后启动 LPTV AppImage | LPTV 自写 |
 | `90_lzc.conf` | Xpra seamless 配置（start-child-after-connect=launch_lptv.sh） | LPTV 改编 |
-| `appimage/LPTV-x86_64.AppImage` | LPTV 本体（pywebview+QtWebEngine） | 由 `build/build_appimage.sh` 产出 |
+| `appimage/LPTV.AppImage` | LPTV 本体（Electron 单包，自带 H.264） | 由 `build/build_electron.sh` 产出 |
 | `cde-supervisor` `rim` `drop` `web/` `dummyscreen.sh` `patch/compress.py` | catlink 会话骨架（Xpra 渲染 / 输入 / 拖拽 / SPA） | **复用 chrome LPK**，经 `assemble_lpk.sh` 拷入 |
 
 ## 数据流（远程化路径）
 
 ```
-盒子上的 LPTV (pywebview+QtWebEngine) 加载央视频官方页 + 注入 inject.js
+盒子上的 LPTV (Electron) 加载央视频官方页 + 注入 inject.js
    ↓ 官方 video 渲染解密后的帧到 X11 窗口（Xdummy 虚拟显示）
 Xpra seamless 抓这个窗口 → 视频编码(x264/libyuv) → WS :7890  (/catlink/)
 rim (:8888) 负责会话/输入/剪贴板 (/rim/)
@@ -29,12 +29,12 @@ rim (:8888) 负责会话/输入/剪贴板 (/rim/)
 ## 组装最终 LPK
 
 ```bash
-# 先产出 AppImage
-bash ../../build/build_appimage.sh
+# 先产出 AppImage（Electron）
+bash ../../build/build_electron.sh
 
 # 再组装（三选一，按优先级）
 CHROME_LPK=/path/to/cloud.lazycat.catlink.chrome.lpk \
-APP=/path/to/LPTV-x86_64.AppImage \
+APP=/path/to/LPTV.AppImage \
 bash assemble_lpk.sh                      # 复用 chrome LPK 的会话骨架（推荐）
 
 LZC_SKELETON=/path/to/extracted/chrome/content bash assemble_lpk.sh  # 已有解包目录
@@ -45,7 +45,7 @@ bash assemble_lpk.sh                      # 都没有：按纯 LPTV 内容打包
 
 LPK 外层结构：`manifest.yml` + `package.yml` + `icon.png` + `content.tar`
 （content.tar 内含 `run.sh` / `launch_lptv.sh` / `90_lzc.conf` /
-`appimage/LPTV-x86_64.AppImage`，均带可执行位）。
+`appimage/LPTV.AppImage`，均带可执行位）。
 
 **没有 chrome 骨架时**（第三种模式）只能产出结构合法的 LPK：容器会按 `run.sh`
 起 Xpra 抓窗，但 `manifest.yml` 里的 `public_path` / `routes` 需要会话骨架提供
@@ -55,7 +55,10 @@ LPK 外层结构：`manifest.yml` + `package.yml` + `icon.png` + `content.tar`
 
 ## 关键风险
 
-- **Widevine/CMG DRM**：QtWebEngine 必须带 Widevine CDM，否则央视频黑屏。
-  见 LPTV/README.md 的"DRM 一票否决"验证步骤，务必先在盒子上实测。
+- **Widevine/CDM**：Electron 官方构建自带 Widevine CDM（Chrome branding），
+  央视频 H.264/MSE 直接能播，无需外部 CDM。若黑屏，先确认容器缺库
+  （libgtk-3 / libnss3 / libasound2 / libatk-1.0 / libcups2 / libxss1 / libdrm2 / libgbm1）。
+- **无 WM 最小化/最大化**：容器无窗口管理器时 `minimize/maximize` 可能不生效，
+  已退回 `setBounds` 模拟；浮窗/置顶/全屏不依赖 WM。
 - **会话启动方式**：若懒猫基础镜像的会话入口与 `run.sh` 直启 xpra 不一致，
   直接复制 chrome LPK 的 `run.sh` 再替换 launch / 90_lzc.conf 即可。

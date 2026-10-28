@@ -1,10 +1,9 @@
 # LPTV 远程应用清单（对标 cloud.lazycat.catlink.chrome.lpk）
-# 懒猫盒子上跑一个容器，容器里跑 LPTV（pywebview + 真 Chrome/CDP 后端的央视频壳），
+# 懒猫盒子上跑一个容器，容器里跑 LPTV（Electron 单包央视频壳），
 # Xpra seamless 抓它的 X11 窗口 → 编码 → WebSocket，浏览器端用 catlink SPA 看/控。
 #
-# 为什么必须自带真 Chrome：pywebview 在 Linux 上只有 qt(QtWebEngine)/gtk(WebKit2)
-# 两个后端，两者都没有 H.264 解码能力，央视频的 H.264/MSE 直播在其上必然黑屏。
-# 所以 content/appimage/ 下同时装了真 Chrome 与 LPTV，由 launch_lptv.sh 串起来。
+# Electron 官方构建带 H.264 编解码器，央视频（H.264/MSE）直接能播；
+# content/appimage/ 下是唯一的 LPTV.AppImage，由 launch_lptv.sh 启动（--no-sandbox）。
 ext_config:
   enable_clientfs_access: true
   enable_document_access: true

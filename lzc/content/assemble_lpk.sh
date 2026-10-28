@@ -17,7 +17,7 @@
 #
 # 用法：
 #   CHROME_LPK=/path/to/cloud.lazycat.catlink.chrome.lpk \
-#   APP=/path/to/LPTV-x86_64.AppImage \
+#   APP=/path/to/LPTV.AppImage \
 #   bash assemble_lpk.sh
 # 产物：当前目录的 cloud.lazycat.catlink.lptv.lpk
 # -----------------------------------------------------------------------------
@@ -30,7 +30,7 @@ STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
 
 CHROME_LPK="${CHROME_LPK:-}"
-APP="${APP:-LPTV-x86_64.AppImage}"
+APP="${APP:-LPTV.AppImage}"
 # 产物名带上版本号并默认存到 lzc/：lzc/cloud.lazycat.catlink.lptv-<version>.lpk
 LPTV_VERSION="$(grep -m1 '^version:' "$LPTV_LZC/package.yml" | awk '{print $2}')"
 OUT="${OUT:-$LPTV_LZC/cloud.lazycat.catlink.lptv-${LPTV_VERSION:-dev}.lpk}"
@@ -40,7 +40,7 @@ ICON_SRC="${LPTV_LZC}/icon.png"
 
 find_app() {
   if [ -f "$APP" ]; then echo "$APP"; return 0; fi
-  local c="$LPTV_ROOT/build/_appimage_work/LPTV-x86_64.AppImage"
+  local c="$LPTV_ROOT/electron/dist/LPTV.AppImage"
   [ -f "$c" ] && { echo "$c"; return 0; }
   return 1
 }
@@ -60,29 +60,17 @@ else
 fi
 
 # 骨架里 chrome 专用资产处理：
-# - 本包不再自带真 Chrome 引擎（省 ~200MB）。chromium 后端要驱动真 Chrome 才能解码
-#   央视频的 H.264（QtWebEngine 没有 H.264，见 build/build_appimage.sh 注释），
-#   但 Chrome 改为外部获取，见 launch_lptv.sh：优先复用盒子已有的
-#   /lzcapp/var/apps/chrome/（chrome 应用安装），没有才首次启动下载 Google 官方 deb。
+# - 本包只带 LPTV（Electron）单 AppImage，不携带真 Chrome 引擎（Electron 官方构建
+#   自带 H.264 编解码器，央视频直接能播，无需外部 Chrome）。清掉骨架里任何残留
+#   AppImage，避免 rim 误装成 chrome。
 # - 微信/WPS 的启动脚本对本包无用，删掉。
-# - rim 硬编码 /lzcapp/pkg/content/appimage/Google-Chrome-stable-<ver>-x86_64.AppImage
-#   这个文件名用于"安装默认应用"；本包不携带它时 rim 会跳过该步，不影响会话启动。
-#   如需回退到自带，构建时传 CHROME_APP_SRC 即可。
-CHROME_APPIMAGE="Google-Chrome-stable-155.0.8059.39-1-x86_64.AppImage"
-echo "    精简骨架：不携带真 Chrome 引擎，移除微信/WPS 资产"
+echo "    精简骨架：仅 LPTV（Electron），移除残留 Chrome/微信/WPS 资产"
 rm -f "$STAGE/content/appimage/"*.AppImage \
       "$STAGE/content/launch_wechat.sh" "$STAGE/content/launch_wps.sh" \
       "$STAGE/content/setup_wechat_lan.sh" "$STAGE/content/start_default_app.sh"
-if [ -n "${CHROME_APP_SRC:-}" ] && [ -f "${CHROME_APP_SRC:-}" ]; then
-    echo "    （可选）放入真 Chrome 引擎：$CHROME_APP_SRC"
-    mkdir -p "$STAGE/content/appimage"
-    cp "$CHROME_APP_SRC" "$STAGE/content/appimage/$CHROME_APPIMAGE"
-else
-    echo "    不带真 Chrome 引擎：运行时复用盒子已有 Chrome 或首次启动下载 deb"
-fi
 
 echo "==> [2/4] 叠加 LPTV 专属文件"
-APP="$(find_app || { echo "缺少 LPTV AppImage：先跑 bash build/build_appimage.sh" >&2; exit 1; })"
+APP="$(find_app || { echo "缺少 LPTV AppImage：先跑 bash build/build_electron.sh" >&2; exit 1; })"
 echo "    AppImage：$APP"
 cp "$LPTV_LZC/manifest.yml"  "$STAGE/manifest.yml"
 cp "$LPTV_LZC/package.yml"   "$STAGE/package.yml"
@@ -96,14 +84,10 @@ if [ -d "$HERE/web" ]; then
   cp -a "$HERE/web/." "$STAGE/content/web/"
 fi
 mkdir -p "$STAGE/content/appimage"
-cp "$APP"                    "$STAGE/content/appimage/LPTV-x86_64.AppImage"
-# 注意：不能再把 LPTV AppImage 硬链接成 Chrome 的文件名——那个名字现在装的是
-# 真 Chrome（rim 只认它，chromium 后端也靠它当引擎）。LPTV 自己走自己的名字。
+cp "$APP"                    "$STAGE/content/appimage/LPTV.AppImage"
 chmod +x "$STAGE/content/run.sh" "$STAGE/content/launch_lptv.sh" \
          "$STAGE/content/launch_chrome.sh" \
-         "$STAGE/content/appimage/LPTV-x86_64.AppImage"
-[ -f "$STAGE/content/appimage/$CHROME_APPIMAGE" ] && \
-  chmod +x "$STAGE/content/appimage/$CHROME_APPIMAGE"
+         "$STAGE/content/appimage/LPTV.AppImage"
 if [ -f "$ICON_SRC" ]; then
   cp "$ICON_SRC" "$STAGE/icon.png"
 else

@@ -3,13 +3,9 @@
 *.lpk
 # AppImage
 *.AppImage
-# 构建工作目录
-build/_appimage_work/AppDir/
-build/_appimage_work/site/
-build/_appimage_work/tools/
-build/_appimage_work/appimagetool-x86_64.AppImage
-build/_chrome/
-build/lpk/
+# Electron 构建
+electron/node_modules/
+electron/dist/
 # 解包/缓存目录
 __pycache__/
 *.pyc

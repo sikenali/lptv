@@ -1,8 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=LPTV
-Comment=LPTV 远程央视频电视客户端（pywebview + QtWebEngine）
-Exec=lptv
-Icon=lptv
-Terminal=false
-Categories=AudioVideo;Video;Player;

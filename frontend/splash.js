@@ -1,14 +1,14 @@
 /* ---------------------------------------------------------------------------
  * LPTV 启动动画 ——「LPTV」四字母注水填充
  *
- * 由 libexec/pywebview_chromium/chromium.py 通过
- * Page.addScriptToEvaluateOnNewDocument 在文档起始时注入，早于央视频自己的
- * HTML / JS 解析完成。因此在导航期间屏幕上始终是本动画，不会闪现央视频裸页。
+ * 由 electron/main.js 在 BrowserWindow 的 dom-ready 时注入（executeJavaScript），
+ * 先注入 __LPTV_SPLASH_CFG 再跑本脚本，早于央视频自己的 HTML / JS 解析完成。
+ * 因此在导航期间屏幕上始终是本动画，不会闪现央视频裸页。
  *
  * 切台走官方 SPA 的 pushState（window.__lxCctv.switchChannel），不构成新的
  * 文档导航，本脚本不会重复出现。
  *
- * 配置（由 chromium.py 在本文件之前注入）：
+ * 配置（由 main.js 在本文件之前注入）：
  *   window.__LPTV_SPLASH_CFG = { icon: 'data:image/png;base64,...',
  *                                title: 'LPTV' }
  * --------------------------------------------------------------------------- */

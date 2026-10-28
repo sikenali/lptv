@@ -81,7 +81,7 @@
 
   /* ---- Python 侧持久化状态 (pywebview 默认 private_mode, localStorage 不跨启动) ---- */
   function pyApi() {
-    return (window.pywebview && window.pywebview.api) ? window.pywebview.api : null;
+    return window.lptv ? window.lptv : null;
   }
   var _statePushT = null, _statePending = null;
   function pyStatePush(patch) {
@@ -552,28 +552,27 @@
   /* ================= UI ================= */
 
   var CSS = `
-  #lx-root{position:fixed;inset:0;z-index:2147483002;background:transparent;
-    font-family:system-ui,"Microsoft YaHei",sans-serif;color:#e8eefc;
+  #lx-root{--glass:rgba(18,20,28,.74);--glass-2:rgba(28,31,42,.90);--line:rgba(255,255,255,.09);
+    --tx:#eef1f8;--tx2:#9aa6c0;--tx3:#6b7fae;--acc:#3d9bff;--acc2:#4fd1c5;
+    --red:#ff4d4d;--ok:#35c46b;
+    position:fixed;inset:0;z-index:2147483002;background:transparent;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    color:var(--tx);font-size:13px;line-height:1.6;
     overflow:hidden;user-select:none}
   #lx-root.dev-hidden{display:none}
 
   #lx-spin{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:none;z-index:3;
     width:46px;height:46px;border-radius:50%;border:3px solid rgba(255,255,255,.15);
-    border-top-color:#4f7cff;animation:lxspin .8s linear infinite;pointer-events:none}
+    border-top-color:var(--acc);animation:lxspin .8s linear infinite;pointer-events:none}
   @keyframes lxspin{to{transform:translate(-50%,-50%) rotate(360deg)}}
 
-  #lx-osd{position:absolute;left:38px;top:34px;pointer-events:none;opacity:0;z-index:10;
-    transition:opacity .35s;max-width:70vw;
-    background:linear-gradient(90deg,rgba(10,16,32,.55),rgba(10,16,32,.18) 55%,transparent);
-    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
-    border:1px solid rgba(120,160,255,.16);border-radius:14px;padding:14px 22px 16px}
+  #lx-osd{position:absolute;left:16px;bottom:64px;pointer-events:none;opacity:0;z-index:10;
+    transition:opacity .35s;max-width:70vw;text-shadow:0 2px 12px rgba(0,0,0,.9)}
   #lx-osd.show{opacity:1}
-  .lx-osd-num{font-size:52px;font-weight:800;line-height:1;
-    text-shadow:0 2px 18px rgba(0,0,0,.85)}
-  .lx-osd-num b{color:#4f7cff}
-  .lx-osd-name{font-size:26px;font-weight:600;margin-top:6px;
-    text-shadow:0 2px 12px rgba(0,0,0,.85)}
-  .lx-osd-sub{font-size:14px;color:#9db4e8;margin-top:6px;letter-spacing:1px}
+  .lx-osd-num{font-size:34px;font-weight:700;line-height:1}
+  .lx-osd-num b{color:var(--acc)}
+  .lx-osd-name{font-size:17px;font-weight:600;margin-top:3px}
+  .lx-osd-sub{font-size:12px;color:var(--tx2);margin-top:2px;letter-spacing:1px}
 
   #lx-digit{position:absolute;right:38px;top:34px;font-size:40px;font-weight:800;z-index:10;
     display:none;pointer-events:none;text-shadow:0 2px 14px rgba(0,0,0,.9)}
@@ -582,356 +581,327 @@
   #lx-vol{position:absolute;right:38px;top:110px;width:220px;opacity:0;z-index:10;pointer-events:none;
     transition:opacity .3s}
   #lx-vol.show{opacity:1;pointer-events:auto}
-  #lx-vol .lx-vol-label{font-size:13px;color:#9db4e8;margin-bottom:6px;letter-spacing:1px}
+  #lx-vol .lx-vol-label{font-size:13px;color:var(--tx2);margin-bottom:6px;letter-spacing:1px}
 
-  #lx-controls{position:absolute;left:50%;bottom:26px;transform:translateX(-50%);z-index:8;
-    display:flex;align-items:center;gap:12px;padding:11px 18px;border-radius:18px;
-    background:linear-gradient(180deg,rgba(22,30,52,.8),rgba(10,15,28,.76));
-    backdrop-filter:blur(28px) saturate(1.6);-webkit-backdrop-filter:blur(28px) saturate(1.6);
-    border:1px solid rgba(120,160,255,.2);
-    box-shadow:0 16px 48px rgba(0,0,0,.6),
-      0 1px 0 rgba(255,255,255,.08) inset;
-    opacity:0;transition:opacity .25s;pointer-events:none;max-width:94vw;flex-wrap:wrap;justify-content:center}
-  #lx-controls::before{content:"";position:absolute;left:18px;right:18px;top:0;height:1px;
-    background:linear-gradient(90deg,transparent,rgba(125,155,255,.55),transparent);
-    pointer-events:none;border-radius:1px}
-  #lx-controls.show{opacity:1;pointer-events:auto}
-  .lx-ctl-seg{display:flex;align-items:center;gap:7px}
-  .lx-ctl-nav{padding-right:14px;border-right:1px solid rgba(120,160,255,.15)}
-  .lx-ctl-vol{padding:0 14px;border-right:1px solid rgba(120,160,255,.15)}
-  .lx-ctl-now{min-width:120px;max-width:380px;overflow:hidden;padding:2px 4px}
-  .lx-now-dot{width:7px;height:7px;border-radius:50%;background:#ff4d5e;
-    box-shadow:0 0 8px #ff4d5e;flex-shrink:0;animation:lxnow 2s ease-in-out infinite}
+  /* 底部控制栏: 与 interface-preview.html .controls 一致 (全宽毛玻璃贴边) */
+  #lx-controls{position:absolute;left:10px;right:10px;bottom:10px;z-index:8;
+    display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:12px;
+    background:var(--glass);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+    border:1px solid var(--line);box-shadow:0 8px 30px rgba(0,0,0,.5);
+    opacity:0;transform:translateY(14px);transition:opacity .25s,transform .25s;
+    pointer-events:none}
+  #lx-controls.show{opacity:1;transform:none;pointer-events:auto}
+  .lx-ctl-seg{display:flex;align-items:center;gap:4px}
+  .lx-ctl-now{flex:1;justify-content:center;min-width:0;overflow:hidden;padding:0 4px}
+  .lx-ctl-side{gap:2px}
+  .lx-now-dot{width:7px;height:7px;border-radius:50%;background:var(--red);
+    box-shadow:0 0 7px var(--red);flex-shrink:0;animation:lxnow 2s ease-in-out infinite}
   @keyframes lxnow{0%,100%{opacity:1}50%{opacity:.35}}
-  .lx-now-sep{color:#5c719e;margin:0 2px}
-  .lx-now-prog{font-size:12.5px;color:#c9d6f2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .lx-vol-txt{font-size:11px;color:#7d9bff;width:26px;text-align:right;
-    font-family:Consolas,monospace}
-  .lx-btn{border:1px solid transparent;background:rgba(44,60,102,.5);color:#c9d6f2;font-size:13px;
-    padding:7px 13px;border-radius:11px;cursor:pointer;transition:all .16s;white-space:nowrap}
-  .lx-btn:hover{background:rgba(79,124,255,.32);color:#fff;border-color:rgba(120,160,255,.35);transform:translateY(-1px)}
-  .lx-btn:active{transform:translateY(0) scale(.95)}
-  .lx-btn-ico{display:flex;align-items:center;justify-content:center;width:36px;height:36px;
-    padding:0;border-radius:11px}
-  .lx-btn-ico svg{width:16px;height:16px;fill:#c9d6f2;stroke:#c9d6f2;transition:all .15s}
-  .lx-btn-ico:hover svg{fill:#fff;stroke:#fff}
-  .lx-btn-main{width:46px;height:46px;border-radius:14px;
-    background:linear-gradient(180deg,rgba(96,140,255,.55),rgba(70,110,235,.42));
-    border:1px solid rgba(150,180,255,.5);
-    box-shadow:0 6px 20px rgba(60,110,255,.42),0 1px 0 rgba(255,255,255,.22) inset}
-  .lx-btn-main svg{width:18px;height:18px;fill:#fff;stroke:#fff}
-  .lx-btn-main:hover{background:linear-gradient(180deg,rgba(112,156,255,.78),rgba(82,126,246,.62));
-    box-shadow:0 8px 26px rgba(60,110,255,.62)}
-  .lx-btn-txt{font-size:12.5px;letter-spacing:1px;padding:8px 14px}
+  .lx-now-sep{color:var(--tx3);margin:0 2px}
+  .lx-now-prog{font-size:11.5px;color:var(--tx2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .lx-vol-txt{font-size:11.5px;color:var(--tx2);width:26px;text-align:center}
+  .lx-btn{border:0;cursor:pointer;color:var(--tx);border-radius:8px;background:rgba(255,255,255,.07);
+    display:inline-flex;align-items:center;justify-content:center;height:32px;padding:0 8px;
+    font-size:12.5px;transition:background .15s,color .15s;white-space:nowrap}
+  .lx-btn:hover{background:rgba(255,255,255,.16)}
+  .lx-btn:active{transform:scale(.95)}
+  .lx-btn-ico{width:32px;padding:0}
+  .lx-btn-ico svg{width:18px;height:18px;fill:currentColor;stroke:currentColor;transition:all .15s}
+  .lx-btn-main{width:40px;height:40px;background:var(--acc);color:#fff;font-size:15px}
+  .lx-btn-main:hover{background:#5fb0ff}
+  .lx-btn-main svg{width:19px;height:19px;fill:#fff;stroke:#fff}
+  .lx-btn-txt svg{width:16px;height:16px}
+  .lx-btn.rec-on,#lx-b-rec.rec-on{background:rgba(255,77,77,.85);color:#fff}
+  #lx-b-rec.rec-on svg{color:#fff;animation:lxrec 1.2s ease-in-out infinite}
+  #lx-b-full.on,#lx-b-float.on{background:rgba(61,155,255,.22);color:#9ccbff}
   #lx-b-mute .lx-mute-x{display:none}
   #lx-b-mute.muted .lx-waves{display:none}
   #lx-b-mute.muted .lx-mute-x{display:block}
-  #lx-c-vol{-webkit-appearance:none;appearance:none;width:100px;height:4px;border-radius:2px;
-    background:rgba(60,80,130,.55);outline:none;cursor:pointer}
-  #lx-c-vol::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;
-    background:#fff;box-shadow:0 0 7px rgba(120,160,255,.9);cursor:pointer;transition:transform .12s}
-  #lx-c-vol::-webkit-slider-thumb:hover{transform:scale(1.18)}
-  .lx-chlabel{font-size:13.5px;font-weight:600;color:#e8eefc;overflow:hidden;
+  #lx-c-vol{width:82px;accent-color:var(--acc);cursor:pointer}
+  .lx-chlabel{font-size:12.5px;font-weight:600;color:var(--tx);overflow:hidden;
     text-overflow:ellipsis;white-space:nowrap}
 
   /* 上下台预览: 当前台的上一个/下一个 毛玻璃标识 */
   #lx-nextch{position:absolute;left:50%;bottom:104px;transform:translate(-50%,8px);opacity:0;z-index:9;
     pointer-events:none;transition:opacity .18s,transform .18s;
-    background:linear-gradient(180deg,rgba(16,23,42,.74),rgba(10,16,32,.8));
-    backdrop-filter:blur(22px) saturate(1.4);-webkit-backdrop-filter:blur(22px) saturate(1.4);
-    border:1px solid rgba(120,160,255,.18);border-radius:14px;padding:9px 18px;
+    background:var(--glass);backdrop-filter:blur(22px) saturate(1.4);
+    -webkit-backdrop-filter:blur(22px) saturate(1.4);
+    border:1px solid var(--line);border-radius:14px;padding:9px 18px;
     min-width:250px;box-shadow:0 12px 36px rgba(0,0,0,.55)}
   #lx-nextch.show{opacity:1;transform:translate(-50%,0)}
-  #lx-nextch .lx-nc-row{display:flex;align-items:center;gap:9px;padding:5px 0;font-size:13px;color:#b9c8ec}
-  #lx-nextch .lx-nc-row.dim{color:#6b7fae}
+  #lx-nextch .lx-nc-row{display:flex;align-items:center;gap:9px;padding:5px 0;font-size:13px;color:var(--tx)}
+  #lx-nextch .lx-nc-row.dim{color:var(--tx3)}
   #lx-nextch .lx-nc-arrow{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;
-    justify-content:center;font-size:11px;background:rgba(79,124,255,.16);color:#7d9bff;
+    justify-content:center;font-size:11px;background:rgba(61,155,255,.16);color:#9ccbff;
     flex-shrink:0;font-family:Consolas,monospace}
-  #lx-nextch .lx-nc-row.hl .lx-nc-arrow{background:rgba(79,124,255,.5);color:#fff}
-  #lx-nextch .lx-nc-num{width:28px;color:#5c719e;font-size:11px;font-family:Consolas,monospace;flex-shrink:0}
+  #lx-nextch .lx-nc-row.hl .lx-nc-arrow{background:rgba(61,155,255,.5);color:#fff}
+  #lx-nextch .lx-nc-num{width:28px;color:var(--tx3);font-size:11px;font-family:Consolas,monospace;flex-shrink:0}
   #lx-nextch .lx-nc-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  #lx-nextch .lx-nc-sep{height:1px;background:rgba(120,160,255,.14);margin:3px 0}
+  #lx-nextch .lx-nc-sep{height:1px;background:var(--line);margin:3px 0}
 
   /* 节目录制: 状态角标 (左上角, 闲置也不隐藏) + 控制栏按钮 */
-  #lx-rec-badge{position:absolute;left:38px;bottom:34px;z-index:11;display:none;
-    align-items:center;gap:8px;padding:7px 14px;border-radius:9px;
-    background:rgba(20,28,48,.82);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
-    border:1px solid rgba(255,77,94,.4);box-shadow:0 4px 18px rgba(0,0,0,.45)}
+  #lx-rec-badge{position:absolute;left:14px;top:44px;z-index:11;display:none;
+    align-items:center;gap:7px;padding:4px 11px;border-radius:20px;
+    background:rgba(20,8,10,.72);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+    border:1px solid rgba(255,77,77,.45);box-shadow:0 4px 18px rgba(0,0,0,.45)}
   #lx-rec-badge.show{display:flex}
-  #lx-rec-badge .lx-rec-dot{width:9px;height:9px;border-radius:50%;background:#ff4d5e;
-    box-shadow:0 0 8px #ff4d5e;animation:lxrec 1.2s ease-in-out infinite}
+  #lx-rec-badge .lx-rec-dot{width:7px;height:7px;border-radius:50%;background:var(--red);
+    box-shadow:0 0 8px var(--red);animation:lxrec 1.2s ease-in-out infinite}
   @keyframes lxrec{0%,100%{opacity:1}50%{opacity:.25}}
-  #lx-rec-badge #lx-rec-time{font-size:12px;font-weight:600;color:#ffb3bb;
+  #lx-rec-badge #lx-rec-time{font-size:11.5px;font-weight:600;color:#ffd7d7;
     font-family:Consolas,monospace;letter-spacing:1px}
-  #lx-b-rec svg{color:#ff4d5e}
-  #lx-b-rec.rec-on{background:rgba(255,77,94,.32);border:1px solid rgba(255,77,94,.55)}
-  #lx-b-rec.rec-on svg{color:#ff4d5e;animation:lxrec 1.2s ease-in-out infinite}
-  #lx-b-rec.rec-on:hover{background:rgba(255,77,94,.45)}
-  #lx-b-full.on,#lx-b-float.on{background:rgba(91,134,229,.32);border:1px solid rgba(91,134,229,.55)}
-  #lx-b-full.on svg,#lx-b-float.on svg{color:#5b86e5}
   /* 截图白闪 */
   #lx-shot-flash{position:fixed;inset:0;background:#fff;opacity:0;z-index:2147483005;
     pointer-events:none}
   #lx-shot-flash.go{animation:lxflash .35s ease-out}
   @keyframes lxflash{0%{opacity:.85}100%{opacity:0}}
 
-  #lx-panel{position:absolute;right:0;top:0;bottom:0;width:320px;z-index:5;
-    background:rgba(16,23,42,.66);backdrop-filter:blur(24px) saturate(1.5);
-    -webkit-backdrop-filter:blur(24px) saturate(1.5);
-    transform:translateX(320px);transition:transform .28s ease;
-    display:flex;flex-direction:column;
-    border-left:1px solid rgba(120,160,255,.14);
-    box-shadow:-10px 0 40px rgba(0,0,0,.5)}
-  #lx-panel.open{transform:translateX(0)}
-  .lx-panel-head{display:flex;align-items:center;justify-content:space-between;
-    padding:14px 16px;border-bottom:1px solid rgba(120,160,255,.12)}
-  .lx-panel-title{font-size:15px;font-weight:700;letter-spacing:2px;color:#e8eefc}
-  .lx-panel-cur{display:flex;align-items:center;gap:12px;padding:12px 16px;
-    border-bottom:1px solid rgba(120,160,255,.12);background:rgba(79,124,255,.08)}
-  .lx-panel-cur-num{font-size:24px;font-weight:800;color:#4f7cff;line-height:1;font-family:Consolas,monospace;min-width:34px}
-  .lx-panel-cur-name{font-size:15px;font-weight:700;color:#fff}
-  .lx-panel-cur-sub{font-size:11px;color:#7d9bff;margin-top:2px}
-  .lx-panel-body{flex:1;overflow-y:auto;padding:6px 0 18px;overscroll-behavior:contain;
-    scrollbar-width:thin;scrollbar-color:#28345a transparent}
-  .lx-panel-body::-webkit-scrollbar{width:6px}
-  .lx-panel-body::-webkit-scrollbar-track{background:transparent}
-  .lx-panel-body::-webkit-scrollbar-thumb{background:#2c3d6b;border-radius:3px}
-  .lx-cat{color:#5c719e;font-size:11px;padding:14px 20px 5px;letter-spacing:2px}
-  .lx-ch{display:flex;align-items:center;gap:10px;padding:8px 14px;margin:1px 8px 2px;
-    cursor:pointer;color:#c7d3ed;font-size:14px;border-radius:9px;transition:all .12s}
-  .lx-ch:hover{background:rgba(79,124,255,.14);color:#fff}
-  .lx-ch.active{background:linear-gradient(90deg,rgba(79,124,255,.26),rgba(79,124,255,.05));
-    color:#fff;font-weight:600}
-  .lx-ch.focus{outline:1px solid rgba(79,124,255,.65);outline-offset:-1px}
-  .lx-ch .lx-ch-num{font-size:11px;color:#6b7fae;width:24px;flex-shrink:0;font-family:Consolas,monospace}
-  .lx-ch.active .lx-ch-num{color:#9db4e8}
+  /* 侧面板: 频道列表(左) / 节目单(右) —— 与 interface-preview.html .panel 一致
+     注意: 频道 #lx-panel 在左侧滑出, 节目单 #lx-epg 在右侧滑出 (已对调) */
+  #lx-panel,#lx-epg{position:absolute;top:34px;bottom:0;z-index:5;display:none;
+    flex-direction:column;background:var(--glass-2);
+    backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);
+    border:1px solid var(--line);box-shadow:0 12px 40px rgba(0,0,0,.5)}
+  #lx-panel.open,#lx-epg.open{display:flex}
+
+  /* 频道列表: 左侧 (right:0 -> left:0, 反向滑入) */
+  #lx-panel{left:0;width:320px;
+    border-left:none;border-right:1px solid var(--line);box-shadow:12px 0 40px rgba(0,0,0,.5)}
+  /* 节目单: 右侧 (left:0 -> right:0, 反向滑入) */
+  #lx-epg{right:0;width:360px;
+    border-right:none;border-left:1px solid var(--line);box-shadow:-12px 0 40px rgba(0,0,0,.5)}
+
+  .lx-panel-head,.lx-epg-head{display:flex;align-items:center;justify-content:space-between;
+    padding:13px 14px 8px}
+  .lx-panel-title,.lx-epg-title{font-size:13.5px;font-weight:650;color:var(--tx)}
+  .lx-panel-cur{display:flex;align-items:center;gap:10px;padding:8px 14px;
+    border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:rgba(0,0,0,.22)}
+  .lx-panel-cur-num{font-size:19px;font-weight:700;color:var(--acc);line-height:1;font-family:Consolas,monospace;min-width:44px}
+  .lx-panel-cur-name{font-size:13px;font-weight:600;color:var(--tx)}
+  .lx-panel-cur-sub{font-size:11px;color:var(--tx3);margin-top:2px}
+  .lx-panel-body,.lx-epg-body{flex:1;overflow-y:auto;padding:0 8px 14px;overscroll-behavior:contain;
+    scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.15) transparent}
+  .lx-panel-body::-webkit-scrollbar,.lx-epg-body::-webkit-scrollbar{width:6px}
+  .lx-panel-body::-webkit-scrollbar-track,.lx-epg-body::-webkit-scrollbar-track{background:transparent}
+  .lx-panel-body::-webkit-scrollbar-thumb,.lx-epg-body::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:3px}
+  .lx-cat{color:var(--tx3);font-size:11px;padding:9px 14px 5px;letter-spacing:1px}
+  .lx-ch{display:flex;align-items:center;gap:8px;padding:6px 8px;margin:0 2px 2px;
+    cursor:pointer;color:var(--tx);font-size:12.5px;border-radius:7px;transition:background .12s}
+  .lx-ch:hover{background:rgba(255,255,255,.08);color:#fff}
+  .lx-ch.active{background:rgba(61,155,255,.2);box-shadow:inset 0 0 0 1px rgba(61,155,255,.4)}
+  .lx-ch.focus{outline:1px solid rgba(61,155,255,.65);outline-offset:-1px}
+  .lx-ch .lx-ch-num{font-size:11px;color:var(--tx3);width:28px;flex-shrink:0;font-family:Consolas,monospace;font-variant-numeric:tabular-nums}
+  .lx-ch.active .lx-ch-num{color:var(--acc)}
   .lx-ch .lx-ch-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .lx-ch .live-dot{width:5px;height:5px;border-radius:50%;background:#3d4c6e;flex-shrink:0}
-  .lx-ch.active .live-dot{background:#ff4d5e;box-shadow:0 0 6px #ff4d5e}
+  .lx-ch .live-dot{width:5px;height:5px;border-radius:50%;background:#5b6884;flex-shrink:0}
+  .lx-ch.active .live-dot{background:var(--acc2);box-shadow:0 0 6px var(--acc2)}
   /* 收藏星标 */
   .lx-ch .lx-ch-fav{flex-shrink:0;width:22px;height:22px;display:flex;align-items:center;justify-content:center;
-    color:#3d4c6e;cursor:pointer;border-radius:6px;transition:all .12s}
+    color:#5b6884;cursor:pointer;border-radius:6px;transition:all .12s}
   .lx-ch .lx-ch-fav:hover{color:#ffd166;background:rgba(255,209,102,.14)}
-  .lx-ch .lx-ch-fav.on{color:#ffd166}
+  .lx-ch .lx-ch-fav.on{color:var(--acc2)}
   .lx-ch .lx-ch-fav svg{width:14px;height:14px}
   /* 面板分类 tab */
-  #lx-panel-tabs{display:flex;gap:6px;padding:6px 14px 8px;border-bottom:1px solid rgba(120,160,255,.12)}
-  .lx-ptab{padding:3px 12px;border-radius:999px;font-size:12px;color:#8fa3cc;cursor:pointer;
-    background:rgba(79,124,255,.08);border:1px solid rgba(79,124,255,.14);transition:all .12s}
-  .lx-ptab:hover{color:#fff;background:rgba(79,124,255,.2)}
-  .lx-ptab.on{color:#fff;background:rgba(79,124,255,.32);border-color:rgba(79,124,255,.5)}
+  #lx-panel-tabs{display:flex;gap:4px;padding:9px 14px;flex-wrap:wrap}
+  .lx-ptab{padding:4px 11px;border-radius:20px;font-size:11.5px;color:var(--tx2);cursor:pointer;
+    background:rgba(255,255,255,.06);border:1px solid transparent;transition:all .12s}
+  .lx-ptab:hover{color:#fff}
+  .lx-ptab.on{color:#b9dcff;background:rgba(61,155,255,.2);border-color:rgba(61,155,255,.45)}
   .lx-ptab b{display:inline-block;min-width:14px;height:14px;line-height:14px;margin-left:4px;
-    border-radius:7px;background:#ffd166;color:#1b2540;font-size:9px;font-weight:700;padding:0 3px}
-  .lx-panel-empty{padding:30px 20px;text-align:center;color:#6b7fae;font-size:13px;line-height:1.7}
+    border-radius:7px;background:var(--acc2);color:#08202a;font-size:9px;font-weight:700;padding:0 3px}
+  .lx-panel-empty{padding:30px 20px;text-align:center;color:var(--tx3);font-size:13px;line-height:1.7}
 
-  /* 节目单: 左侧毛玻璃面板 (鼠标移到左缘自动滑出, 当前节目居中高亮) */
-  #lx-epg{position:absolute;left:0;top:0;bottom:0;width:360px;z-index:5;
-    background:rgba(16,23,42,.66);backdrop-filter:blur(24px) saturate(1.5);
-    -webkit-backdrop-filter:blur(24px) saturate(1.5);
-    transform:translateX(-360px);transition:transform .28s ease;
-    display:flex;flex-direction:column;
-    border-right:1px solid rgba(120,160,255,.14);
-    box-shadow:10px 0 40px rgba(0,0,0,.5)}
-  #lx-epg.open{transform:translateX(0)}
-  .lx-epg-head{display:flex;align-items:center;justify-content:space-between;
-    padding:14px 16px;border-bottom:1px solid rgba(120,160,255,.12)}
-  .lx-epg-title{font-size:15px;font-weight:700;letter-spacing:2px;color:#e8eefc}
-  .lx-epg-sub{font-size:11px;color:#7d9bff;margin-top:3px;letter-spacing:1px}
-  .lx-epg-body{flex:1;overflow-y:auto;padding:8px 0 18px;overscroll-behavior:contain;
-    scrollbar-width:thin;scrollbar-color:#28345a transparent}
-  .lx-epg-body::-webkit-scrollbar{width:6px}
-  .lx-epg-body::-webkit-scrollbar-track{background:transparent}
-  .lx-epg-body::-webkit-scrollbar-thumb{background:#2c3d6b;border-radius:3px}
-  .lx-epg-row{display:flex;align-items:center;gap:10px;padding:9px 14px;margin:1px 8px 2px;
-    color:#c7d3ed;font-size:14px;border-radius:9px;transition:background .12s}
-  .lx-epg-row.past{color:#5c719e}
-  .lx-epg-row.future{color:#9db4e8}
-  .lx-epg-row.live{background:linear-gradient(90deg,rgba(255,77,94,.22),rgba(255,77,94,.05));
-    color:#fff;font-weight:600;box-shadow:inset 2px 0 0 #ff4d5e}
-  .lx-epg-t{font-size:12px;color:#6b7fae;width:100px;flex-shrink:0;font-family:Consolas,monospace}
-  .lx-epg-row.live .lx-epg-t{color:#ff9aa8}
+  /* 节目单 (右侧): 行样式与 .epg-row 一致 */
+  .lx-epg-sub{font-size:11px;color:var(--tx3);margin-top:3px;letter-spacing:1px}
+  .lx-epg-row{display:flex;gap:10px;padding:9px 14px;margin:0;
+    color:var(--tx);font-size:12.5px;border-bottom:1px solid rgba(255,255,255,.05);
+    transition:background .12s}
+  .lx-epg-row.past{color:var(--tx3)}
+  .lx-epg-row.future{color:var(--tx2)}
+  .lx-epg-row.live{background:rgba(61,155,255,.1);box-shadow:inset 2px 0 0 var(--acc)}
+  .lx-epg-t{font-size:11px;color:var(--tx3);width:52px;flex-shrink:0;padding-top:2px;
+    font-family:Consolas,monospace;font-variant-numeric:tabular-nums}
+  .lx-epg-row.live .lx-epg-t{color:var(--acc)}
   .lx-epg-n{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   /* 长节目名悬停气泡 (JS 检测截断后显示) */
   #lx-name-pop{position:fixed;z-index:2147483010;max-width:420px;padding:8px 12px;
-    background:rgba(14,20,36,.92);border:1px solid rgba(120,160,255,.3);border-radius:8px;
-    font-size:12px;color:#e8eefc;line-height:1.6;pointer-events:none;
+    background:rgba(16,19,28,.94);border:1px solid var(--line);border-radius:8px;
+    font-size:12px;color:var(--tx);line-height:1.6;pointer-events:none;
     opacity:0;transition:opacity .12s;box-shadow:0 6px 24px rgba(0,0,0,.5)}
   #lx-name-pop.show{opacity:1}
-  .lx-epg-empty{padding:30px 20px;text-align:center;color:#6b7fae;font-size:13px}
+  .lx-epg-empty{padding:30px 20px;text-align:center;color:var(--tx3);font-size:13px}
   /* 日期切换 tabs: 前后一周, 横向滚动 */
-  #lx-epg-tabs{display:flex;gap:6px;padding:8px 10px 6px;border-bottom:1px solid rgba(120,160,255,.12);
+  #lx-epg-tabs{display:flex;gap:4px;padding:9px 14px;flex-wrap:wrap;
     overflow-x:auto;overflow-y:hidden;scroll-behavior:smooth;scrollbar-width:none;flex-shrink:0}
   #lx-epg-tabs::-webkit-scrollbar{display:none}
-  .lx-epg-tab{flex:0 0 auto;min-width:50px;text-align:center;padding:6px 8px;border-radius:8px;font-size:12px;color:#8fa3cc;
+  .lx-epg-tab{flex:0 0 auto;min-width:50px;text-align:center;padding:4px 8px;border-radius:8px;font-size:11.5px;color:var(--tx2);
     cursor:pointer;transition:all .12s;white-space:nowrap}
-  .lx-epg-tab i{display:block;font-style:normal;font-size:10px;color:#5c719e;margin-top:1px}
+  .lx-epg-tab i{display:block;font-style:normal;font-size:10px;color:var(--tx3);margin-top:1px}
   .lx-epg-tab.past{opacity:.48}
-  .lx-epg-tab:hover{background:rgba(79,124,255,.14);color:#fff}
-  .lx-epg-tab.on{background:rgba(79,124,255,.28);color:#fff;font-weight:600}
-  .lx-epg-tab.on i{color:#9db4e8}
+  .lx-epg-tab:hover{background:rgba(255,255,255,.08);color:#fff}
+  .lx-epg-tab.on{background:rgba(61,155,255,.2);color:#b9dcff;font-weight:600}
+  .lx-epg-tab.on i{color:#9ccbff}
   /* 行内预约按钮 */
   .lx-epg-res{flex-shrink:0;padding:3px 10px;border-radius:7px;font-size:11px;letter-spacing:1px;
-    background:rgba(79,124,255,.16);color:#7d9bff;cursor:pointer;transition:all .12s;
-    border:1px solid rgba(79,124,255,.25)}
-  .lx-epg-res:hover{background:rgba(79,124,255,.35);color:#fff}
+    background:rgba(79,209,197,.14);color:var(--acc2);cursor:pointer;transition:all .12s;
+    border:1px solid rgba(79,209,197,.35)}
+  .lx-epg-res:hover{background:rgba(79,209,197,.28);color:#fff}
   .lx-epg-res.on{background:rgba(255,170,80,.2);color:#ffb36b;border-color:rgba(255,170,80,.45)}
   /* 节目单头部: 预约列表按钮 (始终可见, 免滚动) */
-  .lx-epg-resbtn{flex-shrink:0;display:inline-flex;align-items:center;gap:6px;padding:7px 15px;border-radius:9px;
-    font-size:12px;letter-spacing:1px;font-weight:600;color:#bcd0ff;cursor:pointer;transition:all .14s;
-    background:rgba(79,124,255,.14);border:1px solid rgba(120,160,255,.3)}
-  .lx-epg-resbtn:hover{background:rgba(79,124,255,.34);color:#fff}
+  .lx-epg-resbtn{flex-shrink:0;display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;
+    font-size:11.5px;letter-spacing:1px;font-weight:600;color:var(--acc2);cursor:pointer;transition:all .14s;
+    background:rgba(79,209,197,.14);border:1px solid rgba(79,209,197,.35)}
+  .lx-epg-resbtn:hover{background:rgba(79,209,197,.28);color:#fff}
   .lx-epg-resbtn.on{background:rgba(255,170,80,.2);color:#ffb36b;border-color:rgba(255,170,80,.45)}
   .lx-epg-resbtn b{display:inline-block;min-width:15px;height:15px;line-height:15px;text-align:center;
-    border-radius:8px;background:#4f7cff;color:#fff;font-size:9px;font-weight:700;padding:0 4px}
+    border-radius:8px;background:var(--acc2);color:#08202a;font-size:9px;font-weight:700;padding:0 4px}
   .lx-epg-resbtn.on b{background:#ffb36b;color:#2a1a05}
   /* 预约列表行 */
   .lx-res-row{display:flex;align-items:center;gap:8px;padding:9px 12px;margin:1px 8px 2px;
     border-radius:9px;cursor:pointer;transition:background .12s}
-  .lx-res-row:hover{background:rgba(79,124,255,.14)}
+  .lx-res-row:hover{background:rgba(255,255,255,.08)}
   .lx-res-main{flex:1;overflow:hidden}
-  .lx-res-ch{display:inline-block;font-size:11px;color:#7d9bff;background:rgba(79,124,255,.16);
+  .lx-res-ch{display:inline-block;font-size:11px;color:#9ccbff;background:rgba(61,155,255,.16);
     padding:1px 7px;border-radius:5px;margin-right:7px;vertical-align:middle}
-  .lx-res-name{font-size:13px;color:#e8eefc;vertical-align:middle}
-  .lx-res-when{display:block;font-size:11px;color:#6b7fae;margin-top:3px;
+  .lx-res-name{font-size:13px;color:var(--tx);vertical-align:middle}
+  .lx-res-when{display:block;font-size:11px;color:var(--tx3);margin-top:3px;
     font-family:Consolas,monospace}
   .lx-res-when em{font-style:normal;color:#ffb36b}
   .lx-res-x{flex-shrink:0;width:22px;height:22px;line-height:20px;text-align:center;border-radius:6px;
-    color:#6b7fae;font-size:15px;cursor:pointer;transition:all .12s}
-  .lx-res-x:hover{background:rgba(255,77,94,.25);color:#ff8f9a}
+    color:var(--tx3);font-size:15px;cursor:pointer;transition:all .12s}
+  .lx-res-x:hover{background:rgba(255,77,77,.25);color:#ff8f9a}
 
   #lx-settings{position:absolute;right:26px;bottom:86px;width:320px;z-index:6;
-    background:rgba(14,20,36,.65);backdrop-filter:blur(24px) saturate(1.5);
-    -webkit-backdrop-filter:blur(24px) saturate(1.5);border-radius:14px;
-    border:1px solid rgba(120,160,255,.16);padding:16px;display:none;
+    background:var(--glass-2);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border-radius:14px;
+    border:1px solid var(--line);padding:16px;display:none;
     box-shadow:0 10px 40px rgba(0,0,0,.6)}
   #lx-settings.open{display:block}
-  .lx-set-title{font-size:13px;font-weight:700;letter-spacing:2px;color:#9db4e8;margin-bottom:12px}
-  .lx-set-row{display:flex;align-items:center;justify-content:space-between;
-    padding:8px 0;font-size:13px;color:#c7d3ed}
-  .lx-set-row label{display:flex;align-items:center;gap:8px;cursor:pointer}
-  .lx-set-row input[type=checkbox]{accent-color:#4f7cff;width:15px;height:15px;cursor:pointer}
-  .lx-set-row select{background:#141d33;color:#c7d3ed;border:1px solid #28345a;
-    border-radius:6px;padding:4px 8px;font-size:12px}
-  .lx-set-sep{height:1px;background:rgba(80,120,255,.12);margin:8px 0}
-  .lx-set-url{font-size:10px;color:#6b7fae;word-break:break-all;max-height:44px;overflow:hidden}
-  .lx-link{color:#7d9bff;cursor:pointer;font-size:12px}
-  .lx-link:hover{color:#a5bdff;text-decoration:underline}
+  .lx-set-title{font-size:13.5px;font-weight:650;letter-spacing:6px;color:var(--tx);margin-bottom:8px;padding:5px 0}
+  .lx-set-row{display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:9px 0;font-size:12.5px;color:var(--tx)}
+  .lx-set-row label{display:flex;align-items:center;gap:9px;cursor:pointer}
+  .lx-set-row input[type=checkbox]{accent-color:var(--acc);width:15px;height:15px;cursor:pointer}
+  .lx-set-row select{background:rgba(255,255,255,.08);color:var(--tx);border:1px solid var(--line);
+    border-radius:6px;padding:4px 7px;font-size:12px;cursor:pointer}
+  .lx-set-sep{height:1px;background:var(--line);margin:3px 0}
+  .lx-set-url{font-size:10.5px;color:var(--tx3);word-break:break-all;max-height:44px;overflow:hidden;line-height:1.45}
+  .lx-link{color:var(--acc);cursor:pointer;font-size:11.5px}
+  .lx-link:hover{text-decoration:underline}
   /* 保存位置行: 左侧标签+路径, 右侧按钮组 */
   .lx-set-dir{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:8px 0}
-  .lx-set-dir-l{flex:1;min-width:0}
-  .lx-set-dir-l > span{font-size:13px;color:#c7d3ed}
-  .lx-set-dir-l .lx-set-url{margin-top:3px;line-height:1.5}
-  .lx-set-dir-btns{display:flex;gap:2px;flex-shrink:0}
-  .lx-set-dir-btns .lx-link{padding:4px 10px;border-radius:6px;
-    background:rgba(79,124,255,.1);border:1px solid rgba(79,124,255,.18);font-size:11px;white-space:nowrap}
-  .lx-set-dir-btns .lx-link:hover{background:rgba(79,124,255,.25);text-decoration:none}
+  .lx-set-dir-l{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+  .lx-set-dir-l > span{font-size:12.5px;color:var(--tx)}
+  .lx-set-dir-l .lx-set-url{margin-top:0}
+  .lx-set-dir-btns{display:flex;gap:10px;flex-shrink:0;justify-content:flex-end;margin-top:5px}
+  .lx-set-dir-btns .lx-link{white-space:nowrap}
+  .lx-kmap{font-size:11px;color:var(--tx3);line-height:1.75}
 
-  /* 关于应用: 全屏毛玻璃弹窗 */
+  /* 关于应用: 全屏毛玻璃弹窗 (与 .about-card 一致) */
   #lx-about{position:fixed;inset:0;z-index:2147483005;display:none;align-items:center;justify-content:center;
-    background:rgba(5,9,20,.5);backdrop-filter:blur(16px) saturate(1.3);
-    -webkit-backdrop-filter:blur(16px) saturate(1.3)}
+    background:rgba(6,8,13,.62);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
   #lx-about.open{display:flex}
-  .lx-about-card{position:relative;width:400px;max-width:92vw;max-height:86vh;overflow-y:auto;
-    background:rgba(14,20,36,.72);backdrop-filter:blur(24px) saturate(1.5);
+  .lx-about-card{position:relative;width:430px;max-width:92vw;max-height:92vh;overflow-y:auto;
+    background:linear-gradient(160deg,rgba(34,40,58,.96),rgba(18,22,34,.96));
+    backdrop-filter:blur(24px) saturate(1.5);
     -webkit-backdrop-filter:blur(24px) saturate(1.5);border-radius:16px;
-    border:1px solid rgba(120,160,255,.16);padding:24px 26px 18px;
-    box-shadow:0 24px 80px rgba(0,0,0,.65);color:#c7d3ed;
+    border:1px solid var(--line);padding:26px 26px 20px;
+    box-shadow:0 30px 90px rgba(0,0,0,.7);color:var(--tx);
     animation:lx-about-in .22s ease}
   @keyframes lx-about-in{from{opacity:0;transform:translateY(14px) scale(.97)}to{opacity:1;transform:none}}
-  .lx-about-x{position:absolute;top:12px;right:14px;width:28px;height:28px;line-height:26px;text-align:center;
-    border-radius:8px;color:#8fa3cc;font-size:15px;cursor:pointer;transition:all .12s;user-select:none}
-  .lx-about-x:hover{background:rgba(255,77,94,.22);color:#ff8f9a}
-  .lx-about-app{display:flex;align-items:center;gap:14px;margin-bottom:16px}
-  .lx-about-logo{width:52px;height:52px;border-radius:13px;flex-shrink:0;object-fit:cover;
-    box-shadow:0 4px 16px rgba(79,124,255,.35)}
-  .lx-about-appname{font-size:18px;font-weight:700;color:#fff;letter-spacing:2px}
-  .lx-about-ver{font-size:11px;color:#6b7fae;margin-top:3px;font-family:Consolas,monospace}
-  .lx-about-desc{font-size:12px;color:#9db4e8;line-height:1.8;margin:0 0 16px;
-    padding-bottom:14px;border-bottom:1px solid rgba(120,160,255,.1)}
-  .lx-about-brand{border:1px solid rgba(120,160,255,.16);border-radius:12px;padding:15px 16px;
-    background:rgba(79,124,255,.06);margin-bottom:14px}
-  .lx-about-brandname{font-size:15px;font-weight:700;color:#fff;letter-spacing:2px}
-  .lx-about-slogan{font-size:11px;color:#7d9bff;letter-spacing:1px;margin-top:3px}
-  .lx-about-quote{font-size:12px;color:#c7d3ed;line-height:1.8;margin-top:9px}
-  .lx-about-qr{text-align:center;padding:4px 0}
-  .lx-about-qr img{width:132px;height:132px;border-radius:10px;display:block;margin:0 auto 10px;
-    border:1px solid rgba(120,160,255,.2)}
-  .lx-about-qr-t{font-size:12px;color:#e8eefc;font-weight:600}
-  .lx-about-qr-s{font-size:11px;color:#6b7fae;margin-top:4px;line-height:1.6}
-  .lx-about-foot{text-align:center;font-size:11px;color:#5c719e;margin-top:14px;letter-spacing:1px}
+  .lx-about-x{position:absolute;top:12px;right:14px;width:26px;height:26px;line-height:24px;text-align:center;
+    border-radius:6px;color:var(--tx3);font-size:14px;cursor:pointer;transition:all .12s;user-select:none}
+  .lx-about-x:hover{background:rgba(255,255,255,.1);color:#fff}
+  .lx-about-app{display:flex;align-items:center;gap:14px;margin-bottom:14px}
+  .lx-about-logo{width:52px;height:52px;border-radius:12px;flex-shrink:0;object-fit:cover;
+    background:linear-gradient(140deg,#3d9bff,#4fd1c5)}
+  .lx-about-appname{font-size:18px;font-weight:700;color:var(--tx);letter-spacing:.5px}
+  .lx-about-ver{font-size:11.5px;color:var(--tx3);margin-top:1px;font-family:Consolas,monospace}
+  .lx-about-desc{font-size:12.5px;color:var(--tx2);line-height:1.85;margin:0 0 14px;
+    padding-bottom:14px;border-bottom:1px solid var(--line)}
+  .lx-about-brand{padding:14px 0;border-bottom:1px solid var(--line)}
+  .lx-about-brandname{font-size:14px;font-weight:650;color:var(--acc2)}
+  .lx-about-slogan{font-size:12px;color:var(--tx);margin-top:3px}
+  .lx-about-quote{font-size:11.5px;color:var(--tx3);line-height:1.75;margin-top:6px}
+  .lx-about-qr{display:flex;gap:14px;align-items:center;padding-top:14px}
+  .lx-about-qr img{width:96px;height:96px;border-radius:10px;display:block;flex-shrink:0;
+    background:#fff;padding:6px;object-fit:contain}
+  .lx-about-qr-t{font-size:12px;font-weight:600;color:var(--tx)}
+  .lx-about-qr-s{font-size:11px;color:var(--tx3);margin-top:3px;line-height:1.6}
+  .lx-about-foot{text-align:center;font-size:11px;color:var(--tx3);padding-top:14px}
 
-  #lx-toast{position:absolute;left:50%;top:72px;transform:translateX(-50%);z-index:9;
-    background:rgba(20,28,48,.96);color:#e8eefc;padding:10px 22px;border-radius:9px;
-    font-size:13px;opacity:0;transition:opacity .25s;pointer-events:none;
-    border:1px solid rgba(80,120,255,.25);max-width:72vw;white-space:nowrap;
+  #lx-toast{position:absolute;left:50%;top:48px;transform:translateX(-50%) translateY(-16px);z-index:9;
+    background:rgba(16,19,28,.92);color:var(--tx);padding:8px 16px;border-radius:20px;
+    font-size:12.5px;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;
+    border:1px solid var(--line);max-width:72vw;white-space:nowrap;
     overflow:hidden;text-overflow:ellipsis}
-  #lx-toast.show{opacity:1}
+  #lx-toast.show{opacity:1;transform:translateX(-50%)}
   #lx-toast.show._res{pointer-events:auto;cursor:pointer;border-color:rgba(255,170,80,.5)}
   #lx-toast.show._res::after{content:" · 点击跳转";color:#ffb36b;font-size:11px}
 
   #lx-hint{position:absolute;left:50%;bottom:96px;transform:translateX(-50%);z-index:9;
-    background:rgba(20,28,48,.92);color:#c9d6f2;padding:8px 18px;border-radius:8px;
-    font-size:13px;opacity:0;transition:opacity .3s;pointer-events:none}
+    background:var(--glass);color:var(--tx2);padding:8px 18px;border-radius:20px;
+    font-size:12.5px;opacity:0;transition:opacity .3s;pointer-events:none;border:1px solid var(--line)}
   #lx-hint.show{opacity:1}
 
   /* 全局滚动条: 隐藏页面/html 自身滚动条, 其余细条毛玻璃质感 */
   html::-webkit-scrollbar, body::-webkit-scrollbar{display:none}
   html, body{scrollbar-width:none}
-  #lx-root{scrollbar-width:thin;scrollbar-color:rgba(120,160,255,.3) transparent}
-  #lx-root ::-webkit-scrollbar{width:7px;height:7px}
-  #lx-root ::-webkit-scrollbar-thumb{background:rgba(120,160,255,.3);border-radius:4px;border:1px solid rgba(0,0,0,.25)}
-  #lx-root ::-webkit-scrollbar-thumb:hover{background:rgba(120,160,255,.5)}
-  #lx-root ::-webkit-scrollbar-track{background:rgba(255,255,255,.04);border-radius:4px}
+  #lx-root{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.15) transparent}
+  #lx-root ::-webkit-scrollbar{width:6px;height:6px}
+  #lx-root ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:3px}
+  #lx-root ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.3)}
+  #lx-root ::-webkit-scrollbar-track{background:transparent}
 
-  /* 顶部毛玻璃功能区: 拖拽区 + 窗口控制按钮 (无边框沉浸窗口用) */
-  #lx-topbar{position:absolute;top:0;left:0;right:0;height:36px;z-index:12;
-    display:flex;align-items:center;
-    background:linear-gradient(180deg,rgba(10,16,32,.74),rgba(10,16,32,.42) 60%,transparent);
-    backdrop-filter:blur(18px) saturate(1.4);-webkit-backdrop-filter:blur(18px) saturate(1.4);
-    opacity:0;transition:opacity .25s;pointer-events:none;color:#e8eefc;user-select:none}
-  #lx-topbar.show{opacity:1;pointer-events:auto}
-  #lx-topbar .lx-tb-title{display:flex;align-items:center;gap:8px;padding:0 14px;font-size:12px;
-    letter-spacing:1px;color:#a8bce8;white-space:nowrap;overflow:hidden}
-  #lx-topbar .lx-tb-title b{color:#e8eefc;font-weight:700}
-  #lx-topbar .lx-tb-meta{display:flex;align-items:center;gap:6px;padding:0 10px;font-size:11px;
-    color:#7d9bff;border-left:1px solid rgba(120,160,255,.18);
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  #lx-topbar .lx-tb-meta .dot{width:6px;height:6px;border-radius:50%;background:#ff4d5e;
-    box-shadow:0 0 6px #ff4d5e;flex-shrink:0}
+  /* 顶部毛玻璃功能区: 拖拽区 + 窗口控制按钮 (与 .topbar 一致) */
+  #lx-topbar{position:absolute;top:0;left:0;right:0;height:34px;z-index:12;
+    display:flex;align-items:center;gap:10px;padding:0 6px 0 12px;
+    background:linear-gradient(180deg,rgba(10,12,18,.86),rgba(10,12,18,.28));
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    border-bottom:1px solid var(--line);
+    opacity:0;transform:translateY(-100%);transition:opacity .25s,transform .25s;
+    pointer-events:none;color:var(--tx);user-select:none}
+  #lx-topbar.show{opacity:1;transform:none;pointer-events:auto}
+  #lx-topbar .lx-tb-title{display:flex;align-items:center;gap:6px;font-size:12px;
+    letter-spacing:.5px;color:var(--tx2);white-space:nowrap;overflow:hidden}
+  #lx-topbar .lx-tb-title b{color:var(--tx);font-weight:650;letter-spacing:.5px}
+  #lx-topbar .lx-tb-meta{display:flex;align-items:center;gap:6px;font-size:11.5px;
+    color:var(--tx2);background:rgba(255,255,255,.06);border:1px solid var(--line);
+    border-radius:20px;padding:2px 9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #lx-topbar .lx-tb-meta .dot{width:6px;height:6px;border-radius:50%;background:var(--ok);
+    box-shadow:0 0 6px var(--ok);flex-shrink:0}
   #lx-topbar .lx-tb-sp{flex:1}
-  #lx-tb-btns{display:flex;height:100%;-webkit-app-region:no-drag;flex-shrink:0}
-  .lx-tb-btn{width:46px;height:100%;display:flex;align-items:center;justify-content:center;
-    border:none;background:transparent;color:#c9d6f2;cursor:default;transition:background .15s;
-    line-height:0}
+  #lx-tb-btns{display:flex;align-items:center;gap:2px;-webkit-app-region:no-drag;flex-shrink:0}
+  .lx-tb-btn{width:30px;height:26px;display:flex;align-items:center;justify-content:center;
+    border:none;border-radius:6px;background:transparent;color:var(--tx2);cursor:default;
+    transition:background .15s;line-height:0}
   .lx-tb-btn svg{pointer-events:none}
-  #lx-topbar .lx-tb-logo{width:18px;height:18px;border-radius:4px;object-fit:contain;
+  #lx-topbar .lx-tb-logo{width:16px;height:16px;border-radius:4px;object-fit:contain;
     background:rgba(255,255,255,.08);flex-shrink:0}
-  .lx-tb-btn:hover{background:rgba(120,160,255,.16);color:#fff}
-  .lx-tb-btn.close:hover{background:#e81123;color:#fff}
-  .lx-tb-btn.on{color:#4f7cff}
-  .lx-tb-btn.on:hover{color:#7d9bff}
+  .lx-tb-btn:hover{background:rgba(255,255,255,.12);color:#fff}
+  .lx-tb-btn.close:hover{background:var(--red);color:#fff}
+  .lx-tb-btn.on{color:var(--acc);background:rgba(61,155,255,.16)}
+  .lx-tb-btn.on:hover{color:#9ccbff}
 
   #lx-root.idle{cursor:none}
   #lx-root.idle #lx-osd,#lx-root.idle #lx-vol,#lx-root.idle #lx-topbar,#lx-root.idle #lx-win-grip{opacity:0;pointer-events:none}
   #lx-root.idle.ctrl-on{cursor:auto}
-  #lx-root.idle.ctrl-on #lx-controls{opacity:1;pointer-events:auto}
+  #lx-root.idle.ctrl-on #lx-controls{opacity:1;transform:none;pointer-events:auto}
 
   /* 小浮窗模式: 隐藏列表/控制栏/OSD, 仅保留悬浮的 上一台/暂停/下一台, 鼠标离开即隐藏 */
   #lx-root.float #lx-controls,#lx-root.float #lx-panel,#lx-root.float #lx-epg,
   #lx-root.float #lx-settings,#lx-root.float #lx-vol,#lx-root.float #lx-osd,
   #lx-root.float #lx-nextch,#lx-root.float #lx-digit,#lx-root.float #lx-rec-badge,
   #lx-root.float #lx-win-grip{display:none !important}
-  #lx-floatctl{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);
-    display:none;align-items:center;gap:9px;padding:8px 12px;z-index:30;border-radius:16px;
-    background:linear-gradient(180deg,rgba(18,24,42,.88),rgba(10,14,26,.8));
-    border:1px solid rgba(120,160,255,.22);box-shadow:0 10px 34px rgba(0,0,0,.55);
+  #lx-floatctl{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);
+    display:none;align-items:center;gap:4px;padding:5px;z-index:30;border-radius:10px;
+    background:var(--glass);border:1px solid var(--line);box-shadow:0 8px 24px rgba(0,0,0,.55);
     backdrop-filter:blur(16px) saturate(1.4);-webkit-backdrop-filter:blur(16px) saturate(1.4);
     opacity:0;pointer-events:none;transition:opacity .2s}
   #lx-root.float #lx-floatctl{display:flex}
   #lx-root.float.show-floatctl #lx-floatctl{opacity:1;pointer-events:auto}
-  #lx-floatctl .lx-btn{position:static;width:40px;height:40px}
-  #lx-floatctl .lx-btn-main{width:46px;height:46px}
-  #lx-floatctl .lx-fc-sep{width:1px;height:24px;background:rgba(120,160,255,.2);margin:0 2px}
+  #lx-floatctl .lx-btn{position:static;width:32px;height:32px}
+  #lx-floatctl .lx-btn-main{width:40px;height:40px}
+  #lx-floatctl .lx-fc-sep{width:1px;height:18px;background:var(--line);margin:0 3px}
 
   /* 无边框窗口右下角缩放柄 (整窗 resize) */
   #lx-win-grip{position:absolute;right:0;bottom:0;width:22px;height:22px;z-index:14;
@@ -1352,10 +1322,10 @@
 
   /* 三侧滑窗统一机制: 指针移到对应侧缘滑出; 指针离开该侧区域(或离开窗口)即隐藏。
      边缘带回滞+冷却, 防止指针贴边时 反复开->隐->开 抖动 */
-  var PANEL_ZONE = 400;   // 右侧频道面板保持区 (面板320 + 宽回滞, 防越界误隐藏)
-  var PANEL_EDGE = 18;    // 右缘触发带宽 (原 8px 太窄, 鼠标常滑过)
-  var EPG_ZONE = 440;     // 左侧节目单保持区 (面板360 + 宽回滞)
-  var EPG_EDGE = 18;      // 左缘触发带宽
+  var PANEL_ZONE = 400;   // 左侧频道面板保持区 (面板320 + 宽回滞, 防越界误隐藏)
+  var PANEL_EDGE = 18;    // 左缘触发带宽 (原 8px 太窄, 鼠标常滑过)
+  var EPG_ZONE = 440;     // 右侧节目单保持区 (面板360 + 宽回滞)
+  var EPG_EDGE = 18;      // 右缘触发带宽
 
   function togglePanel() {
     var open = Lx.ui.panel.classList.toggle("open");
@@ -1382,12 +1352,12 @@
     var x = e.clientX, y = e.clientY;
     var open = Lx.ui.panel.classList.contains("open");
     if (open) {
-      if (x >= innerWidth - PANEL_ZONE) { Lx._panelIn = true; cancelPanelHide(); }
+      if (x <= PANEL_ZONE) { Lx._panelIn = true; cancelPanelHide(); }
       else if (Lx._panelIn) schedulePanelHide(250);
       return;
     }
     // 关闭后指针仍贴边 -> 冷却, 先离开触发带再允许重新滑出
-    if (x >= innerWidth - PANEL_EDGE) {
+    if (x <= PANEL_EDGE) {
       if (Lx._panelArmed !== false && y > 46 && !Lx.ui.settings.classList.contains("open")) {
         Lx._panelArmed = false;
         Lx._panelIn = true;
@@ -1863,17 +1833,17 @@
     return Lx.ui.epg.classList.contains("open") ? (hideEpg(), false) : (openEpg(), true);
   }
 
-  /* 左缘滑出节目单; 指针离开左侧保持区即隐藏 (同右缘机制) */
+  /* 右缘滑出节目单; 指针离开右侧保持区即隐藏 (同左缘机制) */
   function epgPointer(e) {
     if (Lx.devHidden) return;
     var x = e.clientX, y = e.clientY;
     var open = Lx.ui.epg.classList.contains("open");
     if (open) {
-      if (x <= EPG_ZONE) { Lx._epgIn = true; cancelEpgHide(); }
+      if (x >= innerWidth - EPG_ZONE) { Lx._epgIn = true; cancelEpgHide(); }
       else if (Lx._epgIn) scheduleEpgHide(250);
       return;
     }
-    if (x <= EPG_EDGE) {
+    if (x >= innerWidth - EPG_EDGE) {
       if (Lx._epgArmed !== false && y > 46 && !Lx.ui.settings.classList.contains("open")) {
         Lx._epgArmed = false;
         Lx._epgIn = true;
@@ -1912,7 +1882,7 @@
 
   function toggleSettings() {
     Lx.ui.settings.classList.toggle("open");
-    var a9 = (window.pywebview && window.pywebview.api) ? window.pywebview.api : null;
+    var a9 = window.lptv ? window.lptv : null;
     if (a9) {
       // 填充 自动全屏 (来自持久状态)
       var fsBox = document.getElementById("lx-s-autofs");
@@ -1943,7 +1913,7 @@
     video: null, vw: 0, vh: 0
   };
 
-  function recApi() { return (window.pywebview && window.pywebview.api) ? window.pywebview.api : null; }
+  function recApi() { return window.lptv ? window.lptv : null; }
 
   function recSupported() {
     return !!(window.MediaRecorder && document.createElement("canvas").captureStream);
@@ -2236,7 +2206,7 @@
 
   /* 顶栏窗口按钮 (无边框窗口) */
   function bindTopbar() {
-    function wvApi() { return (window.pywebview && window.pywebview.api) ? window.pywebview.api : null; }
+    function wvApi() { return window.lptv ? window.lptv : null; }
     function setMaxIcon(isMax) {
       var b = document.getElementById("lx-tb-max");
       if (b) b.innerHTML = isMax
@@ -2313,7 +2283,7 @@
 
   /* 全屏切换 (双击画面 / F11 / 控制栏全屏按钮共用), 并把按钮图标同步为当前状态 */
   function fullToggle() {
-    var a = (window.pywebview && window.pywebview.api) ? window.pywebview.api : null;
+    var a = window.lptv ? window.lptv : null;
     if (a && a.fullscreen_toggle) {
       a.fullscreen_toggle().then(function (r) {
         if (!r || !r.ok) { toast("全屏切换失败"); return; }
@@ -2335,13 +2305,13 @@
     if (t) t.classList.toggle("on", !!full);
   }
   function pollFullState() {
-    var a = (window.pywebview && window.pywebview.api) ? window.pywebview.api : null;
+    var a = window.lptv ? window.lptv : null;
     if (a && a.is_fullscreen) a.is_fullscreen().then(function (r) { setFullIcon(r && r.fullscreen); }).catch(function () {});
   }
 
   /* 小浮窗切换 (小尺寸并自动置顶); 与置顶按钮状态互通 */
   function floatToggle() {
-    var a = (window.pywebview && window.pywebview.api) ? window.pywebview.api : null;
+    var a = window.lptv ? window.lptv : null;
     if (!a || !a.float_toggle) return;
     a.float_toggle().then(function (r) {
       if (!r || !r.ok) { toast("小浮窗切换失败"); return; }
@@ -2371,7 +2341,7 @@
     if (f) syncPlayBtn();
   }
   function pollFloatState() {
-    var a = (window.pywebview && window.pywebview.api) ? window.pywebview.api : null;
+    var a = window.lptv ? window.lptv : null;
     if (a && a.is_float) a.is_float().then(function (r) { setFloatIcon(r && r.floating); }).catch(function () {});
   }
 
@@ -2664,7 +2634,7 @@
       var now = Date.now();
       if (now - lastTap < 350) {
         lastTap = 0;
-        var a = (window.pywebview && window.pywebview.api) ? window.pywebview.api : null;
+        var a = window.lptv ? window.lptv : null;
         if (a && a.fullscreen_toggle) fullToggle();
         else if (document.documentElement.requestFullscreen) {
           var df = document.documentElement.requestFullscreen();
@@ -2714,7 +2684,7 @@
       if (t.id === "lx-s-resume") { cfg.resumeLast = t.checked; pyStatePush({ resumeLast: t.checked }); }
       if (t.id === "lx-s-autofs") { pyStatePush({ autoFullscreen: t.checked }); }
       if (t.id === "lx-s-autostart") {
-        var a9 = (window.pywebview && window.pywebview.api) ? window.pywebview.api : null;
+        var a9 = window.lptv ? window.lptv : null;
         if (a9 && a9.autostart_set) {
           a9.autostart_set(t.checked).then(function (r) {
             if (r && !r.ok) { t.checked = !t.checked; toast("自启动设置失败"); }
@@ -2732,7 +2702,7 @@
       if (el2) { el2.textContent = dir || "--"; el2.title = dir || ""; }
     }
     function dirRefresh() {
-      var a3 = (window.pywebview && window.pywebview.api) ? window.pywebview.api : null;
+      var a3 = window.lptv ? window.lptv : null;
       if (a3 && a3.get_save_dirs) a3.get_save_dirs().then(function (r) {
         if (r && r.ok) { dirShow("rec", r.rec); dirShow("shot", r.shot); }
       });
@@ -2743,11 +2713,11 @@
       if (id === "lx-s-recdir-pick" || id === "lx-s-shotdir-pick") kind = id.indexOf("recdir") > 0 ? "rec" : "shot";
       else if (id === "lx-s-recdir-open" || id === "lx-s-shotdir-open") {
         kind = id.indexOf("recdir") > 0 ? "rec" : "shot";
-        var a1 = (window.pywebview && window.pywebview.api) ? window.pywebview.api : null;
+        var a1 = window.lptv ? window.lptv : null;
         if (a1 && a1.open_save_dir) a1.open_save_dir(kind);
         return;
       } else return;
-      var a2 = (window.pywebview && window.pywebview.api) ? window.pywebview.api : null;
+      var a2 = window.lptv ? window.lptv : null;
       if (!a2 || !a2.pick_save_dir) { toast("桥不可用"); return; }
       a2.pick_save_dir(kind).then(function (r) {
         if (r && r.ok) { dirShow(kind, r.dir); toast("保存位置已更改: " + r.dir); }
@@ -2759,7 +2729,7 @@
     function openAbout() {
       Lx.ui.settings.classList.remove("open");
       Lx.ui.about.classList.add("open");
-      var a = (window.pywebview && window.pywebview.api) ? window.pywebview.api : null;
+      var a = window.lptv ? window.lptv : null;
       if (a && a.get_version) a.get_version().then(function (v) {
         var t = document.getElementById("lx-about-ver");
         if (t && v) t.textContent = "版本 v" + v;
@@ -2822,7 +2792,7 @@
           var now = Date.now();
           if (now - last < 50) return;
           last = now;
-          var a = (window.pywebview && window.pywebview.api) ? window.pywebview.api : null;
+          var a = window.lptv ? window.lptv : null;
           if (a && a.resize_win) a.resize_win(baseW + ev.clientX - sx, baseH + ev.clientY - sy);
         }
         function onMove(ev) {
@@ -2878,8 +2848,8 @@
 
   function initChannels(retries) {
     retries = retries || 0;
-    if (window.pywebview && window.pywebview.api && window.pywebview.api.get_channels) {
-      window.pywebview.api.get_channels().then(function (chs) {
+    if (window.lptv && window.lptv.get_channels) {
+      window.lptv.get_channels().then(function (chs) {
         Lx.setChannels(chs);
         var m = location.href.match(/pid=(\d+)/);
         var urlPid = m ? m[1] : "";
