@@ -174,4 +174,4 @@ bash lzc/content/assemble_lpk.sh
   主进程退回 `setBounds` 模拟；浮窗/置顶/全屏用 `setBounds`/`setAlwaysOnTop`/`setFullScreen`（不依赖 WM）。
 - **UA**：保留 Windows Chrome/132 串（CMG 播放器按 UA 判定环境，与 Windows 版一致最稳）。
 - **移动端**：LPTV 窗口固定在盒子容器（1280×720），手机/电视浏览器经 catlink SPA / xpra 等比缩放查看，
-  LPTV 应用本身不做移动端布局；`package.yml` 已开放 **android / tvos** 平台支持（ios 暂未开放）。
+  LPTV 应用本身不做移动端布局；`package.yml` 已开放 **android / ios / tvos** 全部平台支持。
