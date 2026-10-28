@@ -855,7 +855,7 @@
   .lx-side-item svg{width:16px;height:16px;flex-shrink:0}
   .lx-side-item:hover{background:rgba(255,255,255,.07);color:#fff}
   .lx-side-item.on{color:#b9dcff;background:rgba(61,155,255,.2)}
-  .lx-modal-main{flex:1;min-width:0;overflow-y:auto;padding:20px 22px 14px;position:relative}
+  .lx-modal-main{flex:1;min-width:0;height:100%;overflow-y:auto;padding:20px 22px 14px;position:relative}
   .lx-modal-x{position:absolute;top:10px;right:12px;width:26px;height:26px;line-height:24px;text-align:center;
     border-radius:6px;color:var(--tx3);font-size:14px;cursor:pointer;transition:all .12s;user-select:none}
   .lx-modal-x:hover{background:rgba(255,255,255,.1);color:#fff}
@@ -897,8 +897,9 @@
     padding:2px 6px;min-width:16px;text-align:center;line-height:1.4}
   /* 关于: 居中 logo 换行 LPTV 换行版本号 + 一段文字 + 底部 Powered by */
   .lx-about-pane{text-align:center;padding:10px 6px 6px}
-  .lx-about-logo{width:76px;height:76px;border-radius:18px;object-fit:cover;margin:0 auto 16px;
-    background:linear-gradient(140deg,#3d9bff,#4fd1c5);display:block;box-shadow:0 8px 26px rgba(61,155,255,.35)}
+  /* 关于图标: 去掉渐变背景, 直接用透明 PNG 原图 + 柔和投影 */
+  .lx-about-logo{width:76px;height:76px;object-fit:contain;margin:0 auto 16px;
+    display:block;filter:drop-shadow(0 8px 24px rgba(61,155,255,.30))}
   .lx-about-appname{font-size:42px;font-weight:800;line-height:1;letter-spacing:.04em;
     background:linear-gradient(120deg,#7fe0ff,#4fd1c5,#ff5fa8);
     -webkit-background-clip:text;background-clip:text;color:transparent}
@@ -939,6 +940,8 @@
     opacity:0;transform:translateY(-100%);transition:opacity .25s,transform .25s;
     pointer-events:none;color:var(--tx);user-select:none}
   #lx-topbar.show{opacity:1;transform:none;pointer-events:auto}
+  /* 设置「启动时显示顶栏」: 顶栏常显 (含 idle/无 hover 时), 不参与隐藏 */
+  #lx-root.tb-always #lx-topbar{opacity:1!important;transform:none!important;pointer-events:auto!important}
   #lx-topbar .lx-tb-title{display:flex;align-items:center;gap:6px;font-size:12px;
     letter-spacing:.5px;color:var(--tx2);white-space:nowrap;overflow:hidden}
   #lx-topbar .lx-tb-title b{color:var(--tx);font-weight:650;letter-spacing:.5px}
