@@ -47,6 +47,9 @@ find_app() {
 
 echo "==> [1/4] 准备 content 骨架"
 mkdir -p "$STAGE/content"
+# 默认骨架：项目内持久保存的 lzc/skeleton/（由本脚本的「保存骨架」步骤生成）。
+# 没有它才回退到外部 CHROME_LPK / LZC_SKELETON / 纯内容模式。
+DEFAULT_SKELETON="$LPTV_LZC/skeleton"
 if [ -n "${LZC_SKELETON:-}" ]; then
   echo "    骨架来源：LZC_SKELETON=$LZC_SKELETON"
   cp -a "$LZC_SKELETON/." "$STAGE/content/"
@@ -54,8 +57,11 @@ elif [ -n "$CHROME_LPK" ] && [ -f "$CHROME_LPK" ]; then
   echo "    骨架来源：$CHROME_LPK"
   tar -xf "$CHROME_LPK" -C "$STAGE" content.tar
   tar -xf "$STAGE/content.tar" -C "$STAGE/content"
+elif [ -f "$DEFAULT_SKELETON/cde-supervisor" ] && [ -f "$DEFAULT_SKELETON/rim" ]; then
+  echo "    骨架来源：项目内 lzc/skeleton/"
+  cp -a "$DEFAULT_SKELETON/." "$STAGE/content/"
 else
-  echo "    警告：未提供 CHROME_LPK / LZC_SKELETON，按纯 LPTV 内容打包。" >&2
+  echo "    警告：未提供 CHROME_LPK / LZC_SKELETON，且 lzc/skeleton/ 不存在，按纯 LPTV 内容打包。" >&2
   echo "    （浏览器侧 catlink SPA/rim 层缺失时远程画面不可见，见 README。）" >&2
 fi
 
