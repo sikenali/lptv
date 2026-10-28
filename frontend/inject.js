@@ -771,9 +771,11 @@
   .lptv-ch .lptv-ch-num{font-size:calc(11.0px * var(--fs-scale));color:var(--tx3);width:28px;flex-shrink:0;font-family:Consolas,monospace;font-variant-numeric:tabular-nums}
   .lptv-ch.active .lptv-ch-num{color:var(--acc)}
   /* 台标: 正方形圆角图, 数字与名称之间 */
+  /* 台标多为宽矩形(144x72 / 144x100), 用 contain 完整显示不裁切;
+     背景反转: 深色 UI 下加浅色实底圆角芯片, 让彩色台标有明显色差对比 */
   .lptv-ch .lptv-ch-logo{width:22px;height:22px;flex-shrink:0;border-radius:4px;
-    background-size:cover;background-position:center;background-color:rgba(255,255,255,.07);
-    background-repeat:no-repeat;opacity:.85}
+    background-size:contain;background-position:center;background-color:#fff;
+    background-repeat:no-repeat;opacity:1;box-shadow:0 1px 3px rgba(0,0,0,.4)}
   .lptv-ch .lptv-ch-logo.lptv-ch-logo--loading{opacity:.4}
   .lptv-ch .lptv-ch-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .lptv-ch .live-dot{width:5px;height:5px;border-radius:50%;background:#5b6884;flex-shrink:0}
@@ -879,7 +881,10 @@
   .lptv-side-item svg{width:16px;height:16px;flex-shrink:0}
   .lptv-side-item:hover{background:rgba(255,255,255,.07);color:#fff}
   .lptv-side-item.on{color:#b9dcff;background:rgba(61,155,255,.2)}
-  .lptv-modal-main{flex:1;min-width:0;height:0;padding:20px 22px 14px;position:relative;display:flex;flex-direction:column;overflow:hidden}
+  /* 块级滚动容器(ea6bedb 可正常显示的布局): 面板 display:block 自然流式,
+     整个主区滚动, 不再用 flex列+height:0+overflow:hidden 挤压面板 */
+  /* padding-top:44px 为右上角关闭按钮(✕, top:8+30=底y38)让位, 避免遮挡首个区块 */
+  .lptv-modal-main{flex:1;min-width:0;height:100%;overflow-y:auto;padding:44px 22px 14px;position:relative}
   /* flex 居中替代 line-height, 让 ✕ 字形在 26px 方框内光学居中, 不再错位 */
   .lptv-modal-x{position:absolute;top:8px;right:8px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;
     border-radius:8px;color:var(--tx3);font-size:calc(14.0px * var(--fs-scale));line-height:1;cursor:pointer;transition:all .12s;user-select:none;z-index:1}
@@ -889,8 +894,6 @@
   /* 设置卡片: 3 个 section, 每块一张卡 */
   .lptv-set-card{border:1px solid var(--line);border-radius:12px;padding:4px 14px 8px;margin-bottom:12px;
     background:rgba(255,255,255,.03);flex-shrink:0}
-  /* 播放设置 pane 内部滚动 */
-  #lptv-pane-play{display:flex;flex-direction:column;gap:0;flex:1;min-height:0;overflow-y:auto}
   .lptv-set-card-t{font-size:calc(10.5px * var(--fs-scale));color:var(--tx3);letter-spacing:2.5px;padding:9px 0 2px}
   .lptv-set-row{display:flex;align-items:center;justify-content:space-between;gap:10px;
     padding:8px 0;font-size:calc(12.5px * var(--fs-scale));color:var(--tx)}
@@ -925,10 +928,13 @@
   /* 关于: 居中 logo 换行 LPTV 换行版本号 + 一段文字 + 底部 Powered by */
   .lptv-about-pane{text-align:center;padding:10px 6px 6px}
   /* 关于图标: 去掉渐变背景, 直接用透明 PNG 原图 + 柔和投影 */
+  /* 猫+电视图标(icon.png): 顶部 64px 小图标, 下方另起一行放品牌 logo */
+  .lptv-about-icon{width:auto;height:64px;max-width:60vw;margin:0 auto 12px;display:block;filter:drop-shadow(0 8px 24px rgba(61,155,255,.30))}
   .lptv-about-logo{width:240px;height:auto;max-width:60vw;margin:0 auto 14px;display:block;filter:drop-shadow(0 8px 24px rgba(61,155,255,.30))}
 
   .lptv-about-ver{font-size:calc(12.0px * var(--fs-scale));color:var(--tx3);margin-top:10px;font-family:Consolas,monospace}
-  .lptv-about-desc{font-size:calc(12.5px * var(--fs-scale));color:var(--tx2);line-height:1.95;margin:20px auto 0;max-width:340px}
+  .lptv-about-desc{font-size:calc(15.0px * var(--fs-scale));color:var(--tx2);line-height:1.85;margin:20px auto 0;max-width:400px}
+  .lptv-about-slogan{font-size:calc(13.0px * var(--fs-scale));color:var(--tx3);letter-spacing:1px;margin-top:12px}
   .lptv-about-foot{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);
     font-size:calc(11.0px * var(--fs-scale));color:var(--tx3);letter-spacing:.5px}
 
@@ -989,10 +995,8 @@
 
   #lptv-root.idle{cursor:none}
   #lptv-root.idle #lptv-osd,#lptv-root.idle #lptv-vol,#lptv-root.idle #lptv-win-grip{opacity:0;pointer-events:none}
-  /* idle 时顶栏半透明常显, 方便用户定位 */
-  #lptv-root.idle #lptv-topbar{opacity:.35!important;transform:none!important;pointer-events:auto!important}
-  /* 非 idle 时鼠标离开顶部区域后也保持半透明提示 */
-  #lptv-topbar.lptv-topbar--dim{opacity:.35!important;transform:none!important;pointer-events:auto!important}
+  /* 默认/非hover: 顶栏完全隐藏(基础规则 opacity:0; translateY(-100%));
+     不再有 idle/dim 半透明(.35)残留, 遵循「要么显示 要么不显示」 */
   #lptv-root.idle.ctrl-on{cursor:auto}
   #lptv-root.idle.ctrl-on #lptv-controls{opacity:1;transform:translate(-50%,0);pointer-events:auto}
 
@@ -1076,7 +1080,7 @@
       '<div class="lptv-ctl-seg lptv-ctl-side">' +
         '<button class="lptv-btn lptv-btn-ico" id="lptv-b-epg" title="节目单 (E)"><svg viewBox="0 0 24 24"><path d="M8.5 6h11M8.5 12h11M8.5 18h11" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="4.6" cy="6" r="1.1" fill="currentColor" stroke="none"/><circle cx="4.6" cy="12" r="1.1" fill="currentColor" stroke="none"/><circle cx="4.6" cy="18" r="1.1" fill="currentColor" stroke="none"/></svg></button>' +
         '<button class="lptv-btn lptv-btn-ico" id="lptv-b-panel" title="频道列表 (S)"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7.2" height="7.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="13.3" y="3.5" width="7.2" height="7.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="3.5" y="13.3" width="7.2" height="7.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="13.3" y="13.3" width="7.2" height="7.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>' +
-        '<button class="lptv-btn lptv-btn-ico" id="lptv-b-set" title="设置"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>' +
+        '<button class="lptv-btn lptv-btn-ico" id="lptv-b-set" title="设置"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="15" cy="7" r="2.6" fill="currentColor" stroke="none"/><circle cx="8" cy="12" r="2.6" fill="currentColor" stroke="none"/><circle cx="16" cy="17" r="2.6" fill="currentColor" stroke="none"/></svg></button>' +
       '</div>' });
     controls.querySelector("#lptv-c-vol").value = Math.round(cfg.volume * 100);
     fillRange(controls.querySelector("#lptv-c-vol"));
@@ -1144,9 +1148,11 @@
             '<div class="lptv-set-card"><div class="lptv-set-card-t">快捷键</div><div class="lptv-kmap" id="lptv-s-kmap"></div></div>' +
           '</div>' +
           '<div class="lptv-pane lptv-about-pane" id="lptv-pane-about">' +
+            '<img class="lptv-about-icon" id="lptv-about-icon-img" alt="LPTV">' +
             '<img class="lptv-about-logo" id="lptv-about-logo-img" alt="LPTV">' +
             '<div class="lptv-about-ver" id="lptv-about-ver">版本 --</div>' +
-            '<div class="lptv-about-desc">LPTV 是一款为懒猫盒子打造的YSP远程播放客户端，支持频道收藏、节目单预约、录制截图、置顶浮窗。</div>' +
+            '<div class="lptv-about-desc">懒猫微视是一款专门为懒猫微服打造的YSP远程播放客户端。</div>' +
+            '<div class="lptv-about-slogan">为慵懒而生，享直播视听。</div>' +
             '<div class="lptv-about-foot">Powered by LightOS · Made for LCMD</div>' +
           '</div>' +
         '</div>' +
@@ -2428,6 +2434,14 @@
     (function () {
       var tb = document.querySelector("#lptv-topbar");
       var dragging = false, sx = 0, sy = 0, wx = 0, wy = 0, posReady = false;
+      var raf = null, pend = null;  // rAF 合帧: 顶栏拖动同样不刷爆 IPC
+      function flush() {
+        raf = null;
+        if (!posReady || !pend) return;
+        var api = wvApi();
+        if (api && api.move_win) api.move_win(pend[0], pend[1]);
+        pend = null;
+      }
       tb.addEventListener("mousedown", function (e) {
         if (e.button !== 0) return;
         if (e.target.closest && e.target.closest("#lptv-tb-btns, .lptv-tb-btn")) return;
@@ -2443,11 +2457,73 @@
       });
       window.addEventListener("mousemove", function (e) {
         if (!dragging || !posReady) return;
-        var dx = e.screenX - sx, dy = e.screenY - sy;
-        var api = wvApi();
-        if (api && api.move_win) api.move_win(wx + dx, wy + dy);
+        pend = [wx + (e.screenX - sx), wy + (e.screenY - sy)];
+        if (!raf) raf = requestAnimationFrame(flush);
       });
-      window.addEventListener("mouseup", function () { dragging = false; });
+      window.addEventListener("mouseup", function () {
+        if (raf) { cancelAnimationFrame(raf); raf = null; }
+        if (pend) { flush(); pend = null; }
+        dragging = false;
+      });
+    })();
+    // 全屏长按拖动窗口: 除已有拖动面(topbar)/交互控件/悬浮面板外, 任意处按住
+    // ~400ms 进入拖动模式, 移动即 move_win。短按(<400ms)仍走正常点击, 不干扰。
+    // 唯一的长按拖动实现(播放器区不再重复绑定, 避免双 move_win 争抢导致漂移)。
+    (function () {
+      var LP = 400, timer = null, dragging = false, started = false;
+      var sx = 0, sy = 0, wx = 0, wy = 0, posReady = false, moved = false;
+      var raf = null, pend = null;  // rAF 合帧: 每帧至多一次 move_win, 不刷爆 IPC
+      var SKIP = "#lptv-topbar,#lptv-tb-btns,.lptv-tb-btn,#lptv-controls,#lptv-panel," +
+        "#lptv-epg,#lptv-settings,#lptv-win-grip,#lptv-vol,#lptv-osd,#lptv-nextch," +
+        "#lptv-digit,#lptv-toast,#lptv-hint,#lptv-rec-badge,input,select,button,a," +
+        ".lptv-btn,.lptv-link,.lptv-ch,.lptv-epg-tab";
+      function flush() {
+        raf = null;
+        if (!posReady || !pend) return;
+        var api = wvApi();
+        if (api && api.move_win) api.move_win(pend[0], pend[1]);
+        pend = null;
+      }
+      function cancel() {
+        clearTimeout(timer); timer = null; started = false;
+        if (raf) { cancelAnimationFrame(raf); raf = null; }
+        if (pend) { flush(); }  // 松开前落定最后一步, 避免窗口停在半路
+        pend = null; dragging = false;
+        // 拖过的释放置 _longDrag, 由 click 处理器消费: 避免拖完的 click 被
+        // 误判成"双击第二击"触发全屏
+        if (moved) {
+          lptv._longDrag = true;
+          setTimeout(function () { lptv._longDrag = false; }, 500);
+        }
+        moved = false;
+      }
+      document.addEventListener("mousedown", function (e) {
+        if (e.button !== 0) return;
+        if (e.target.closest && e.target.closest(SKIP)) return;
+        sx = e.screenX; sy = e.screenY; started = false; dragging = false; posReady = false; moved = false;
+        clearTimeout(timer);
+        timer = setTimeout(function () {
+          started = true; dragging = true;
+          var api = wvApi();
+          if (api && api.win_pos) {
+            api.win_pos().then(function (r) { if (r && r.ok) { wx = r.x; wy = r.y; } posReady = true; });
+          } else { posReady = true; }
+          wake();
+        }, LP);
+      }, true);
+      document.addEventListener("mousemove", function (e) {
+        if (!started) {
+          // 长按未触发前位移超过容差: 取消(视为点击/滚动画布)。12px 容差吸收
+          // 400ms 保持期间的手部抖动/呼吸起伏, 长按不再被误取消
+          if (timer && (Math.abs(e.screenX - sx) > 12 || Math.abs(e.screenY - sy) > 12)) cancel();
+          return;
+        }
+        if (!dragging || !posReady) return;
+        if (Math.abs(e.screenX - sx) + Math.abs(e.screenY - sy) > 3) moved = true;
+        pend = [wx + (e.screenX - sx), wy + (e.screenY - sy)];
+        if (!raf) raf = requestAnimationFrame(flush);
+      }, true);
+      document.addEventListener("mouseup", cancel, true);
     })();
     if (a && a.is_maximized) {
       setInterval(function () { a.is_maximized().then(function (r) { setMaxIcon(r && r.maximized); }); }, 2000);
@@ -2635,10 +2711,7 @@
       // 鼠标离开顶部区域: idle 时半透明, 非 idle 时加 dim 类半透明
       if (!lptv.tbAlways && e.clientY > 56) {
         var tb2 = document.getElementById("lptv-topbar");
-        if (tb2) {
-          tb2.classList.remove("show");
-          if (!lptv.ui.root.classList.contains("idle")) tb2.classList.add("lptv-topbar--dim");
-        }
+        if (tb2) tb2.classList.remove("show");
       } else if (e.clientY <= 56) {
         var tb3 = document.getElementById("lptv-topbar");
         if (tb3) tb3.classList.remove("lptv-topbar--dim");
@@ -2699,57 +2772,6 @@
         }
       }, { passive: false });
     }
-
-    /* ---- 长按画面拖动窗口 (无边框) ----
-     * 除了顶栏，播放器区域也支持拖拽：按住 ~350ms 不松手即进入拖拽态，随后
-     * 移动就 move_win。短按释放不进入拖拽态，因此不干扰单击(控制栏显隐)/
-     * 双击(全屏) 手势。拖拽发生过的释放会置 lptv._longDrag，由 click 处理器消费，
-     * 避免拖完的 click 被误判成"双击第二击"触发全屏。 */
-    (function () {
-      var r = lptv.ui.root;
-      var holdT = null, hx = 0, hy = 0;
-      var dragging = false, moved = false, sx = 0, sy = 0, wx = 0, wy = 0, posReady = false;
-      function api() { return window.lptv ? window.lptv : null; }
-      function endDrag() {
-        if (dragging && moved) {
-          lptv._longDrag = true;
-          setTimeout(function () { lptv._longDrag = false; }, 500);
-        }
-        clearTimeout(holdT); holdT = null;
-        dragging = false; moved = false; posReady = false;
-      }
-      r.addEventListener("mousedown", function (e) {
-        if (e.button !== 0) return;
-        var t = e.target;
-        // UI 控件/抽屉/输入框不参与长按拖拽 (与顶栏拖拽的豁免区一致)
-        if (t && t.closest && t.closest(DRAG_GUARD_SEL)) return;
-        hx = e.screenX; hy = e.screenY; moved = false;
-        clearTimeout(holdT);
-        holdT = setTimeout(function () {
-          dragging = true; sx = hx; sy = hy; posReady = false;
-          var a = api();
-          if (a && a.win_pos) {
-            a.win_pos().then(function (res) {
-              if (res && res.ok) { wx = res.x; wy = res.y; }
-              posReady = true;
-            });
-          } else { posReady = true; }
-          wake();
-        }, 350);
-      });
-      window.addEventListener("mousemove", function (e) {
-        // 长按计时内鼠标快速移动 -> 取消本次长按 (这是单击/双击, 非拖拽)
-        if (holdT && (Math.abs(e.screenX - hx) > 6 || Math.abs(e.screenY - hy) > 6)) {
-          clearTimeout(holdT); holdT = null;
-        }
-        if (!dragging || !posReady) return;
-        if (Math.abs(e.screenX - sx) + Math.abs(e.screenY - sy) > 3) moved = true;
-        var a = api();
-        if (a && a.move_win) a.move_win(wx + (e.screenX - sx), wy + (e.screenY - sy));
-      });
-      window.addEventListener("mouseup", endDrag);
-      window.addEventListener("blur", endDrag);
-    })();
 
     /* 长名称悬停气泡: 指向截断的节目/预约名 (.lptv-epg-n/.lptv-res-name) 时显示完整文本 */
     var NAME_POP_SEL = ".lptv-epg-n,.lptv-res-name";
@@ -3012,6 +3034,11 @@
         if (t && v) t.textContent = "版本 v" + v;
       }).catch(function () {});
       if (a && a.get_asset_image) {
+        // 猫+电视图标(icon.png) 在上, 品牌 logo(lptv.png) 下方换行
+        a.get_asset_image("icon.png").then(function (r) {
+          var img = document.getElementById("lptv-about-icon-img");
+          if (img && r && r.ok) img.src = r.src;
+        }).catch(function () {});
         a.get_asset_image("lptv.png").then(function (r) {
           var img = document.getElementById("lptv-about-logo-img");
           if (img && r && r.ok) img.src = r.src;
@@ -3023,12 +3050,21 @@
       var ae = document.activeElement;
       return !!ae && /INPUT|TEXTAREA|SELECT/.test(ae.tagName || "");
     }
+    /* 遥控器/媒体键 (cde/xpra 转发; Android KEYCODE_* 由显示端客户端转成键盘事件)。
+       电视遥控常发的不是 Arrow/Enter/Escape, 而是 MediaPlayPause / AudioVolumeUp /
+       ChannelUp / Backspace(返回) 等 X11 keysym。e.key 与 e.code 双通道匹配, 兜住
+       XF86Audio* 落到 code、部分客户端给 key 的差异。 */
+    function rcIn(k, c, names) {
+      for (var i = 0; i < names.length; i++) if (k === names[i] || c === names[i]) return true;
+      return false;
+    }
     document.addEventListener("keydown", function (e) {
       if (e.ctrlKey && (e.key === "d" || e.key === "D")) { e.preventDefault(); devToggle(); return; }
       if (lptv.devHidden) return;
       if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
       var panelOpen = lptv.ui.panel.classList.contains("open");
-      var k = e.key;
+      var k = e.key || "";
+      var c = e.code || "";
       // 全部消费掉: 阻止官方 SPA 收到 空格/方向键/数字 等触发其内部行为
       if (/^[0-9]$/.test(k)) { e.preventDefault(); e.stopPropagation(); handleDigit(k); }
       else if (k === "ArrowUp") { e.preventDefault(); e.stopPropagation(); panelOpen ? panelNav(-1) : chanKey(-1); }
@@ -3039,6 +3075,15 @@
       else if (k === "ArrowRight") { e.preventDefault(); e.stopPropagation(); setVolume((lptv.video ? lptv.video.volume : cfg.volume) + 0.05); }
       else if (k === "Enter") { if (panelOpen) { e.preventDefault(); e.stopPropagation(); panelSelect(); } }
       else if (k === " ") { e.preventDefault(); e.stopPropagation(); togglePlay(); }
+      // 遥控器/媒体键: 播放/暂停、换台、音量、静音、返回
+      else if (rcIn(k, c, ["MediaPlayPause","MediaPlay","MediaPause","Play","Pause","AudioPlay","AudioPause"])) { e.preventDefault(); e.stopPropagation(); togglePlay(); }
+      else if (rcIn(k, c, ["MediaStop"])) { e.preventDefault(); e.stopPropagation(); togglePlay(); }
+      else if (rcIn(k, c, ["MediaTrackNext","AudioNext","ChannelUp","MediaChannelUp"])) { e.preventDefault(); e.stopPropagation(); chanKey(1); }
+      else if (rcIn(k, c, ["MediaTrackPrevious","AudioPrev","ChannelDown","MediaChannelDown"])) { e.preventDefault(); e.stopPropagation(); chanKey(-1); }
+      else if (rcIn(k, c, ["VolumeUp","AudioVolumeUp"])) { e.preventDefault(); e.stopPropagation(); setVolume((lptv.video ? lptv.video.volume : cfg.volume) + 0.05); }
+      else if (rcIn(k, c, ["VolumeDown","AudioVolumeDown"])) { e.preventDefault(); e.stopPropagation(); setVolume((lptv.video ? lptv.video.volume : cfg.volume) - 0.05); }
+      else if (rcIn(k, c, ["AudioVolumeMute","VolumeMute","Mute","AudioMute"])) { e.preventDefault(); e.stopPropagation(); toggleMute(); }
+      else if (rcIn(k, c, ["Backspace","GoBack","BrowserBack"])) { e.preventDefault(); e.stopPropagation(); hidePanel(); hideEpg(); }
       else if (k === "m" || k === "M") { if (!e.ctrlKey && !e.altKey) { e.stopPropagation(); toggleMute(); } }
       else if (k === "s" || k === "S") { if (!e.ctrlKey && !e.altKey) { e.stopPropagation(); togglePanel(); } }
       else if (k === "e" || k === "E") { if (!e.ctrlKey && !e.altKey) { e.stopPropagation(); toggleEpg(); } }

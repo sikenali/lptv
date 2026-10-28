@@ -87,23 +87,21 @@
       '#lptv-splash.lptv-out{opacity:0;pointer-events:none}',
       '#lptv-splash::before{content:"";position:absolute;inset:-24%;pointer-events:none;',
       '  background:radial-gradient(48% 36% at 50% 42%, rgba(28,86,196,.22), rgba(0,0,0,0) 72%)}',
-      /* 静态图片字标 (lptv.png 横幅) + 字母形状掩膜上的注水动画 */
+      /* 静态图片字标 (lptv.png 横幅), 原图直显不加水 */
       '.lptv-art{position:relative;width:min(76vw,880px);aspect-ratio:2264/516;',
       '  animation:lxIn .9s ease both}',
       '.lptv-art img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;',
       '  filter:drop-shadow(0 16px 50px rgba(40,120,255,.28));user-select:none}',
-      /* 注水: lptv.png 作掩膜(字母形状), 四色水自下而上淹没字母 */
-      '.lptv-water{position:absolute;inset:0;pointer-events:none;',
-      '  -webkit-mask-size:100% 100%;mask-size:100% 100%;',
-      '  -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}',
-      '.lptv-water i{position:absolute;left:0;right:0;bottom:0;height:0;',
+      /* 彩色进度条: 横幅下方, 四色色块来回扫动 (不定态加载) */
+      '.lptv-progress{position:relative;margin:26px auto 0;width:min(54vw,480px);',
+      '  height:6px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}',
+      '.lptv-progress i{position:absolute;top:0;bottom:0;left:0;width:40%;',
+      '  border-radius:999px;',
       '  background:linear-gradient(90deg,#1a6fe8 0%,#0fae92 34%,#f07d18 67%,#e8318f 100%);',
-      '  box-shadow:0 -12px 44px rgba(80,170,255,.5);',
-      '  animation:lxRise 1.05s cubic-bezier(.22,.75,.3,1) both}',
-      '.lptv-water i::before{content:"";position:absolute;left:0;right:0;top:-8px;height:16px;',
-      '  background:radial-gradient(50% 100% at 50% 100%,',
-      '    rgba(255,255,255,.65), rgba(255,255,255,0) 72%);filter:blur(2px)}',
-      '@keyframes lxRise{to{height:100%}}',
+      '  box-shadow:0 0 16px rgba(80,170,255,.55);transform:translateX(0)}',
+      '@media (prefers-reduced-motion:no-preference){',
+      '  .lptv-progress i{animation:lxScan 1.5s ease-in-out infinite alternate}}',
+      '@keyframes lxScan{from{transform:translateX(0)}to{transform:translateX(150%)}}',
       /* 无 lptv.png 兜底: 方形图标 */
       '.lptv-splash-icon{position:relative;width:min(150px,22vh);height:min(150px,22vh);',
       '  object-fit:contain;border-radius:32px;box-shadow:0 24px 80px rgba(40,110,255,.35);',
@@ -130,15 +128,6 @@
         try { if (img.naturalWidth && img.naturalHeight) art.style.aspectRatio = img.naturalWidth + '/' + img.naturalHeight; } catch (e) {}
       };
       art.appendChild(img);
-      /* 字母上注水动画: 掩膜 = lptv.png 字母形状 (直接内联 url(dataURI), 不绕 var),
-         内层 i 自下而上四色水, 只在字母不透明处显示 */
-      var water = document.createElement('div');
-      water.className = 'lptv-water';
-      water.style.webkitMaskImage = 'url("' + BANNER + '")';
-      water.style.maskImage = 'url("' + BANNER + '")';
-      var wi = document.createElement('i');
-      water.appendChild(wi);
-      art.appendChild(water);
     } else {
       art.className = '';
       var img2 = document.createElement('img');
@@ -149,6 +138,13 @@
       art.appendChild(img2);
     }
     mask.appendChild(art);
+
+    /* 彩色进度条: 横幅下方来回扫动 (两路径共用) */
+    var prog = document.createElement('div');
+    prog.className = 'lptv-progress';
+    var pi = document.createElement('i');
+    prog.appendChild(pi);
+    mask.appendChild(prog);
 
     /* 锁定页面背景/滚动 (全覆盖), 并挂到 <html> 最稳 */
     var dEl = document.documentElement;
