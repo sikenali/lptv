@@ -1,0 +1,176 @@
+# ---------------------------------------------------------------------------
+# GitHub Actions 流水线
+#
+# 流程：build AppImage → download skeleton → assemble LPK
+#   1. electron/package.json 的 npm run dist 打出 LPTV-linux-x64-*.AppImage
+#   2. 从 GitHub Release 下载骨架（cde-supervisor/rim/web，~32MB）
+#   3. lzc/content/assemble_lpk.sh 组装最终 LPK
+#
+# 首次运行前需手动建一个 Release（含骨架压缩包），详见 workflow 注释。
+#
+# APK 问题说明：
+#   Electron 官方不支持 Android，electron-builder 的 apk 目标需要 Android SDK
+#   + Capacitor/Cordova 等原生壳，无法直接用。如需懒猫盒子的 Android 端，
+#   需要单独构建一个 Android APK（建议用 Capacitor 或 flutter），
+#   与 Electron AppImage 是两条独立交付路径。
+# ---------------------------------------------------------------------------
+name: Build AppImage & LPK
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+  # 手动触发（带版本号，方便发布）
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号（如 1.0.1）'
+        required: false
+        type: string
+
+env:
+  NODE_VERSION: '20'
+  SKELETON_RELEASE_TAG: 'skeleton-v1'   # 首次发布骨架时的 tag（改这个即可更新）
+  SKELETON_ASSET:   'lzc-skeleton.tar.gz'
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ------------------------------------------------------------------
+      # 1. 环境准备
+      # ------------------------------------------------------------------
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install system deps (AppImage runtime libs)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgtk-3-0 libnss3 libasound2t64 libatk1.0-0 \
+            libcups2 libxss1 libdrm2 libgbm1 libxkbcommon0 \
+            libnotify-bin
+
+      # ------------------------------------------------------------------
+      # 2. 构建 AppImage
+      # ------------------------------------------------------------------
+      - name: Build AppImage
+        run: |
+          cd electron
+          npm ci --ignore-scripts || npm install --ignore-scripts
+          npm run dist
+
+      - name: Verify AppImage
+        run: |
+          FILE=$(ls electron/dist/LPTV-*.AppImage 2>/dev/null | head -1)
+          if [ -z "$FILE" ]; then
+            echo "错误：未找到 AppImage 产物" >&2
+            ls -la electron/dist/ >&2
+            exit 1
+          fi
+          echo "APPIMAGE_PATH=$(pwd)/$FILE" >> $GITHUB_ENV
+          chmod +x "$FILE"
+          echo "AppImage: $(basename "$FILE") ($(du -h "$FILE" | cut -f1))"
+
+      - name: Upload AppImage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lptv-appimage
+          path: ${{ env.APPIMAGE_PATH }}
+          retention-days: 7
+
+      # ------------------------------------------------------------------
+      # 3. 下载骨架（懒猫盒子容器所需：cde-supervisor / rim / web SPA）
+      #
+      # 首次运行时（Release 不存在）：跳过骨架下载，仅打 AppImage；
+      # 然后手动执行：
+      #   cd lzc && tar czf ../lzc-skeleton.tar.gz skeleton/
+      #   gh release create <TAG> lzc-skeleton.tar.gz --prerelease
+      # ------------------------------------------------------------------
+      - name: Download skeleton
+        id: skeleton
+        run: |
+          SKELETON_DIR="$(pwd)/lzc/skeleton"
+          TARBALL="/tmp/lzc-skeleton.tar.gz"
+          TAG="${{ env.SKELETON_RELEASE_TAG }}"
+
+          # 尝试从 Release 下载
+          if gh release view "$TAG" --json assets -q '.assets[] | select(.name=="${{ env.SKELETON_ASSET }}")' 2>/dev/null | grep -q .; then
+            gh release download "$TAG" -D /tmp -A '${{ env.SKELETON_ASSET }}'
+            mkdir -p "$SKELETON_DIR"
+            tar -xzf "$TARBALL" -C "$SKELETON_DIR"
+            echo "skeleton_downloaded=true" >> $GITHUB_OUTPUT
+            echo "骨架已下载：$(ls "$SKELETON_DIR" | tr '\n' ' ')"
+          else
+            echo "skeleton_downloaded=false" >> $GITHUB_OUTPUT
+            echo "警告：未找到 Release $TAG/$SKELETON_ASSET，跳过骨架（LPK 构建将降级为纯内容模式）" >&2
+            echo "首次发布请执行：" >&2
+            echo "  cd lzc && tar czf ../lzc-skeleton.tar.gz skeleton/" >&2
+            echo "  gh release create $TAG lzc-skeleton.tar.gz" >&2
+          fi
+
+      # ------------------------------------------------------------------
+      # 4. 组装 LPK
+      # ------------------------------------------------------------------
+      - name: Assemble LPK
+        id: lpk
+        run: |
+          set -euo pipefail
+          VERSION="$(grep -m1 '^version:' lzc/package.yml | awk '{print $2}')"
+          INPUT_VERSION="${{ github.event.inputs.version }}"
+          [ -n "${INPUT_VERSION:-}" ] && VERSION="$INPUT_VERSION"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+          SKELETON_DIR="$(pwd)/lzc/skeleton"
+          APP="${{ env.APPIMAGE_PATH }}"
+
+          if [ "${{ steps.skeleton.outputs.skeleton_downloaded }}" = "true" ] \
+             && [ -f "$SKELETON_DIR/cde-supervisor" ] && [ -f "$SKELETON_DIR/rim" ]; then
+            export LZC_SKELETON="$SKELETON_DIR"
+            echo "使用本地骨架：$SKELETON_DIR"
+          else
+            echo "警告：骨架不可用，使用纯内容模式（无 rim/cde-supervisor）" >&2
+          fi
+          export APP
+
+          bash lzc/content/assemble_lpk.sh
+
+          OUT="$(pwd)/lzc/cloud.lazycat.catlink.lptv-${VERSION}.lpk"
+          echo "LPK_PATH=$OUT" >> $GITHUB_ENV
+          if [ -f "$OUT" ]; then
+            echo "lpk_exists=true" >> $GITHUB_OUTPUT
+            ls -lh "$OUT"
+          else
+            echo "lpk_exists=false" >> $GITHUB_OUTPUT
+            echo "错误：LPK 未生成（检查骨架是否可用）" >&2
+          fi
+
+      - name: Upload LPK artifact
+        if: steps.lpk.outputs.lpk_exists == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: lptv-lpk
+          path: ${{ env.LPK_PATH }}
+          retention-days: 7
+
+      # ------------------------------------------------------------------
+      # 5. 发布 GitHub Release（仅 workflow_dispatch + 有版本号时）
+      # ------------------------------------------------------------------
+      - name: Create GitHub Release
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.version != '' && steps.lpk.outputs.lpk_exists == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.event.inputs.version }}
+          name: LPTV v${{ github.event.inputs.version }}
+          files: |
+            ${{ env.APPIMAGE_PATH }}
+            ${{ env.LPK_PATH }}
+          generate_release_notes: true

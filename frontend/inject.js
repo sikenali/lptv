@@ -647,6 +647,20 @@
     opacity:0;transition:opacity .18s}
   .lptv-btn[data-tip]:hover::after{opacity:1;transform:translateX(-50%)}
   .lptv-btn[data-tip]:hover::before{opacity:1}
+  /* 顶栏按钮: 位于屏幕顶端, 提示显示在按钮下方 */
+  .lptv-tb-btn[data-tip]:hover::after{
+    content:attr(data-tip);position:absolute;top:calc(100% + 8px);left:50%;
+    transform:translateX(-50%) translateY(-4px);white-space:nowrap;z-index:30;
+    background:rgba(16,20,32,.97);color:#e6ecff;font-size:11.5px;font-weight:500;
+    letter-spacing:.3px;padding:6px 10px;border-radius:8px;
+    border:1px solid rgba(255,255,255,.14);box-shadow:0 8px 24px rgba(0,0,0,.55);
+    opacity:0;pointer-events:none;transition:opacity .18s,transform .18s}
+  .lptv-tb-btn[data-tip]:hover::before{
+    content:"";position:absolute;top:calc(100% + 3px);left:50%;z-index:30;
+    transform:translateX(-50%);border:5px solid transparent;border-bottom-color:rgba(255,255,255,.2);
+    opacity:0;transition:opacity .18s}
+  .lptv-tb-btn[data-tip]:hover::after{opacity:1;transform:translateX(-50%)}
+  .lptv-tb-btn[data-tip]:hover::before{opacity:1}
   .lptv-btn.rec-on,#lptv-b-rec.rec-on{background:rgba(255,77,77,.85);color:#fff}
   #lptv-b-rec.rec-on svg{color:#fff;animation:lptvrec 1.2s ease-in-out infinite}
   #lptv-b-full.on,#lptv-b-float.on{background:rgba(61,155,255,.22);color:#9ccbff}
@@ -841,7 +855,7 @@
     background:rgba(6,8,13,.62);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
   #lptv-settings.open{display:flex}
   /* 固定高度 = 内容最多一栏 (播放设置) 的高度, 切标签不跳动; 内部滚动 */
-  .lptv-modal-card{display:flex;width:560px;max-width:92vw;height:min(444px,86vh);overflow:hidden;
+  .lptv-modal-card{position:relative;display:flex;width:560px;max-width:92vw;height:min(444px,86vh);overflow:hidden;
     background:linear-gradient(160deg,rgba(34,40,58,.97),rgba(18,22,34,.97));
     backdrop-filter:blur(24px) saturate(1.5);-webkit-backdrop-filter:blur(24px) saturate(1.5);
     border-radius:16px;border:1px solid var(--line);
@@ -954,7 +968,7 @@
   #lptv-tb-btns{display:flex;align-items:center;gap:2px;-webkit-app-region:no-drag;flex-shrink:0}
   .lptv-tb-btn{width:30px;height:26px;display:flex;align-items:center;justify-content:center;
     border:none;border-radius:6px;background:transparent;color:var(--tx2);cursor:default;
-    transition:background .15s;line-height:0}
+    transition:background .15s;line-height:0;position:relative}
   .lptv-tb-btn svg{pointer-events:none}
   #lptv-topbar .lptv-tb-logo{width:16px;height:16px;border-radius:4px;object-fit:contain;
     background:rgba(255,255,255,.08);flex-shrink:0}
@@ -1087,11 +1101,10 @@
           '<span class="lptv-side-item" data-pane="about"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 11v5M12 7.5v.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>关于</span>' +
         '</div>' +
         '<div class="lptv-modal-main">' +
-          '<span class="lptv-modal-x" id="lptv-set-x" title="关闭">✕</span>' +
           '<div class="lptv-pane on" id="lptv-pane-play">' +
             '<div class="lptv-set-card"><div class="lptv-set-card-t">播放设置</div>' +
               '<div class="lptv-set-row"><label><input type="checkbox" id="lptv-s-resume" ' + (cfg.resumeLast !== false ? "checked" : "") + '>启动时恢复上次频道</label></div>' +
-              '<div class="lptv-set-row"><label><input type="checkbox" id="lptv-s-tbalways">启动时显示顶栏（logo+窗口按钮常显，去勾选为悬停显示）</label></div>' +
+              '<div class="lptv-set-row"><label><input type="checkbox" id="lptv-s-tbalways">启动时显示顶栏（常显）</label></div>' +
               '<div class="lptv-set-row"><label><input type="checkbox" id="lptv-s-autofs">启动时自动全屏</label></div>' +
               '<div class="lptv-set-row"><label><input type="checkbox" id="lptv-s-autostart">开机自启动</label></div>' +
               '<div class="lptv-set-row"><label><input type="checkbox" id="lptv-s-perf">流畅模式（降低毛玻璃特效）</label></div>' +
@@ -1124,6 +1137,7 @@
             '<div class="lptv-about-foot">Powered by LightOS · Made for LCMD</div>' +
           '</div>' +
         '</div>' +
+        '<span class="lptv-modal-x" id="lptv-set-x" title="关闭">✕</span>' +
       '</div>' });
 
     // 快捷键清单: 一行一个「名称 + 按键图标」, 填充到 #lptv-s-kmap
@@ -1211,7 +1225,9 @@
     document.body.appendChild(root);
 
     // 原生 title 提示 → 样式化 data-tip 悬浮提示 (避免原生气泡遮挡)
-    root.querySelectorAll(".lptv-btn[title]").forEach(function (b) {
+    // 覆盖 .lptv-btn (底部/浮窗控制栏) 与 .lptv-tb-btn (顶栏), 保证任何控件
+    // 都不残留原生 title, 杜绝「原生气泡 + 自定义气泡」文字重复。
+    root.querySelectorAll(".lptv-btn[title],.lptv-tb-btn[title]").forEach(function (b) {
       var t = b.getAttribute("title");
       if (t) { b.setAttribute("data-tip", t); b.removeAttribute("title"); }
     });
