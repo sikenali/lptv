@@ -1,9 +1,9 @@
 /* ---------------------------------------------------------------------------
- * LPTV 启动动画 —— 静态图片字标 + 加载条 (全覆盖不露央视频)
+ * LPTV 启动动画 —— 静态图片字标 + 加载条 (全覆盖不露YSP)
  *
  * 由 electron/preload.js 在页面 document-start 同步执行（隔离世界共享 DOM），
- * 直接建 #lptv-splash 遮罩，早于央视频自己的 HTML / JS 解析与首帧绘制。
- * 因此在导航期间屏幕上始终是本动画，不会闪现央视频裸页。
+ * 直接建 #lptv-splash 遮罩，早于YSP自己的 HTML / JS 解析与首帧绘制。
+ * 因此在导航期间屏幕上始终是本动画，不会闪现YSP裸页。
  *
  * 切台走官方 SPA 的 pushState（window.__lptv.switchChannel），不构成新的
  * 文档导航，本脚本不会重复出现。
@@ -33,7 +33,7 @@
   /* --- 品牌：favicon + 标题 ------------------------------------------------
    * Chrome 用 favicon 生成窗口的 _NET_WM_ICON、用 document.title 生成
    * _NET_WM_NAME / WM_NAME，所以这里改了，窗口列表里的图标和标题才是 LPTV
-   * 自己的，而不是央视频的。
+   * 自己的，而不是YSP的。
    *
    * document.title 在文档起始时就可用；但 head/documentElement 要到解析器
    * 建好之后才存在，favicon link 必须等 DOMContentLoaded 才能挂上去
@@ -207,8 +207,8 @@
     /* 兜底：inject.js 的 15s 黑幕也会自己消失，这里不重复管理 */
   }, 260);
 
-  /* 央视频 SPA 会把 document.title 改成「央视频 - …」，于是远程端的窗口标题栏
-   * 显示的是央视频而不是 LPTV。启动后 90s 内每 700ms 拉回 LPTV，之后交还页面。
+  /* YSP SPA 会把 document.title 改成「YSP - …」，于是远程端的窗口标题栏
+   * 显示的是YSP而不是 LPTV。启动后 90s 内每 700ms 拉回 LPTV，之后交还页面。
    * （inject.js 自身不改 title，所以这里不会产生竞争。） */
   var titleTimer = setInterval(function () {
     try {

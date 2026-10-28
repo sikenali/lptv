@@ -10,7 +10,7 @@
 #   sudo apt install -y nodejs npm libgtk-3-0 libnss3 libasound2 libatk1.0-0 \
 #        libcups2 libxss1 libdrm2 libgbm1 libxkbcommon0
 #
-# 注意：央视频是 H.264-over-MSE，Electron 官方构建自带 H.264 编解码器可直接播；
+# 注意：YSP是 H.264-over-MSE，Electron 官方构建自带 H.264 编解码器可直接播；
 # 不再需要真 Chrome/CDP 后端。root 下需 --no-sandbox（electron . 已带）。
 # -----------------------------------------------------------------------------
 set -euo pipefail

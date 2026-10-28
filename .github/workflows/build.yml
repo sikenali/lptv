@@ -3,7 +3,7 @@
 #
 # 三路产物：
 #   Linux  → LPTV-linux-x64-*.AppImage + cloud.lazycat.catlink.lptv-*.lpk
-#   Android→ lptv-*.apk (Capacitor WebView + 官方央视频 iframe)
+#   Android→ lptv-*.apk (Capacitor WebView + 官方YSP iframe)
 #
 # 流程：
 #   linux-build   : AppImage + LPK（需要下载骨架 ~32MB）
@@ -13,7 +13,7 @@
 # APK 方案说明：
 #   Capacitor WebView + bridge.js。桥接层读取 bundles/channels.json 和
 #   bundles/logos/{pid}.webp，注入 window.lptv API，inject.js 正常运行。
-#   index.html 用 iframe 加载央视频播放页，#lptv-root 覆盖层承载 UI。
+#   index.html 用 iframe 加载YSP播放页，#lptv-root 覆盖层承载 UI。
 # ---------------------------------------------------------------------------
 name: Build AppImage LPK & APK
 

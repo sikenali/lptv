@@ -279,7 +279,7 @@
   <div class="win" id="win">
     <div class="video">
       <div class="logo">LPTV<small>LPTV FOR LINUX</small></div>
-      <div class="ph">这是央视频 CMG 播放器占位区域。<br>真实运行时这里加载 <b style="color:#9ccbff">www.yangshipin.cn/tv/home?pid=600001859</b>，<br>由真 Chrome 解码 H.264/MSE 直播流（已实测 1920×1080 / readyState=4）。</div>
+      <div class="ph">这是YSP CMG 播放器占位区域。<br>真实运行时这里加载 <b style="color:#9ccbff">www.yangshipin.cn/tv/home?pid=600001859</b>，<br>由真 Chrome 解码 H.264/MSE 直播流（已实测 1920×1080 / readyState=4）。</div>
       <div class="live"><i></i>LIVE · 正在直播</div>
     </div>
 
@@ -436,7 +436,7 @@
             <div class="about-ver">版本 v1.0.0-linux · LPTV 远程电视</div>
           </div>
         </div>
-        <div class="about-desc">央视频官方直播源 · Linux 桌面客户端<br>毛玻璃极简界面 · 59 频道 · 频道收藏 · 节目单预约 · 录制截图 · 置顶浮窗</div>
+        <div class="about-desc">YSP官方直播源 · Linux 桌面客户端<br>毛玻璃极简界面 · 59 频道 · 频道收藏 · 节目单预约 · 录制截图 · 置顶浮窗</div>
         <div class="about-brand">
           <div class="about-brandname">LPTV · Linux Port</div>
           <div class="about-slogan">pywebview + 真 Chrome/CDP 后端 · 与 Windows 版同一套 pywebview 桥机制</div>
@@ -454,7 +454,7 @@
             <div class="about-qr-s">有任何想法？后台留言，你的点子可能就是下一个作品</div>
           </div>
         </div>
-        <div class="about-foot">LPTV · 央视频 Linux 移植版</div>
+        <div class="about-foot">LPTV · YSP Linux 移植版</div>
       </div>
     </div>
 
@@ -494,7 +494,7 @@
   <div class="card">
     <h3><i></i>节目单 <code>#lptv-epg</code></h3>
     <ul>
-      <li>央视频 <b>capi EPG</b> 接口取节目表</li>
+      <li>YSP <b>capi EPG</b> 接口取节目表</li>
       <li>支持<b>节目预约</b>与预约列表</li>
       <li>「CCTV-14 少儿」等无 <code>cnlid</code> 的频道按 pid 兜底</li>
     </ul>
@@ -520,10 +520,10 @@
 </div>
 
 <div class="foot">
-  预览页仅还原界面结构与布局，<b>不含真实播放能力</b>——央视频是纯 H.264-over-MSE 直播流，
+  预览页仅还原界面结构与布局，<b>不含真实播放能力</b>——YSP是纯 H.264-over-MSE 直播流，
   必须用真 Chrome 解码。Linux 上 pywebview 只有 qt(QtWebEngine)/gtk(WebKit2) 两个后端，
   两者的 H.264 都不完整（QtWebEngine 的 <code>MediaSource.isTypeSupported('video/mp4;...')</code> 返回 false，
-  WebKit2 所有 codec 串返回 <code>""</code>），央视频在其上必然黑屏——
+  WebKit2 所有 codec 串返回 <code>""</code>），YSP在其上必然黑屏——
   所以需要自研的 <code>webview.platforms.chromium</code>，走 DevTools Protocol 驱动真 Chrome，
   并给 <code>guilib.py</code> 打补丁让 <code>webview.start(gui='chromium')</code> 可路由过去。
   与 Windows 版共享同一套 pywebview JS 桥机制（Linux 上原生的 <code>window.external</code> 不存在，

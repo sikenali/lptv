@@ -56,7 +56,7 @@ contextBridge.exposeInMainWorld('lptv', {
  *
  * preload 在页面文档起始处同步执行（早于官方页任何脚本与首帧），隔离世界与
  * 页面共享 DOM —— 直接创建 #lptv-splash 遮罩即可盖住官方页，无需 executeJavaScript
- * 注入（后者排队执行晚于官方页首帧，会闪出央视频裸页）。
+ * 注入（后者排队执行晚于官方页首帧，会闪出YSP裸页）。
  *
  * 只在【首次】真实页面导航展示一次：preload 每次导航都会跑，经
  * 'lptv:claim-splash'（main 侧 splashShown 只放行第一次 http(s)）决定。

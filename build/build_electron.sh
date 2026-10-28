@@ -4,7 +4,7 @@
 # pywebview 两包方案 build_appimage.sh）。
 #
 # 产物：dist/LPTV-<os>-<arch>-<version>.AppImage（Electron 官方构建自带 H.264
-# 编解码器，央视频直接能播）。assemble_lpk.sh 直接从 electron/dist 取此文件打包。
+# 编解码器，YSP直接能播）。assemble_lpk.sh 直接从 electron/dist 取此文件打包。
 #
 # 前置（x86_64 Debian/Ubuntu 为例）：
 #   sudo apt install -y nodejs npm libgtk-3-0 libnss3 libasound2 libatk1.0-0 \

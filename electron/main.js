@@ -2,7 +2,7 @@
  * LPTV Electron 主进程
  *
  * 替代「pywebview + 真 Chrome/CDP」两包方案：Electron 官方构建带 H.264 专有
- * 编解码器（ffmpeg_branding=Chrome），央视频（H.264-over-MSE）直接能播。
+ * 编解码器（ffmpeg_branding=Chrome），YSP（H.264-over-MSE）直接能播。
  *
  * 职责（与迁移文档 electron-migration.md 对齐）：
  *   - BrowserWindow 创建（无边框 1920x1080）+ 窗口控制（原生 API）
@@ -28,7 +28,7 @@ app.commandLine.appendSwitch('disable-dev-shm-usage');
 // （inject.js tryPlay 捕到 reject 会强制 muted），放开后声音开播即出
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 // 硬件视频解码 (VAAPI)：盒子无 GPU/驱动不支持时 Chromium 自动回退软解，无副作用。
-// 央视频 720p H.264 软解在弱核 CPU 上是掉帧主因，打开后可显著提升流畅度。
+// YSP 720p H.264 软解在弱核 CPU 上是掉帧主因，打开后可显著提升流畅度。
 app.commandLine.appendSwitch('enable-accelerated-video-decode');
 app.commandLine.appendSwitch('enable-features', 'VaapiVideoDecoder,VaapiVideoDecodeLinuxGL');
 
@@ -60,7 +60,7 @@ const CHROME_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
   '(KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36';
 
-// ---- 央视频首页 ----------------------------------------------------------
+// ---- YSP首页 ----------------------------------------------------------
 const HOME_URL_BASE = 'https://www.yangshipin.cn/tv/home?pid=';
 const DEFAULT_PID = '600001859'; // CCTV-1 综合
 

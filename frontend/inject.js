@@ -1140,7 +1140,7 @@
             '<img class="lptv-about-logo" id="lptv-about-logo-img" alt="LPTV">' +
             '<div class="lptv-about-appname">LPTV</div>' +
             '<div class="lptv-about-ver" id="lptv-about-ver">版本 --</div>' +
-            '<div class="lptv-about-desc">LPTV 是一款为懒猫盒子打造的央视频远程播放客户端，支持频道收藏、节目单预约、录制截图、置顶浮窗。</div>' +
+            '<div class="lptv-about-desc">LPTV 是一款为懒猫盒子打造的YSP远程播放客户端，支持频道收藏、节目单预约、录制截图、置顶浮窗。</div>' +
             '<div class="lptv-about-foot">Powered by LightOS · Made for LCMD</div>' +
           '</div>' +
         '</div>' +
