@@ -108,6 +108,13 @@ Electron 官方构建自带 H.264 专有编解码器（`ffmpeg_branding=Chrome`�
 
 **懒猫微视™** 为未注册商标，**懒猫微服™** 为企业注册商标，两者之间没有关联关系。本开源项目仅用于个人学习与交流，非懒猫微服官方发布的电视应用。
 
+### 字体说明
+
+本项目界面使用以下字体（均随 `frontend/fonts/` 打包，经 `get_asset_font` IPC 读取并注入 `@font-face`）：
+
+- **MiSans**（小米）——正文/界面字体，完整 CJK 覆盖，含 Regular/Medium/Demibold/Bold 四档字重。许可遵循[《MiSans 字体知识产权许可协议》](https://hyperos.mi.com/font-download/MiSans%E5%AD%97%E4%BD%93%E7%9F%A5%E8%AF%86%E4%BA%A7%E6%9D%83%E8%AE%B8%E5%8F%AF%E5%8D%8F%E8%AE%AE.pdf)。
+- **JetBrains Mono**（JetBrains）——数字/等宽字体（频道号、版本号等），可变字重 400–800，OFL 开源许可。
+
 ## License
 
 [MIT](./LICENSE)

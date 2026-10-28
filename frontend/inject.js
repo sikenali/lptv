@@ -1188,7 +1188,6 @@
             '<div class="lptv-about-desc">懒猫微视是一款专门为懒猫微服打造的YSP远程播放客户端。</div>' +
             '<div class="lptv-about-slogan">为慵懒而生，享直播视听。</div>' +
             '<div class="lptv-about-foot">Powered by LightOS · Made for LCMD</div>' +
-            '<div class="lptv-about-foot" style="margin-top:4px;padding-top:0;border-top:none">字体: MiSans © 小米 · JetBrains Mono © JetBrains</div>' +
           '</div>' +
         '</div>' +
         '<span class="lptv-modal-x" id="lptv-set-x" title="关闭">✕</span>' +
@@ -1327,6 +1326,11 @@
         html += '<div class="lptv-panel-empty">暂无收藏频道<br><span style="font-size:calc(11.0px * var(--fs-scale))">点击频道行的 ♥ 即可收藏</span></div>';
       }
       favList.forEach(function (c) { html += chRowHtml(c); });
+    } else if (filter !== "all") {
+      // 央视/卫视等分类 tab: 只显示对应分类频道
+      var catList = groups[filter] || [];
+      html += '<div class="lptv-cat">' + filter + " · " + catList.length + '</div>';
+      catList.forEach(function (c) { html += chRowHtml(c); });
     } else {
       var order = ["央视", "CGTN", "卫视", "地方", "其他"];
       order.forEach(function (cat) {
@@ -1372,8 +1376,20 @@
     var favN = (cfg.favs || []).filter(function (pid) {
       return lptv.channels.some(function (c) { return c.pid === pid; });
     }).length;
-    var html = '<span class="lptv-ptab' + (cur === "all" ? " on" : "") + '" data-f="all">全部</span>' +
-      '<span class="lptv-ptab' + (cur === "fav" ? " on" : "") + '" data-f="fav">收藏' +
+    // 央视/卫视分类标签: 点击仅显示对应分类频道
+    var CATS = ["央视", "卫视"];
+    function catN(cat) {
+      var k = 0;
+      lptv.channels.forEach(function (c) { if (c.category === cat) k++; });
+      return k;
+    }
+    var html = '<span class="lptv-ptab' + (cur === "all" ? " on" : "") + '" data-f="all">全部</span>';
+    CATS.forEach(function (cat) {
+      var n = catN(cat);
+      html += '<span class="lptv-ptab' + (cur === cat ? " on" : "") + '" data-f="' + cat + '">' + cat +
+        (n ? '<b>' + n + '</b>' : '') + '</span>';
+    });
+    html += '<span class="lptv-ptab' + (cur === "fav" ? " on" : "") + '" data-f="fav">收藏' +
       (favN ? '<b>' + favN + '</b>' : "") + '</span>';
     tabs.innerHTML = html;
   }
