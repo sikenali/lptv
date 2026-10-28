@@ -82,7 +82,7 @@ const STATE_FILE = path.join(DATA_DIR, 'lptv.state.json');
 const RECDIR_FILE = path.join(DATA_DIR, 'lptv.recdir.json');
 const DEFAULT_REC_DIR = path.join(videosDir(), 'LPTV', '录制');
 const DEFAULT_SHOT_DIR = path.join(videosDir(), 'LPTV', '截图');
-const STATE_WHITELIST = ['lastPid', 'favs', 'resumeLast', 'res', 'autoFullscreen', 'fit', 'topbarAlways'];
+const STATE_WHITELIST = ['lastPid', 'favs', 'resumeLast', 'res', 'autoFullscreen', 'fit', 'perfMode', 'topbarAlways'];
 
 // 浮窗几何（16:9 小窗）
 const FLOAT_W = 480, FLOAT_H = 270;
