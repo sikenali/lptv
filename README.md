@@ -1,15 +1,16 @@
-# LPTV — Linux 版 LX TV（远程央视频电视客户端）
+# LPTV — 远程电视客户端
 
 ## 软件介绍
 
-LPTV 把原 Windows 版「LX TV」的央视频直播壳复刻为 **Linux 桌面客户端**，提供两条交付路径：
+LPTV 提供三条交付路径：
 
 1. **本地 AppImage**：`LPTV.AppImage`（Electron 单包，~120MB），在任意 x86_64 Linux 桌面直接运行。
 2. **懒猫远程应用（catlink / LPK）**：把该 AppImage 装入 LPK，在懒猫盒子上运行，用户在浏览器里看 / 控
    （对标 `cloud.lazycat.catlink.chrome.lpk`）。
+3. **Android APK**：`lptv-*.apk`（Capacitor WebView，~30MB），安装在安卓设备上直接观看。
 
-壳只做一件事：加载《央视频》官方 TV 直播页 + 注入增强 UI 层，播放永远由官方页面完成。
-Electron 官方构建自带 H.264 专有编解码器（`ffmpeg_branding=Chrome`），央视频的 H.264-over-MSE
+壳只做一件事：加载 YSP 官方 TV 直播页 + 注入增强 UI 层，播放永远由官方页面完成。
+Electron 官方构建自带 H.264 专有编解码器（`ffmpeg_branding=Chrome`），YSP 的 H.264-over-MSE
 直播流（无 EME/DRM）无需外部引擎即可直接播放。
 
 ## 架构设计
@@ -17,7 +18,7 @@ Electron 官方构建自带 H.264 专有编解码器（`ffmpeg_branding=Chrome`�
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │ 本地模式（AppImage）                                                │
-│   LPTV.AppImage (Electron) ── BrowserWindow 加载央视频 + 注入 UI    │
+│   LPTV.AppImage (Electron) ── BrowserWindow 加载 YSP + 注入 UI       │
 │   窗口直接显示在本地 X11/Wayland 桌面                                 │
 └──────────────────────────────────────────────────────────────────┘
 
@@ -27,7 +28,7 @@ Electron 官方构建自带 H.264 专有编解码器（`ffmpeg_branding=Chrome`�
 │   懒猫盒子容器 (lzc-cde)                                            │
 │   ┌───────────────────────────────────────────────────┐           │
 │   │ LPTV.AppImage (Electron)                           │           │
-│   │   main.js  ── BrowserWindow 加载央视频 (H.264 直解) │           │
+│   │   main.js  ── BrowserWindow 加载 YSP (H.264 直解)   │           │
 │   │   preload  ── contextBridge → window.lptv 桥        │           │
 │   │   inject.js 覆盖层 ──▶ X11 顶层窗口                 │           │
 │   │        ↑ 抓窗口位图                                   │           │
@@ -37,9 +38,25 @@ Electron 官方构建自带 H.264 专有编解码器（`ffmpeg_branding=Chrome`�
 │             │ 反代                                                  │
 │   用户浏览器 → https://rlptv.<盒子名>/ → catlink SPA                 │
 └──────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────┐
+│ Android 原生应用（APK）                                              │
+│   lptv-*.apk (Capacitor WebView, ~30MB)                            │
+│   ┌─────────────────────────────────────────────────┐             │
+│   │ index.html  (桥接页)                              │             │
+│   │   ├─ iframe: yangshipin.cn/tv/home?pid=XXX       │ 画面源    │
+│   │   └─ #lptv-root: inject.js 覆盖层 (UI + OSD)     │ 我们的UI  │
+│   bridge.js ── window.lptv 桥                         │            │
+│     ├─ get_channels()   ← android_asset/channels.json│            │
+│     ├─ get_asset_image()← android_asset/logos/{pid}  │            │
+│     ├─ play_channel(pid)← 更新 iframe src            │            │
+│     └─ shot_save/chname← Canvas 截图 → 下载          │            │
+│   Capacitor FileSystem ── 读取 bundles               │            │
+│   WebView H.264 硬解 ── YSP 直播流直接播放             │            │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-> **为什么是 Electron？** 央视频是纯 H.264-over-MSE 直播流（无 EME/DRM）。Electron 官方构建
+> **为什么是 Electron？** YSP 是纯 H.264-over-MSE 直播流（无 EME/DRM）。Electron 官方构建
 > 带 H.264 专有编解码器（`ffmpeg_branding=Chrome`），`BrowserWindow` 直接能播，无需外部引擎。
 > 旧方案「pywebview + 真 Chrome/CDP」要 2 个 AppImage（~380MB），Electron 单包 ~120MB，
 > 且窗口控制走 BrowserWindow 原生 API，不再手写 CDP。
@@ -54,6 +71,9 @@ Electron 官方构建自带 H.264 专有编解码器（`ffmpeg_branding=Chrome`�
 | `frontend/inject.js` | 前端 UI 注入层（顶栏 / 控制栏 / 频道面板 / EPG / 设置 / 手势 / 浮窗） |
 | `frontend/splash.js` | 首次打开的启动动画 |
 | `build/build_electron.sh` | 打包：`npm install` + `electron-builder` → `electron/dist/LPTV-<os>-<arch>-<version>.AppImage` |
+| `android/build.sh` | 打包：复制前端资源 → `cap sync android` → gradle assembleRelease → `android/app/build/outputs/apk/release/*.apk` |
+| `android/www/bridge.js` | Android 桥接层：读取 bundles/channels.json + logos/，注入 window.lptv API |
+| `android/www/index.html` | Android 桥接页：iframe 加载央视频 + #lptv-root 覆盖层 |
 | `lzc/` | 懒猫 catlink 远程包装（manifest / run.sh / launch_lptv.sh / assemble_lpk.sh） |
 
 ## 功能清单
