@@ -917,7 +917,7 @@
   /* 关于: 居中 logo 换行 LPTV 换行版本号 + 一段文字 + 底部 Powered by */
   .lptv-about-pane{text-align:center;padding:10px 6px 6px}
   /* 关于图标: 去掉渐变背景, 直接用透明 PNG 原图 + 柔和投影 */
-  .lptv-about-logo{width:auto;height:64px;max-width:80vw;margin:0 auto 12px;display:block;filter:drop-shadow(0 8px 24px rgba(61,155,255,.30))}
+  .lptv-about-logo{width:140px;height:auto;max-width:70vw;margin:0 auto 12px;display:block;filter:drop-shadow(0 8px 24px rgba(61,155,255,.30))}
     display:block;filter:drop-shadow(0 8px 24px rgba(61,155,255,.30))}
 
   .lptv-about-ver{font-size:calc(12.0px * var(--fs-scale));color:var(--tx3);margin-top:10px;font-family:Consolas,monospace}
@@ -1137,7 +1137,7 @@
             '<div class="lptv-set-card"><div class="lptv-set-card-t">快捷键</div><div class="lptv-kmap" id="lptv-s-kmap"></div></div>' +
           '</div>' +
           '<div class="lptv-pane lptv-about-pane" id="lptv-pane-about">' +
-            '<img class="lptv-about-logo" id="lptv-about-logo-img" alt="LPTV" src="">' +
+            '<img class="lptv-about-logo" id="lptv-about-logo-img" alt="LPTV">' +
             '<div class="lptv-about-ver" id="lptv-about-ver">版本 --</div>' +
             '<div class="lptv-about-desc">LPTV 是一款为懒猫盒子打造的YSP远程播放客户端，支持频道收藏、节目单预约、录制截图、置顶浮窗。</div>' +
             '<div class="lptv-about-foot">Powered by LightOS · Made for LCMD</div>' +
