@@ -47,6 +47,17 @@ const IS_CONTAINER = !!(
   process.env.LPTV_DISPLAY
 );
 
+// ---- 容器内渲染后端（Electron → X11/XDummy → xpra 捕获）-----------------
+// 盒子有 Intel iGPU（vaapih264enc 实测可用，DRM/GPU 可访问）。显式用 EGL 硬件
+// 合成 + GPU 光栅化，帧更早落到 X11 供 xpra 捕获；避免 Chromium 默认在容器里
+// GPU 初始化失败/回退导致的合成抖动（"画面卡、点击不跟手"主因）。
+// 若某盒子 EGL 初始化失败，Chromium 自动回退软件合成，不会黑屏；此时可注释
+// 此行回到默认行为。本地桌面不受影响（仅容器生效）。
+if (IS_CONTAINER) {
+  app.commandLine.appendSwitch('use-gl', 'egl');
+  app.commandLine.appendSwitch('enable-gpu-rasterization');
+}
+
 // ---- 资源路径（开发/打包兼容）------------------------------------------
 function frontendDir() {
   // 打包后 extraResources 放在 resourcesPath/frontend；开发时用 ../frontend
