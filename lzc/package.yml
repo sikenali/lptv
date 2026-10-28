@@ -9,7 +9,7 @@ locales:
     description: LPTV 客户端
   en:
     name: LPTV
-    description: LPTV — TV client (Electron single package)
+    description: LPTV — TV client
 permissions:
   required:
     - lzcapp.stop_inhibit

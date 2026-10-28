@@ -24,6 +24,9 @@ app.commandLine.appendSwitch('no-sandbox');
 app.commandLine.appendSwitch('disable-gpu-sandbox');
 // 无 WM 容器下避免 Chromium 崩溃兜底
 app.commandLine.appendSwitch('disable-dev-shm-usage');
+// 启动即恢复上次频道自动播放：容器内无用户手势，默认策略会拒播并静音降级
+// （inject.js tryPlay 捕到 reject 会强制 muted），放开后声音开播即出
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
 // ---- 资源路径（开发/打包兼容）------------------------------------------
 function frontendDir() {
