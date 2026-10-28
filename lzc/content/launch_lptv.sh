@@ -62,6 +62,10 @@ launch_rim_copy() {
     # rim 把 AppImage 解到 /lzcapp/var/apps/chrome/；用哨兵确认确实是 LPTV。
     if [ -x "$RIM_APPS/AppRun" ] && [ -f "$RIM_APPS/$SENTINEL" ]; then
         echo "[LPTV] 使用 rim 安装的 LPTV 副本：$RIM_APPS/AppRun" >&2
+        # 必须显式设 APPDIR：electron-builder 生成的 AppRun 用 $1（首个参数）探测
+        # AppDir，传 --no-sandbox 时 $1=--no-sandbox 探测失败 → BIN 解析成 /lptv
+        # 直接报 "No such file"。导出 APPDIR 后 AppRun 跳过探测。
+        export APPDIR="$RIM_APPS"
         exec "$RIM_APPS/AppRun" --no-sandbox
     fi
     return 1
@@ -79,6 +83,7 @@ launch_self_extract() {
     if [ -x "$SELF_EXTRACT/AppRun" ] && [ -f "$SELF_EXTRACT/$SENTINEL" ] \
        && [ "$(cat "$MARKER" 2>/dev/null || echo 0)" = "$MTIME" ]; then
         echo "[LPTV] 复用已解包 $SELF_EXTRACT" >&2
+        export APPDIR="$SELF_EXTRACT"
         exec "$SELF_EXTRACT/AppRun" --no-sandbox
     fi
     echo "[LPTV] 解包 AppImage → $SELF_EXTRACT (mtime=$MTIME)" >&2
@@ -94,6 +99,7 @@ launch_self_extract() {
     mv "$TMP/squashfs-root" "$SELF_EXTRACT"
     printf '%s\n' "$MTIME" > "$SELF_EXTRACT/.lptv-appimage-mtime"
     rm -rf "$TMP"
+    export APPDIR="$SELF_EXTRACT"
     exec "$SELF_EXTRACT/AppRun" --no-sandbox
 }
 
