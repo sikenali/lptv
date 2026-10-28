@@ -28,7 +28,7 @@ Electron 官方构建自带 H.264 专有编解码器（`ffmpeg_branding=Chrome`�
 │   懒猫盒子容器 (lzc-cde)                                            │
 │   ┌───────────────────────────────────────────────────┐           │
 │   │ LPTV.AppImage (Electron)                           │           │
-│   │   main.js  ── BrowserWindow 加载 YSP (H.264 直解)   │           │
+│   │   main.js  ── BrowserWindow 加载 YSP (H.264 直解)    │           │
 │   │   preload  ── contextBridge → window.lptv 桥        │           │
 │   │   inject.js 覆盖层 ──▶ X11 顶层窗口                 │           │
 │   │        ↑ 抓窗口位图                                   │           │
@@ -73,7 +73,7 @@ Electron 官方构建自带 H.264 专有编解码器（`ffmpeg_branding=Chrome`�
 | `build/build_electron.sh` | 打包：`npm install` + `electron-builder` → `electron/dist/LPTV-<os>-<arch>-<version>.AppImage` |
 | `android/build.sh` | 打包：复制前端资源 → `cap sync android` → gradle assembleRelease → `android/app/build/outputs/apk/release/*.apk` |
 | `android/www/bridge.js` | Android 桥接层：读取 bundles/channels.json + logos/，注入 window.lptv API |
-| `android/www/index.html` | Android 桥接页：iframe 加载央视频 + #lptv-root 覆盖层 |
+| `android/www/index.html` | Android 桥接页：iframe 加载 YSP + #lptv-root 覆盖层 |
 | `lzc/` | 懒猫 catlink 远程包装（manifest / run.sh / launch_lptv.sh / assemble_lpk.sh） |
 
 ## 功能清单
