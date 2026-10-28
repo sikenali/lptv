@@ -17,3 +17,7 @@ __pycache__/
 android/android/
 lptv-debug.apk
 .capacitorrc.json
+android/android/
+lptv-debug.apk
+capacitor.config.json
+www/

@@ -1,48 +1,23 @@
-/**
- * android/www/index.html — LPTV Android 桥接页
- *
- * 结构:
- *   <iframe src="yangshipin.cn/tv/home?pid=...">  ← 官方播放页面 (画面源)
- *   #lptv-root                                    ← 我们的 UI 覆盖层 (inject.js 注入)
- *
- * 加载顺序:
- *   1. 桥接脚本 bridge.js (同步设置 window.lptv, 异步读取 channels.json / logos)
- *   2. inject.js (读取 window.lptv.get_channels() 获取缓存频道列表)
- *   3. splash.js (首次展示的启动动画)
- */
 <!doctype html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport"
-        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
   <title>LPTV</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { background: #04070d; overflow: hidden; height: 100%; }
-    /* 官方播放 iframe: 全屏, z-1 */
-    #lptv-iframe {
-      position: fixed; inset: 0; width: 100%; height: 100%;
-      border: none; z-index: 1;
-    }
-    /* LPTV UI 覆盖层: z-2, 由 inject.js 创建 #lptv-root 承载 */
-    #lptv-root { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
-    #lptv-root > * { pointer-events: auto; }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html,body { background:#04070d; overflow:hidden; height:100%; }
+    #lptv-iframe { position:fixed; inset:0; width:100%; height:100%; border:none; z-index:1; }
+    #lptv-root { position:fixed; inset:0; z-index:2; pointer-events:none; }
+    #lptv-root > * { pointer-events:auto; }
   </style>
 </head>
 <body>
-  <!-- 官方央视频播放页 -->
-  <iframe id="lptv-iframe"
-          src="https://www.yangshipin.cn/tv/home?pid=600001859"
-          allow="autoplay; fullscreen; encrypted-media"
-          sandbox="allow-same-origin allow-scripts allow-popups allow-forms">
+  <iframe id="lptv-iframe" src="" allow="autoplay; fullscreen; encrypted-media"
+          sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-presentation">
   </iframe>
-
-  <!-- 桥接脚本: 在 inject.js 之前运行, 设置 window.lptv -->
   <script src="bridge.js"></script>
-  <!-- splash 启动动画 -->
   <script src="splash.js"></script>
-  <!-- LPTV UI 注入层 -->
   <script src="inject.js"></script>
 </body>
 </html>

@@ -571,7 +571,7 @@
     --red:#ff4d4d;--ok:#35c46b;
     position:fixed;inset:0;z-index:2147483002;background:transparent;
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
-    color:var(--tx);font-size:13px;line-height:1.6;
+    color:var(--tx);font-size:calc(13.0px * var(--fs-scale));line-height:1.6;
     overflow:hidden;user-select:none}
   #lptv-root.dev-hidden{display:none}
 
@@ -583,23 +583,23 @@
   #lptv-osd{position:absolute;left:16px;bottom:64px;pointer-events:none;opacity:0;z-index:10;
     transition:opacity .35s;max-width:70vw;text-shadow:0 2px 12px rgba(0,0,0,.9)}
   #lptv-osd.show{opacity:1}
-  .lptv-osd-num{font-size:34px;font-weight:700;line-height:1}
+  .lptv-osd-num{font-size:calc(34.0px * var(--fs-scale));font-weight:700;line-height:1}
   .lptv-osd-num b{color:var(--acc)}
-  .lptv-osd-name{font-size:17px;font-weight:600;margin-top:3px}
-  .lptv-osd-sub{font-size:12px;color:var(--tx2);margin-top:2px;letter-spacing:1px}
+  .lptv-osd-name{font-size:calc(17.0px * var(--fs-scale));font-weight:600;margin-top:3px}
+  .lptv-osd-sub{font-size:calc(12.0px * var(--fs-scale));color:var(--tx2);margin-top:2px;letter-spacing:1px}
 
-  #lptv-digit{position:absolute;right:38px;top:34px;font-size:40px;font-weight:800;z-index:10;
+  #lptv-digit{position:absolute;right:38px;top:34px;font-size:calc(40.0px * var(--fs-scale));font-weight:800;z-index:10;
     display:none;pointer-events:none;text-shadow:0 2px 14px rgba(0,0,0,.9)}
   #lptv-digit.show{display:block}
 
   #lptv-vol{position:absolute;right:38px;top:110px;width:220px;opacity:0;z-index:10;pointer-events:none;
     transition:opacity .3s}
   #lptv-vol.show{opacity:1;pointer-events:auto}
-  #lptv-vol .lptv-vol-label{font-size:13px;color:var(--tx2);margin-bottom:6px;letter-spacing:1px}
+  #lptv-vol .lptv-vol-label{font-size:calc(13.0px * var(--fs-scale));color:var(--tx2);margin-bottom:6px;letter-spacing:1px}
 
   /* 底部控制栏: 居中收窄 (不再贴满左右边缘), 避免遮挡左(频道)/右(节目单)的
      hover 触发带与滑出面板; 内容超出 max-width 时 .lptv-ctl-now 自行截断 */
-  #lptv-controls{position:absolute;left:50%;bottom:10px;z-index:8;
+  #lptv-controls{position:absolute;left:50%;bottom:16px;z-index:8;
     width:max-content;max-width:min(76vw,760px);
     display:flex;align-items:center;gap:6px;padding:6px 9px;border-radius:12px;
     background:var(--glass);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
@@ -614,21 +614,21 @@
     box-shadow:0 0 7px var(--red);flex-shrink:0;animation:lptvnow 2s ease-in-out infinite}
   @keyframes lptvnow{0%,100%{opacity:1}50%{opacity:.35}}
   .lptv-now-sep{color:var(--tx3);margin:0 2px}
-  .lptv-now-prog{font-size:11.5px;color:var(--tx2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .lptv-vol-txt{font-size:11.5px;color:var(--tx2);width:26px;text-align:center}
+  .lptv-now-prog{font-size:calc(11.5px * var(--fs-scale));color:var(--tx2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .lptv-vol-txt{font-size:calc(11.5px * var(--fs-scale));color:var(--tx2);width:26px;text-align:center}
   .lptv-btn{border:0;cursor:pointer;color:var(--tx);border-radius:9px;background:rgba(255,255,255,.07);
     display:inline-flex;align-items:center;justify-content:center;height:32px;padding:0 8px;
-    font-size:12.5px;white-space:nowrap;position:relative;
+    font-size:calc(12.5px * var(--fs-scale));white-space:nowrap;position:relative;
     box-shadow:inset 0 1px 0 rgba(255,255,255,.05);
     transition:background .16s,color .16s,box-shadow .16s,transform .12s}
   .lptv-btn:hover{background:rgba(255,255,255,.18);
     box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 4px 14px rgba(0,0,0,.35)}
   .lptv-btn:active{transform:scale(.92)}
-  .lptv-btn-ico{width:32px;padding:0}
+  .lptv-btn-ico{width:40px;padding:0}
   .lptv-btn-ico svg{width:18px;height:18px;fill:currentColor;stroke:currentColor;transition:transform .18s}
   .lptv-btn-ico:hover svg{transform:scale(1.1)}
-  .lptv-btn-main{width:40px;height:40px;background:linear-gradient(135deg,#3d9bff,#2f7fe0);color:#fff;
-    font-size:15px;box-shadow:0 4px 14px rgba(47,127,224,.4)}
+  .lptv-btn-main{width:50px;height:50px;background:linear-gradient(135deg,#3d9bff,#2f7fe0);color:#fff;
+    font-size:calc(15.0px * var(--fs-scale));box-shadow:0 4px 14px rgba(47,127,224,.4)}
   .lptv-btn-main:hover{background:linear-gradient(135deg,#54a8ff,#3d8fe8);
     box-shadow:0 4px 18px rgba(80,160,255,.55)}
   .lptv-btn-main svg{width:19px;height:19px;fill:#fff;stroke:#fff}
@@ -637,7 +637,7 @@
   .lptv-btn[data-tip]:hover::after{
     content:attr(data-tip);position:absolute;bottom:calc(100% + 11px);left:50%;
     transform:translateX(-50%) translateY(4px);white-space:nowrap;z-index:30;
-    background:rgba(16,20,32,.97);color:#e6ecff;font-size:11.5px;font-weight:500;
+    background:rgba(16,20,32,.97);color:#e6ecff;font-size:calc(11.5px * var(--fs-scale));font-weight:500;
     letter-spacing:.3px;padding:6px 10px;border-radius:8px;
     border:1px solid rgba(255,255,255,.14);box-shadow:0 8px 24px rgba(0,0,0,.55);
     opacity:0;pointer-events:none;transition:opacity .18s,transform .18s}
@@ -651,7 +651,7 @@
   .lptv-tb-btn[data-tip]:hover::after{
     content:attr(data-tip);position:absolute;top:calc(100% + 8px);left:50%;
     transform:translateX(-50%) translateY(-4px);white-space:nowrap;z-index:30;
-    background:rgba(16,20,32,.97);color:#e6ecff;font-size:11.5px;font-weight:500;
+    background:rgba(16,20,32,.97);color:#e6ecff;font-size:calc(11.5px * var(--fs-scale));font-weight:500;
     letter-spacing:.3px;padding:6px 10px;border-radius:8px;
     border:1px solid rgba(255,255,255,.14);box-shadow:0 8px 24px rgba(0,0,0,.55);
     opacity:0;pointer-events:none;transition:opacity .18s,transform .18s}
@@ -668,7 +668,7 @@
   #lptv-b-mute.muted .lptv-waves{display:none}
   #lptv-b-mute.muted .lptv-mute-x{display:block}
   #lptv-c-vol{width:82px;accent-color:var(--acc);cursor:pointer}
-  .lptv-chlabel{font-size:12.5px;font-weight:600;color:var(--tx);overflow:hidden;
+  .lptv-chlabel{font-size:calc(12.5px * var(--fs-scale));font-weight:600;color:var(--tx);overflow:hidden;
     text-overflow:ellipsis;white-space:nowrap}
   /* 窄窗口(最小360): 收缩控制栏, 隐藏信息性元素防溢出 */
   @media (max-width:760px){
@@ -699,13 +699,13 @@
     border:1px solid var(--line);border-radius:14px;padding:9px 18px;
     min-width:250px;box-shadow:0 12px 36px rgba(0,0,0,.55)}
   #lptv-nextch.show{opacity:1;transform:translate(-50%,0)}
-  #lptv-nextch .lptv-nc-row{display:flex;align-items:center;gap:9px;padding:5px 0;font-size:13px;color:var(--tx)}
+  #lptv-nextch .lptv-nc-row{display:flex;align-items:center;gap:9px;padding:5px 0;font-size:calc(13.0px * var(--fs-scale));color:var(--tx)}
   #lptv-nextch .lptv-nc-row.dim{color:var(--tx3)}
   #lptv-nextch .lptv-nc-arrow{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;
-    justify-content:center;font-size:11px;background:rgba(61,155,255,.16);color:#9ccbff;
+    justify-content:center;font-size:calc(11.0px * var(--fs-scale));background:rgba(61,155,255,.16);color:#9ccbff;
     flex-shrink:0;font-family:Consolas,monospace}
   #lptv-nextch .lptv-nc-row.hl .lptv-nc-arrow{background:rgba(61,155,255,.5);color:#fff}
-  #lptv-nextch .lptv-nc-num{width:28px;color:var(--tx3);font-size:11px;font-family:Consolas,monospace;flex-shrink:0}
+  #lptv-nextch .lptv-nc-num{width:28px;color:var(--tx3);font-size:calc(11.0px * var(--fs-scale));font-family:Consolas,monospace;flex-shrink:0}
   #lptv-nextch .lptv-nc-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   #lptv-nextch .lptv-nc-sep{height:1px;background:var(--line);margin:3px 0}
 
@@ -718,7 +718,7 @@
   #lptv-rec-badge .lptv-rec-dot{width:7px;height:7px;border-radius:50%;background:var(--red);
     box-shadow:0 0 8px var(--red);animation:lptvrec 1.2s ease-in-out infinite}
   @keyframes lptvrec{0%,100%{opacity:1}50%{opacity:.25}}
-  #lptv-rec-badge #lptv-rec-time{font-size:11.5px;font-weight:600;color:#ffd7d7;
+  #lptv-rec-badge #lptv-rec-time{font-size:calc(11.5px * var(--fs-scale));font-weight:600;color:#ffd7d7;
     font-family:Consolas,monospace;letter-spacing:1px}
   /* 截图白闪 */
   #lptv-shot-flash{position:fixed;inset:0;background:#fff;opacity:0;z-index:2147483005;
@@ -735,32 +735,32 @@
   #lptv-panel.open,#lptv-epg.open{display:flex}
 
   /* 频道列表: 左侧 (right:0 -> left:0, 反向滑入) */
-  #lptv-panel{left:0;width:320px;
+  #lptv-panel{left:0;width:360px;
     border-left:none;border-right:1px solid var(--line);box-shadow:12px 0 40px rgba(0,0,0,.5)}
   /* 节目单: 右侧 (left:0 -> right:0, 反向滑入) */
-  #lptv-epg{right:0;width:360px;
+  #lptv-epg{right:0;width:400px;
     border-right:none;border-left:1px solid var(--line);box-shadow:-12px 0 40px rgba(0,0,0,.5)}
 
   .lptv-panel-head,.lptv-epg-head{display:flex;align-items:center;justify-content:space-between;
     padding:13px 14px 8px}
-  .lptv-panel-title,.lptv-epg-title{font-size:13.5px;font-weight:650;color:var(--tx)}
+  .lptv-panel-title,.lptv-epg-title{font-size:calc(13.5px * var(--fs-scale));font-weight:650;color:var(--tx)}
   .lptv-panel-cur{display:flex;align-items:center;gap:10px;padding:8px 14px;
     border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:rgba(0,0,0,.22)}
-  .lptv-panel-cur-num{font-size:19px;font-weight:700;color:var(--acc);line-height:1;font-family:Consolas,monospace;min-width:44px}
-  .lptv-panel-cur-name{font-size:13px;font-weight:600;color:var(--tx)}
-  .lptv-panel-cur-sub{font-size:11px;color:var(--tx3);margin-top:2px}
+  .lptv-panel-cur-num{font-size:calc(19.0px * var(--fs-scale));font-weight:700;color:var(--acc);line-height:1;font-family:Consolas,monospace;min-width:44px}
+  .lptv-panel-cur-name{font-size:calc(13.0px * var(--fs-scale));font-weight:600;color:var(--tx)}
+  .lptv-panel-cur-sub{font-size:calc(11.0px * var(--fs-scale));color:var(--tx3);margin-top:2px}
   .lptv-panel-body,.lptv-epg-body{flex:1;overflow-y:auto;padding:0 8px 14px;overscroll-behavior:contain;
     scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.15) transparent}
   .lptv-panel-body::-webkit-scrollbar,.lptv-epg-body::-webkit-scrollbar{width:6px}
   .lptv-panel-body::-webkit-scrollbar-track,.lptv-epg-body::-webkit-scrollbar-track{background:transparent}
   .lptv-panel-body::-webkit-scrollbar-thumb,.lptv-epg-body::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:3px}
-  .lptv-cat{color:var(--tx3);font-size:11px;padding:9px 14px 5px;letter-spacing:1px}
+  .lptv-cat{color:var(--tx3);font-size:calc(11.0px * var(--fs-scale));padding:9px 14px 5px;letter-spacing:1px}
   .lptv-ch{display:flex;align-items:center;gap:8px;padding:6px 8px;margin:0 2px 2px;
-    cursor:pointer;color:var(--tx);font-size:12.5px;border-radius:7px;transition:background .12s}
+    cursor:pointer;color:var(--tx);font-size:calc(12.5px * var(--fs-scale));border-radius:7px;transition:background .12s}
   .lptv-ch:hover{background:rgba(255,255,255,.08);color:#fff}
   .lptv-ch.active{background:rgba(61,155,255,.2);box-shadow:inset 0 0 0 1px rgba(61,155,255,.4)}
   .lptv-ch.focus{outline:1px solid rgba(61,155,255,.65);outline-offset:-1px}
-  .lptv-ch .lptv-ch-num{font-size:11px;color:var(--tx3);width:28px;flex-shrink:0;font-family:Consolas,monospace;font-variant-numeric:tabular-nums}
+  .lptv-ch .lptv-ch-num{font-size:calc(11.0px * var(--fs-scale));color:var(--tx3);width:28px;flex-shrink:0;font-family:Consolas,monospace;font-variant-numeric:tabular-nums}
   .lptv-ch.active .lptv-ch-num{color:var(--acc)}
   /* 台标: 正方形圆角图, 数字与名称之间 */
   .lptv-ch .lptv-ch-logo{width:22px;height:22px;flex-shrink:0;border-radius:4px;
@@ -778,7 +778,7 @@
   .lptv-ch .lptv-ch-fav svg{width:14px;height:14px}
   /* 面板分类 tab */
   #lptv-panel-tabs{display:flex;gap:4px;padding:9px 14px;flex-wrap:wrap}
-  .lptv-ptab{display:inline-flex;align-items:center;padding:4px 11px;border-radius:20px;font-size:11.5px;
+  .lptv-ptab{display:inline-flex;align-items:center;padding:4px 11px;border-radius:20px;font-size:calc(11.5px * var(--fs-scale));
     color:var(--tx2);cursor:pointer;line-height:1.4;
     background:rgba(255,255,255,.06);border:1px solid transparent;transition:all .12s}
   .lptv-ptab:hover{color:#fff}
@@ -786,18 +786,18 @@
   /* 收藏数徽标: 白底深字 (高对比, 数字清晰), 与标签文字垂直居中对齐 */
   .lptv-ptab b{display:inline-flex;align-items:center;justify-content:center;min-width:15px;height:15px;
     margin-left:6px;padding:0 3px;border-radius:999px;background:#fff;color:#0d1226;
-    font-size:9px;font-weight:800;line-height:1}
-  .lptv-panel-empty{padding:30px 20px;text-align:center;color:var(--tx3);font-size:13px;line-height:1.7}
+    font-size:calc(9.0px * var(--fs-scale));font-weight:800;line-height:1}
+  .lptv-panel-empty{padding:30px 20px;text-align:center;color:var(--tx3);font-size:calc(13.0px * var(--fs-scale));line-height:1.7}
 
   /* 节目单 (右侧): 行样式与 .epg-row 一致 */
-  .lptv-epg-sub{font-size:11px;color:var(--tx3);margin-top:3px;letter-spacing:1px}
+  .lptv-epg-sub{font-size:calc(11.0px * var(--fs-scale));color:var(--tx3);margin-top:3px;letter-spacing:1px}
   .lptv-epg-row{display:flex;gap:10px;padding:9px 14px;margin:0;
-    color:var(--tx);font-size:12.5px;border-bottom:1px solid rgba(255,255,255,.05);
+    color:var(--tx);font-size:calc(12.5px * var(--fs-scale));border-bottom:1px solid rgba(255,255,255,.05);
     transition:background .12s}
   .lptv-epg-row.past{color:var(--tx3)}
   .lptv-epg-row.future{color:var(--tx2)}
   .lptv-epg-row.live{background:rgba(61,155,255,.1);box-shadow:inset 2px 0 0 var(--acc)}
-  .lptv-epg-t{font-size:11px;color:var(--tx3);width:72px;flex-shrink:0;padding-top:2px;
+  .lptv-epg-t{font-size:calc(11.0px * var(--fs-scale));color:var(--tx3);width:72px;flex-shrink:0;padding-top:2px;
     font-family:Consolas,monospace;font-variant-numeric:tabular-nums;
     white-space:nowrap;overflow:hidden}
   .lptv-epg-row.live .lptv-epg-t{color:var(--acc)}
@@ -805,51 +805,51 @@
   /* 长节目名悬停气泡 (JS 检测截断后显示) */
   #lptv-name-pop{position:fixed;z-index:2147483010;max-width:420px;padding:8px 12px;
     background:rgba(16,19,28,.94);border:1px solid var(--line);border-radius:8px;
-    font-size:12px;color:var(--tx);line-height:1.6;pointer-events:none;
+    font-size:calc(12.0px * var(--fs-scale));color:var(--tx);line-height:1.6;pointer-events:none;
     opacity:0;transition:opacity .12s;box-shadow:0 6px 24px rgba(0,0,0,.5)}
   #lptv-name-pop.show{opacity:1}
-  .lptv-epg-empty{padding:30px 20px;text-align:center;color:var(--tx3);font-size:13px}
+  .lptv-epg-empty{padding:30px 20px;text-align:center;color:var(--tx3);font-size:calc(13.0px * var(--fs-scale))}
   /* 日期切换 tabs: 前后一周, 横向滚动 */
   #lptv-epg-tabs{display:flex;gap:4px;padding:9px 14px;flex-wrap:wrap;
     overflow-x:auto;overflow-y:hidden;scroll-behavior:smooth;scrollbar-width:none;flex-shrink:0}
   #lptv-epg-tabs::-webkit-scrollbar{display:none}
   /* box-sizing:border-box 让 min-width 含内边距; flex:1 1 0 让 5 天均匀铺满一行,
      避免 content-box 下每格 66px×5+gap>332px 导致「后天」换行到第二行 */
-  .lptv-epg-tab{flex:1 1 0;min-width:0;box-sizing:border-box;text-align:center;padding:4px 8px;border-radius:8px;font-size:11.5px;color:var(--tx2);
+  .lptv-epg-tab{flex:1 1 0;min-width:0;box-sizing:border-box;text-align:center;padding:4px 8px;border-radius:8px;font-size:calc(11.5px * var(--fs-scale));color:var(--tx2);
     cursor:pointer;transition:all .12s;white-space:nowrap}
-  .lptv-epg-tab i{display:block;font-style:normal;font-size:10px;color:var(--tx3);margin-top:1px}
+  .lptv-epg-tab i{display:block;font-style:normal;font-size:calc(10.0px * var(--fs-scale));color:var(--tx3);margin-top:1px}
   .lptv-epg-tab.past{opacity:.48}
   .lptv-epg-tab:hover{background:rgba(255,255,255,.08);color:#fff}
   .lptv-epg-tab.on{background:rgba(61,155,255,.2);color:#b9dcff;font-weight:600}
   .lptv-epg-tab.on i{color:#9ccbff}
   /* 行内预约按钮 */
-  .lptv-epg-res{flex-shrink:0;padding:3px 10px;border-radius:7px;font-size:11px;letter-spacing:1px;
+  .lptv-epg-res{flex-shrink:0;padding:3px 10px;border-radius:7px;font-size:calc(11.0px * var(--fs-scale));letter-spacing:1px;
     background:rgba(79,209,197,.14);color:var(--acc2);cursor:pointer;transition:all .12s;
     border:1px solid rgba(79,209,197,.35)}
   .lptv-epg-res:hover{background:rgba(79,209,197,.28);color:#fff}
   .lptv-epg-res.on{background:rgba(255,170,80,.2);color:#ffb36b;border-color:rgba(255,170,80,.45)}
   /* 节目单头部: 预约列表按钮 (始终可见, 免滚动) */
   .lptv-epg-resbtn{flex-shrink:0;display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;
-    font-size:11.5px;letter-spacing:1px;font-weight:600;color:var(--acc2);cursor:pointer;transition:all .14s;
+    font-size:calc(11.5px * var(--fs-scale));letter-spacing:1px;font-weight:600;color:var(--acc2);cursor:pointer;transition:all .14s;
     background:rgba(79,209,197,.14);border:1px solid rgba(79,209,197,.35)}
   .lptv-epg-resbtn:hover{background:rgba(79,209,197,.28);color:#fff}
   .lptv-epg-resbtn.on{background:rgba(255,170,80,.2);color:#ffb36b;border-color:rgba(255,170,80,.45)}
   .lptv-epg-resbtn b{display:inline-block;min-width:15px;height:15px;line-height:15px;text-align:center;
-    border-radius:8px;background:var(--acc2);color:#08202a;font-size:9px;font-weight:700;padding:0 4px}
+    border-radius:8px;background:var(--acc2);color:#08202a;font-size:calc(9.0px * var(--fs-scale));font-weight:700;padding:0 4px}
   .lptv-epg-resbtn.on b{background:#ffb36b;color:#2a1a05}
   /* 预约列表行 */
   .lptv-res-row{display:flex;align-items:center;gap:8px;padding:9px 12px;margin:1px 8px 2px;
     border-radius:9px;cursor:pointer;transition:background .12s}
   .lptv-res-row:hover{background:rgba(255,255,255,.08)}
   .lptv-res-main{flex:1;overflow:hidden}
-  .lptv-res-ch{display:inline-block;font-size:11px;color:#9ccbff;background:rgba(61,155,255,.16);
+  .lptv-res-ch{display:inline-block;font-size:calc(11.0px * var(--fs-scale));color:#9ccbff;background:rgba(61,155,255,.16);
     padding:1px 7px;border-radius:5px;margin-right:7px;vertical-align:middle}
-  .lptv-res-name{font-size:13px;color:var(--tx);vertical-align:middle}
-  .lptv-res-when{display:block;font-size:11px;color:var(--tx3);margin-top:3px;
+  .lptv-res-name{font-size:calc(13.0px * var(--fs-scale));color:var(--tx);vertical-align:middle}
+  .lptv-res-when{display:block;font-size:calc(11.0px * var(--fs-scale));color:var(--tx3);margin-top:3px;
     font-family:Consolas,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .lptv-res-when em{font-style:normal;color:#ffb36b}
   .lptv-res-x{flex-shrink:0;width:22px;height:22px;line-height:20px;text-align:center;border-radius:6px;
-    color:var(--tx3);font-size:15px;cursor:pointer;transition:all .12s}
+    color:var(--tx3);font-size:calc(15.0px * var(--fs-scale));cursor:pointer;transition:all .12s}
   .lptv-res-x:hover{background:rgba(255,77,77,.25);color:#ff8f9a}
 
   /* 设置 / 关于: 统一居中弹窗 (左右布局, 左侧设置/关于两个标签) */
@@ -867,38 +867,38 @@
   .lptv-modal-side{width:128px;flex-shrink:0;display:flex;flex-direction:column;gap:4px;padding:18px 10px;
     background:rgba(255,255,255,.03);border-right:1px solid var(--line)}
   .lptv-side-item{display:flex;align-items:center;gap:9px;padding:10px 13px;border-radius:10px;
-    font-size:13px;color:var(--tx2);cursor:pointer;transition:all .12s;user-select:none;white-space:nowrap}
+    font-size:calc(13.0px * var(--fs-scale));color:var(--tx2);cursor:pointer;transition:all .12s;user-select:none;white-space:nowrap}
   .lptv-side-item svg{width:16px;height:16px;flex-shrink:0}
   .lptv-side-item:hover{background:rgba(255,255,255,.07);color:#fff}
   .lptv-side-item.on{color:#b9dcff;background:rgba(61,155,255,.2)}
   .lptv-modal-main{flex:1;min-width:0;height:100%;overflow-y:auto;padding:20px 22px 14px;position:relative}
   /* flex 居中替代 line-height, 让 ✕ 字形在 26px 方框内光学居中, 不再错位 */
   .lptv-modal-x{position:absolute;top:10px;right:12px;width:26px;height:26px;display:flex;align-items:center;justify-content:center;
-    border-radius:6px;color:var(--tx3);font-size:13px;line-height:1;cursor:pointer;transition:all .12s;user-select:none}
+    border-radius:6px;color:var(--tx3);font-size:calc(13.0px * var(--fs-scale));line-height:1;cursor:pointer;transition:all .12s;user-select:none}
   .lptv-modal-x:hover{background:rgba(255,255,255,.1);color:#fff}
   .lptv-pane{display:none}
   .lptv-pane.on{display:block}
   /* 设置卡片: 3 个 section, 每块一张卡 */
   .lptv-set-card{border:1px solid var(--line);border-radius:12px;padding:4px 14px 8px;margin-bottom:12px;
     background:rgba(255,255,255,.03)}
-  .lptv-set-card-t{font-size:10.5px;color:var(--tx3);letter-spacing:2.5px;padding:9px 0 2px}
+  .lptv-set-card-t{font-size:calc(10.5px * var(--fs-scale));color:var(--tx3);letter-spacing:2.5px;padding:9px 0 2px}
   .lptv-set-row{display:flex;align-items:center;justify-content:space-between;gap:10px;
-    padding:8px 0;font-size:12.5px;color:var(--tx)}
+    padding:8px 0;font-size:calc(12.5px * var(--fs-scale));color:var(--tx)}
   .lptv-set-row label{display:flex;align-items:center;gap:9px;cursor:pointer}
   .lptv-set-row input[type=checkbox]{accent-color:var(--acc);width:15px;height:15px;cursor:pointer}
-  .lptv-set-url{font-size:10.5px;color:var(--tx3);word-break:break-all;max-height:44px;overflow:hidden;line-height:1.45}
-  .lptv-link{color:var(--acc);cursor:pointer;font-size:11.5px}
+  .lptv-set-url{font-size:calc(10.5px * var(--fs-scale));color:var(--tx3);word-break:break-all;max-height:44px;overflow:hidden;line-height:1.45}
+  .lptv-link{color:var(--acc);cursor:pointer;font-size:calc(11.5px * var(--fs-scale))}
   .lptv-link:hover{text-decoration:underline}
   /* 保存位置行: 左侧标签+路径, 右侧按钮组 */
   .lptv-set-dir{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:8px 0}
   .lptv-set-dir-l{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
-  .lptv-set-dir-l > span{font-size:12.5px;color:var(--tx)}
+  .lptv-set-dir-l > span{font-size:calc(12.5px * var(--fs-scale));color:var(--tx)}
   .lptv-set-dir-l .lptv-set-url{margin-top:0}
   .lptv-set-dir-btns{display:flex;gap:10px;flex-shrink:0;justify-content:flex-end;margin-top:5px}
   .lptv-set-dir-btns .lptv-link{white-space:nowrap}
   /* 画面模式: radio 横向选中 (去下拉框) */
   .lptv-fit{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
-  .lptv-fit label{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--tx2);
+  .lptv-fit label{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:calc(12.0px * var(--fs-scale));color:var(--tx2);
     padding:5px 11px;border-radius:8px;border:1px solid var(--line);
     background:rgba(255,255,255,.05);transition:all .12s}
   .lptv-fit label:hover{color:#fff}
@@ -907,9 +907,9 @@
   /* 快捷键: 一行一个, 名称 + 按键图标 */
   .lptv-kmap{display:flex;flex-direction:column;padding:4px 0}
   .lptv-krow{display:flex;align-items:center;justify-content:space-between;gap:12px;
-    padding:5px 0;font-size:12px;color:var(--tx2)}
+    padding:5px 0;font-size:calc(12.0px * var(--fs-scale));color:var(--tx2)}
   .lptv-krow .lptv-kkeys{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
-  #lptv-settings kbd{font-family:inherit;font-size:10.5px;color:var(--tx);background:rgba(255,255,255,.09);
+  #lptv-settings kbd{font-family:inherit;font-size:calc(10.5px * var(--fs-scale));color:var(--tx);background:rgba(255,255,255,.09);
     border:1px solid rgba(255,255,255,.16);border-bottom-width:2px;border-radius:5px;
     padding:2px 6px;min-width:16px;text-align:center;line-height:1.4}
   /* 关于: 居中 logo 换行 LPTV 换行版本号 + 一段文字 + 底部 Powered by */
@@ -917,26 +917,26 @@
   /* 关于图标: 去掉渐变背景, 直接用透明 PNG 原图 + 柔和投影 */
   .lptv-about-logo{width:76px;height:76px;object-fit:contain;margin:0 auto 16px;
     display:block;filter:drop-shadow(0 8px 24px rgba(61,155,255,.30))}
-  .lptv-about-appname{font-size:42px;font-weight:800;line-height:1;letter-spacing:.04em;
+  .lptv-about-appname{font-size:calc(42.0px * var(--fs-scale));font-weight:800;line-height:1;letter-spacing:.04em;
     background:linear-gradient(120deg,#7fe0ff,#4fd1c5,#ff5fa8);
     -webkit-background-clip:text;background-clip:text;color:transparent}
-  .lptv-about-ver{font-size:12px;color:var(--tx3);margin-top:10px;font-family:Consolas,monospace}
-  .lptv-about-desc{font-size:12.5px;color:var(--tx2);line-height:1.95;margin:20px auto 0;max-width:340px}
+  .lptv-about-ver{font-size:calc(12.0px * var(--fs-scale));color:var(--tx3);margin-top:10px;font-family:Consolas,monospace}
+  .lptv-about-desc{font-size:calc(12.5px * var(--fs-scale));color:var(--tx2);line-height:1.95;margin:20px auto 0;max-width:340px}
   .lptv-about-foot{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);
-    font-size:11px;color:var(--tx3);letter-spacing:.5px}
+    font-size:calc(11.0px * var(--fs-scale));color:var(--tx3);letter-spacing:.5px}
 
   #lptv-toast{position:absolute;left:50%;top:48px;transform:translateX(-50%) translateY(-16px);z-index:9;
     background:rgba(16,19,28,.92);color:var(--tx);padding:8px 16px;border-radius:20px;
-    font-size:12.5px;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;
+    font-size:calc(12.5px * var(--fs-scale));opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;
     border:1px solid var(--line);max-width:72vw;white-space:nowrap;
     overflow:hidden;text-overflow:ellipsis}
   #lptv-toast.show{opacity:1;transform:translateX(-50%)}
   #lptv-toast.show._res{pointer-events:auto;cursor:pointer;border-color:rgba(255,170,80,.5)}
-  #lptv-toast.show._res::after{content:" · 点击跳转";color:#ffb36b;font-size:11px}
+  #lptv-toast.show._res::after{content:" · 点击跳转";color:#ffb36b;font-size:calc(11.0px * var(--fs-scale))}
 
   #lptv-hint{position:absolute;left:50%;bottom:96px;transform:translateX(-50%);z-index:9;
     background:var(--glass);color:var(--tx2);padding:8px 18px;border-radius:20px;
-    font-size:12.5px;opacity:0;transition:opacity .3s;pointer-events:none;border:1px solid var(--line)}
+    font-size:calc(12.5px * var(--fs-scale));opacity:0;transition:opacity .3s;pointer-events:none;border:1px solid var(--line)}
   #lptv-hint.show{opacity:1}
 
   /* 全局滚动条: 隐藏页面/html 自身滚动条, 其余细条毛玻璃质感 */
@@ -949,7 +949,7 @@
   #lptv-root ::-webkit-scrollbar-track{background:transparent}
 
   /* 顶部毛玻璃功能区: 拖拽区 + 窗口控制按钮 (与 .topbar 一致) */
-  #lptv-topbar{position:absolute;top:0;left:0;right:0;height:34px;z-index:12;
+  #lptv-topbar{position:absolute;top:0;left:0;right:0;height:42px;z-index:12;
     display:flex;align-items:center;gap:10px;padding:0 6px 0 12px;
     background:linear-gradient(180deg,rgba(10,12,18,.86),rgba(10,12,18,.28));
     backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
@@ -959,21 +959,21 @@
   #lptv-topbar.show{opacity:1;transform:none;pointer-events:auto}
   /* 设置「启动时显示顶栏」: 顶栏常显 (含 idle/无 hover 时), 不参与隐藏 */
   #lptv-root.tb-always #lptv-topbar{opacity:1!important;transform:none!important;pointer-events:auto!important}
-  #lptv-topbar .lptv-tb-title{display:flex;align-items:center;gap:6px;font-size:12px;
+  #lptv-topbar .lptv-tb-title{display:flex;align-items:center;gap:6px;font-size:calc(12.0px * var(--fs-scale));
     letter-spacing:.5px;color:var(--tx2);white-space:nowrap;overflow:hidden}
   #lptv-topbar .lptv-tb-title b{color:var(--tx);font-weight:650;letter-spacing:.5px}
-  #lptv-topbar .lptv-tb-meta{display:flex;align-items:center;gap:6px;font-size:11.5px;
+  #lptv-topbar .lptv-tb-meta{display:flex;align-items:center;gap:6px;font-size:calc(11.5px * var(--fs-scale));
     color:var(--tx2);background:rgba(255,255,255,.06);border:1px solid var(--line);
     border-radius:20px;padding:2px 9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #lptv-topbar .lptv-tb-meta .dot{width:6px;height:6px;border-radius:50%;background:var(--ok);
     box-shadow:0 0 6px var(--ok);flex-shrink:0}
   #lptv-topbar .lptv-tb-sp{flex:1}
   #lptv-tb-btns{display:flex;align-items:center;gap:2px;-webkit-app-region:no-drag;flex-shrink:0}
-  .lptv-tb-btn{width:30px;height:26px;display:flex;align-items:center;justify-content:center;
+  .lptv-tb-btn{width:38px;height:32px;display:flex;align-items:center;justify-content:center;
     border:none;border-radius:6px;background:transparent;color:var(--tx2);cursor:default;
     transition:background .15s;line-height:0;position:relative}
   .lptv-tb-btn svg{pointer-events:none}
-  #lptv-topbar .lptv-tb-logo{width:16px;height:16px;border-radius:4px;object-fit:contain;
+  #lptv-topbar .lptv-tb-logo{width:20px;height:20px;border-radius:4px;object-fit:contain;
     background:rgba(255,255,255,.08);flex-shrink:0}
   .lptv-tb-btn:hover{background:rgba(255,255,255,.12);color:#fff}
   .lptv-tb-btn.close:hover{background:var(--red);color:#fff}
@@ -981,7 +981,11 @@
   .lptv-tb-btn.on:hover{color:#9ccbff}
 
   #lptv-root.idle{cursor:none}
-  #lptv-root.idle #lptv-osd,#lptv-root.idle #lptv-vol,#lptv-root.idle #lptv-topbar,#lptv-root.idle #lptv-win-grip{opacity:0;pointer-events:none}
+  #lptv-root.idle #lptv-osd,#lptv-root.idle #lptv-vol,#lptv-root.idle #lptv-win-grip{opacity:0;pointer-events:none}
+  /* idle 时顶栏半透明常显, 方便用户定位 */
+  #lptv-root.idle #lptv-topbar{opacity:.35!important;transform:none!important;pointer-events:auto!important}
+  /* 非 idle 时鼠标离开顶部区域后也保持半透明提示 */
+  #lptv-topbar.lptv-topbar--dim{opacity:.35!important;transform:none!important;pointer-events:auto!important}
   #lptv-root.idle.ctrl-on{cursor:auto}
   #lptv-root.idle.ctrl-on #lptv-controls{opacity:1;transform:translate(-50%,0);pointer-events:auto}
 
@@ -1277,7 +1281,7 @@
       });
       html += '<div class="lptv-cat">我的收藏 · ' + favList.length + '</div>';
       if (!favList.length) {
-        html += '<div class="lptv-panel-empty">暂无收藏频道<br><span style="font-size:11px">点击频道行的 ♥ 即可收藏</span></div>';
+        html += '<div class="lptv-panel-empty">暂无收藏频道<br><span style="font-size:calc(11.0px * var(--fs-scale))">点击频道行的 ♥ 即可收藏</span></div>';
       }
       favList.forEach(function (c) { html += chRowHtml(c); });
     } else {
@@ -1523,7 +1527,7 @@
     if (!tb) return;
     // 「启动时显示顶栏」开启: 常显, 不参与 hover 隐藏
     if (lptv.tbAlways) { tb.classList.add("show"); return; }
-    tb.classList.toggle("show", e.clientY <= 44);
+    tb.classList.add("show");
   }
   function cancelPanelHide() {
     clearTimeout(lptv._panelHideT);
@@ -1909,7 +1913,7 @@
     var now = Math.floor(Date.now() / 1000);
     var list = resLoad().sort(function (a, b) { return a.s0 - b.s0; });
     if (!list.length) {
-      body.innerHTML = '<div class="lptv-epg-empty">暂无预约<br><span style="font-size:11px">在节目单中选择节目点"预约"即可</span></div>';
+      body.innerHTML = '<div class="lptv-epg-empty">暂无预约<br><span style="font-size:calc(11.0px * var(--fs-scale))">在节目单中选择节目点"预约"即可</span></div>';
       return;
     }
     var html = "";
@@ -2614,7 +2618,22 @@
     var root = lptv.ui.root;
 
     root.addEventListener("mousemove", function (e) {
-      wake(); panelPointer(e); epgPointer(e); topbarPointer(e); showFloatCtl();
+      wake();
+      panelPointer(e);
+      epgPointer(e);
+      topbarPointer(e);
+      showFloatCtl();
+      // 鼠标离开顶部区域: idle 时半透明, 非 idle 时加 dim 类半透明
+      if (!lptv.tbAlways && e.clientY > 56) {
+        var tb2 = document.getElementById("lptv-topbar");
+        if (tb2) {
+          tb2.classList.remove("show");
+          if (!lptv.ui.root.classList.contains("idle")) tb2.classList.add("lptv-topbar--dim");
+        }
+      } else if (e.clientY <= 56) {
+        var tb3 = document.getElementById("lptv-topbar");
+        if (tb3) tb3.classList.remove("lptv-topbar--dim");
+      }
       if (e.clientY >= innerHeight - CTRL_ZONE) showControls();
       else scheduleHideControls();
     });
@@ -2991,6 +3010,10 @@
       }
     }
 
+    function isTyping() {
+      var ae = document.activeElement;
+      return !!ae && /INPUT|TEXTAREA|SELECT/.test(ae.tagName || "");
+    }
     document.addEventListener("keydown", function (e) {
       if (e.ctrlKey && (e.key === "d" || e.key === "D")) { e.preventDefault(); devToggle(); return; }
       if (lptv.devHidden) return;
@@ -3203,10 +3226,22 @@
     }, true);  // capture: 早于 pywebview customize.js 的 bubble 监听
   }
 
+  /* 按窗口宽度动态调整字体/控件缩放比 (基准 1280px = scale 1, 最大 1.5x) */
+  function applyFsScale() {
+    var root = lptv.ui && lptv.ui.root;
+    if (!root) return;
+    var w = window.innerWidth || document.documentElement.clientWidth || 1280;
+    var s = Math.max(0.85, Math.min(1.5, w / 1280));
+    root.style.setProperty('--fs-scale', s.toFixed(3));
+  }
+  window.addEventListener('resize', applyFsScale);
+
   function boot() {
+    applyFsScale();
     installHlsHooks();
     installDragGuard();
     buildUI();
+    applyFsScale();
     setQuality();
     syncFit();
     initChannels();

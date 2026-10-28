@@ -3010,6 +3010,10 @@
       }
     }
 
+    function isTyping() {
+      var ae = document.activeElement;
+      return !!ae && /INPUT|TEXTAREA|SELECT/.test(ae.tagName || "");
+    }
     document.addEventListener("keydown", function (e) {
       if (e.ctrlKey && (e.key === "d" || e.key === "D")) { e.preventDefault(); devToggle(); return; }
       if (lptv.devHidden) return;
