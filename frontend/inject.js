@@ -439,7 +439,15 @@
     var api = window.lptv;
     if (!api || !api.get_asset_image) return '';
     api.get_asset_image(pid + '.webp', 'logos').then(function (r) {
-      if (r && r.ok && r.src) lptv.logoCache[pid] = r.src;
+      if (r && r.ok && r.src) {
+        lptv.logoCache[pid] = r.src;
+        // 台标异步到位后即时回填该行（首次渲染时 --loading 无图，必须更新 DOM）
+        var el = document.querySelector('.lptv-ch[data-pid="' + pid + '"] .lptv-ch-logo');
+        if (el) {
+          el.classList.remove('lptv-ch-logo--loading');
+          el.style.backgroundImage = 'url(' + r.src + ')';
+        }
+      }
     }).catch(function () {});
     return '';
   }
@@ -1295,6 +1303,9 @@
     body.scrollTop = 0;
     if (tabs) renderPanelTabs();
     markActive();
+    // 触发台标懒加载：首次渲染时行内无图（--loading），异步取到后由
+    // getLogoDataUri 内回填对应行（已缓存的直接跳过，幂等）。
+    lptv.channels.forEach(function (c) { getLogoDataUri(c.pid); });
   }
 
   function chRowHtml(c) {
