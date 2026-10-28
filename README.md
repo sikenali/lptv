@@ -173,5 +173,5 @@ bash lzc/content/assemble_lpk.sh
 - **无 WM 最小化/最大化**：懒猫容器无窗口管理器时 `minimize/maximize` 可能不生效，
   主进程退回 `setBounds` 模拟；浮窗/置顶/全屏用 `setBounds`/`setAlwaysOnTop`/`setFullScreen`（不依赖 WM）。
 - **UA**：保留 Windows Chrome/132 串（CMG 播放器按 UA 判定环境，与 Windows 版一致最稳）。
-- **移动端**：LPTV 窗口固定在盒子容器（1280×720），手机浏览器经 catlink SPA / xpra 等比缩放查看，
-  LPTV 应用本身不做移动端布局；`package.yml` 的 `unsupported_platforms` 已排除 android/ios/tvos。
+- **移动端**：LPTV 窗口固定在盒子容器（1280×720），手机/电视浏览器经 catlink SPA / xpra 等比缩放查看，
+  LPTV 应用本身不做移动端布局；`package.yml` 已开放 **android / tvos** 平台支持（ios 暂未开放）。
