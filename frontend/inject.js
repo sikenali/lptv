@@ -600,7 +600,7 @@
   /* 底部控制栏: 居中收窄 (不再贴满左右边缘), 避免遮挡左(频道)/右(节目单)的
      hover 触发带与滑出面板; 内容超出 max-width 时 .lptv-ctl-now 自行截断 */
   #lptv-controls{position:absolute;left:50%;bottom:16px;z-index:8;
-    width:max-content;max-width:min(76vw,760px);
+    width:max-content;max-width:min(84vw,860px);
     display:flex;align-items:center;gap:6px;padding:6px 9px;border-radius:12px;
     background:var(--glass);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
     border:1px solid var(--line);box-shadow:0 8px 30px rgba(0,0,0,.5);
@@ -917,11 +917,9 @@
   /* 关于: 居中 logo 换行 LPTV 换行版本号 + 一段文字 + 底部 Powered by */
   .lptv-about-pane{text-align:center;padding:10px 6px 6px}
   /* 关于图标: 去掉渐变背景, 直接用透明 PNG 原图 + 柔和投影 */
-  .lptv-about-logo{width:76px;height:76px;object-fit:contain;margin:0 auto 16px;
+  .lptv-about-logo{width:auto;height:64px;max-width:80vw;margin:0 auto 12px;display:block;filter:drop-shadow(0 8px 24px rgba(61,155,255,.30))}
     display:block;filter:drop-shadow(0 8px 24px rgba(61,155,255,.30))}
-  .lptv-about-appname{font-size:calc(42.0px * var(--fs-scale));font-weight:800;line-height:1;letter-spacing:.04em;
-    background:linear-gradient(120deg,#7fe0ff,#4fd1c5,#ff5fa8);
-    -webkit-background-clip:text;background-clip:text;color:transparent}
+
   .lptv-about-ver{font-size:calc(12.0px * var(--fs-scale));color:var(--tx3);margin-top:10px;font-family:Consolas,monospace}
   .lptv-about-desc{font-size:calc(12.5px * var(--fs-scale));color:var(--tx2);line-height:1.95;margin:20px auto 0;max-width:340px}
   .lptv-about-foot{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);
@@ -1139,8 +1137,7 @@
             '<div class="lptv-set-card"><div class="lptv-set-card-t">快捷键</div><div class="lptv-kmap" id="lptv-s-kmap"></div></div>' +
           '</div>' +
           '<div class="lptv-pane lptv-about-pane" id="lptv-pane-about">' +
-            '<img class="lptv-about-logo" id="lptv-about-logo-img" alt="LPTV">' +
-            '<div class="lptv-about-appname">LPTV</div>' +
+            '<img class="lptv-about-logo" id="lptv-about-logo-img" alt="LPTV" src="">' +
             '<div class="lptv-about-ver" id="lptv-about-ver">版本 --</div>' +
             '<div class="lptv-about-desc">LPTV 是一款为懒猫盒子打造的YSP远程播放客户端，支持频道收藏、节目单预约、录制截图、置顶浮窗。</div>' +
             '<div class="lptv-about-foot">Powered by LightOS · Made for LCMD</div>' +
@@ -3005,7 +3002,7 @@
         if (t && v) t.textContent = "版本 v" + v;
       }).catch(function () {});
       if (a && a.get_asset_image) {
-        a.get_asset_image("icon.png").then(function (r) {
+        a.get_asset_image("lptv.png").then(function (r) {
           var img = document.getElementById("lptv-about-logo-img");
           if (img && r && r.ok) img.src = r.src;
         }).catch(function () {});
