@@ -155,6 +155,12 @@ if [ ! -x /lzcapp/pkg/content/rim ]; then
     sed -i '\#start=/lzcapp/pkg/content/rim#d' /tmp/catlink/xpra.conf
 fi
 
+# 预热解包 LPTV AppImage（后台）：客户端连接后启动零等待，首帧画面更快。
+# 不阻塞主流程，失败也不影响正常启动。
+if [ -x /lzcapp/pkg/content/launch_lptv.sh ] && [ -f /lzcapp/pkg/content/appimage/LPTV.AppImage ]; then
+    LPTV_PREWARM=1 nohup /lzcapp/pkg/content/launch_lptv.sh >/dev/null 2>&1 &
+fi
+
 # cde-supervisor 是骨架自带的 xpra 主管二进制；纯内容打包缺失时直跑 xpra 兜底
 #（cde 镜像通常自带 xpra）。若两者皆无则给出可读报错。
 if [ -x /lzcapp/pkg/content/cde-supervisor ]; then

@@ -2241,11 +2241,13 @@
     });
     // 无边框窗口拖动：按住标题区移动鼠标 → bridge.move_win（容器无 WM，
     // pywebview easy_drag / _NET_WM_MOVERESIZE 都不可用，只能 JS 拖动）。
+    // 拖拽面：整条 topbar（不含按钮），按钮区 no-drag。
     (function () {
-      var tbTitle = document.querySelector("#lx-topbar .lx-tb-title");
+      var tb = document.querySelector("#lx-topbar");
       var dragging = false, sx = 0, sy = 0, wx = 0, wy = 0, posReady = false;
-      tbTitle.addEventListener("mousedown", function (e) {
+      tb.addEventListener("mousedown", function (e) {
         if (e.button !== 0) return;
+        if (e.target.closest && e.target.closest("#lx-tb-btns, .lx-tb-btn")) return;
         dragging = true; posReady = false; sx = e.screenX; sy = e.screenY;
         var api = wvApi();
         if (api && api.win_pos) {

@@ -71,20 +71,17 @@ launch_rim_copy() {
     return 1
 }
 
-launch_self_extract() {
+do_extract() {
+    # 把 AppImage 解包到 SELF_EXTRACT（带 mtime 标记），成功后返回 0。
     if [ ! -x "$LPTV_APPIMAGE" ]; then
         echo "[LPTV] AppImage 缺失: $LPTV_APPIMAGE" >&2
         return 1
     fi
-    # 用 AppImage 的 mtime 作版本标记：升级后 mtime 变了就强制重新解包，
-    # 否则会一直复用 /lzcapp/var 下上一次的旧树（旧包修复全不生效）。
     MARKER="$SELF_EXTRACT/.lptv-appimage-mtime"
     MTIME="$(stat -c %Y "$LPTV_APPIMAGE" 2>/dev/null || echo 0)"
     if [ -x "$SELF_EXTRACT/AppRun" ] && [ -f "$SELF_EXTRACT/$SENTINEL" ] \
        && [ "$(cat "$MARKER" 2>/dev/null || echo 0)" = "$MTIME" ]; then
-        echo "[LPTV] 复用已解包 $SELF_EXTRACT" >&2
-        export APPDIR="$SELF_EXTRACT"
-        exec "$SELF_EXTRACT/AppRun" --no-sandbox
+        return 0
     fi
     echo "[LPTV] 解包 AppImage → $SELF_EXTRACT (mtime=$MTIME)" >&2
     rm -rf "$SELF_EXTRACT"
@@ -99,8 +96,22 @@ launch_self_extract() {
     mv "$TMP/squashfs-root" "$SELF_EXTRACT"
     printf '%s\n' "$MTIME" > "$SELF_EXTRACT/.lptv-appimage-mtime"
     rm -rf "$TMP"
-    export APPDIR="$SELF_EXTRACT"
-    exec "$SELF_EXTRACT/AppRun" --no-sandbox
+    return 0
+}
+
+# --prewarm：容器启动时后台预热解包，客户端连接后启动零等待（首帧画面更快）。
+# 只在没有 rim 副本时执行，避免和 rim 的安装流程抢目录。
+if [ "${LPTV_PREWARM:-0}" = "1" ] && [ ! -x "$RIM_APPS/AppRun" ]; then
+    do_extract && echo "[LPTV] 预热解包完成: $SELF_EXTRACT" >&2 || echo "[LPTV] 预热解包失败（不影响正常启动）" >&2
+    exit 0
+fi
+
+launch_self_extract() {
+    if do_extract; then
+        export APPDIR="$SELF_EXTRACT"
+        exec "$SELF_EXTRACT/AppRun" --no-sandbox
+    fi
+    return 1
 }
 
 launch_rim_copy || launch_self_extract

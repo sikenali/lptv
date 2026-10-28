@@ -67,10 +67,6 @@ const STATE_WHITELIST = ['lastPid', 'favs', 'resumeLast', 'res', 'autoFullscreen
 
 // 浮窗几何（16:9 小窗）
 const FLOAT_W = 480, FLOAT_H = 270;
-function screenSize() {
-  return { w: parseInt(process.env.LPTV_SCREEN_W || '1920', 10) || 1920,
-           h: parseInt(process.env.LPTV_SCREEN_H || '1080', 10) || 1080 };
-}
 
 function readJson(file) {
   try { return JSON.parse(fs.readFileSync(file, 'utf-8')); } catch (e) { return null; }
@@ -87,7 +83,31 @@ function readText(file) {
 
 // ---- 窗口状态跟踪（无 WM 下 pywebview 的 win.maximized 不可靠，自维护）----
 let win = null;
-const st = { max: false, fs: false, float: false, pin: false, floatSaved: null };
+const st = { max: false, fs: false, float: false, pin: false, floatSaved: null, maxSaved: null, fsSaved: null };
+// xpra 坐标偏移：getBounds() = setBounds(请求值) + winOrigin。
+// xpra seamless 的 corral 会把窗口放到初始位置 (winOrigin)，导致 Electron 的
+// setBounds 请求坐标与实际 getBounds 恒差一个 winOrigin。所有 setBounds 需减去它，
+// 否则 move_win/float 每步多走一个 winOrigin，窗口乱跳、拖动失灵（已实测 +100 → +3556）。
+let winOrigin = null;
+
+function displayBounds() {
+  try {
+    const { screen } = require('electron');
+    const b = screen.getPrimaryDisplay().bounds;
+    return { x: b.x, y: b.y, w: b.width, h: b.height };
+  } catch (e) {
+    return { x: 0, y: 0, w: parseInt(process.env.LPTV_SCREEN_W || '1920', 10) || 1920,
+             h: parseInt(process.env.LPTV_SCREEN_H || '1080', 10) || 1080 };
+  }
+}
+
+// setPos: 目标位置用 getBounds 坐标（win_pos 返回值），内部换算回 setBounds 请求。
+function setPos(x, y, w, h) {
+  if (!win) return;
+  if (!winOrigin) { const b = win.getBounds(); winOrigin = { x: b.x, y: b.y }; }
+  win.setBounds({ x: Math.round(x - winOrigin.x), y: Math.round(y - winOrigin.y),
+                  width: Math.max(Math.round(w), 1), height: Math.max(Math.round(h), 1) });
+}
 
 function stateLoad() {
   return readJson(STATE_FILE) || {};
@@ -150,8 +170,11 @@ function createWindow() {
     minWidth: 360,
     minHeight: 220,
     frame: false,
-    backgroundColor: '#000000',
-    show: false,
+    // 与 splash.js 底色一致（#04070d），窗口建立到 splash 注入之间不闪黑
+    backgroundColor: '#04070d',
+    // 立即显示：ready-to-show 才 show 会让 xpra 在首次绘制前看不到窗口，
+    // 远程端"已投射"却长时间无画面。splash 与底色一致，无闪白，尽早映射。
+    show: true,
     title: 'LPTV',
     icon: assetFile('icon.png'),
     webPreferences: {
@@ -167,23 +190,40 @@ function createWindow() {
   app.setName('LPTV');
   win.setTitle('LPTV');
   win.setMenuBarVisibility(false);
+  // 显式设窗口图标：构造 icon 选项在无 WM 容器里不写 _NET_WM_ICON（实测为空），
+  // 显式 setIcon 才落到 _NET_WM_ICON，任务栏/窗口才会显示 LPTV 图标而非 Chrome。
+  try {
+    const ico = nativeImage.createFromPath(assetFile('icon.png'));
+    if (!ico.isEmpty() && typeof win.setIcon === 'function') win.setIcon(ico);
+  } catch (e) {}
 
   win.webContents.setUserAgent(CHROME_UA);
 
-  // 注入时机：splash 在 dom-ready（DOM 已解析，覆盖裸页），inject 在 load 完成后
-  win.webContents.on('dom-ready', () => {
+  // 注入时机：splash 在 did-start-navigation（文档起点，覆盖黑屏空窗），
+  // inject 在 load 完成后。splash.js 自带 __lxCctvSplash 守卫，重复注入无副作用。
+  const splashSrc = (() => {
     const splash = readText(assetFile('splash.js'));
-    if (!splash) return;
+    if (!splash) return '';
     const cfg = JSON.stringify({ icon: iconDataUri(), title: 'LPTV' });
-    win.webContents
-      .executeJavaScript('(function(){window.__LPTV_SPLASH_CFG=' + cfg + ';})();\n' + splash)
-      .catch(() => {});
+    return '(function(){window.__LPTV_SPLASH_CFG=' + cfg + ';})();\n' + splash;
+  })();
+  win.webContents.on('did-start-navigation', () => {
+    if (!splashSrc) return;
+    win.webContents.executeJavaScript(splashSrc).catch(() => {});
+  });
+  win.webContents.on('dom-ready', () => {
+    if (!splashSrc) return;
+    win.webContents.executeJavaScript(splashSrc).catch(() => {});
   });
   win.webContents.on('did-finish-load', injectUi);
 
   win.on('closed', () => { win = null; });
 
-  win.once('ready-to-show', () => win.show());
+  win.once('ready-to-show', () => {
+    // xpra corral 已把窗口放到初始位置：把它记为坐标偏移基准
+    try { winOrigin = win.getBounds(); } catch (e) {}
+    win.show();
+  });
 
   win.loadURL(HOME_URL_BASE + readStatePid());
 }
@@ -198,12 +238,25 @@ function registerIpc() {
   });
 
   // ---- 窗口 ----------------------------------------------------------------
-  h('minimize', () => { if (win) win.minimize(); return { ok: true }; });
+  h('minimize', () => {
+    if (!win) return { ok: false };
+    if (win.isMinimized()) { win.restore(); return { ok: true, minimized: false }; }
+    win.minimize();
+    return { ok: true, minimized: true };
+  });
 
   h('maximize_toggle', () => {
     if (!win) return { ok: false, maximized: st.max };
-    if (st.max) { win.unmaximize(); st.max = false; }
-    else { win.maximize(); st.max = true; }
+    if (st.max) {
+      const b = st.maxSaved;
+      if (b) setPos(b.x, b.y, b.width, b.height);
+      st.max = false;
+    } else {
+      st.maxSaved = win.getBounds();
+      const d = displayBounds();
+      setPos(d.x, d.y, d.w, d.h);
+      st.max = true;
+    }
     return { ok: true, maximized: st.max };
   });
 
@@ -211,8 +264,17 @@ function registerIpc() {
 
   h('fullscreen_toggle', () => {
     if (!win) return { ok: false, fullscreen: st.fs };
-    win.setFullScreen(!win.isFullScreen());
-    st.fs = win.isFullScreen();
+    if (st.fs) {
+      const b = st.fsSaved;
+      if (b) setPos(b.x, b.y, b.width, b.height);
+      st.fs = false;
+    } else {
+      st.fsSaved = win.getBounds();
+      const d = displayBounds();
+      setPos(d.x, d.y, d.w, d.h);
+      if (st.pin) win.setAlwaysOnTop(true);
+      st.fs = true;
+    }
     return { ok: true, fullscreen: st.fs };
   });
 
@@ -222,17 +284,17 @@ function registerIpc() {
     if (!win) return { ok: false, floating: st.float, float: st.float };
     if (st.float) {
       if (st.floatSaved) {
-        win.setBounds({ x: st.floatSaved.x, y: st.floatSaved.y, width: st.floatSaved.w, height: st.floatSaved.h });
-        if (!st.floatSaved.wasOnTop) win.setAlwaysOnTop(false);
+        const b = st.floatSaved;
+        setPos(b.x, b.y, b.width, b.height);
+        if (!b.wasOnTop) win.setAlwaysOnTop(false);
         st.floatSaved = null;
       }
       st.float = false;
     } else {
       const b = win.getBounds();
-      st.floatSaved = { x: b.x, y: b.y, w: b.width, h: b.height, wasOnTop: st.pin };
-      const s = screenSize();
-      win.setBounds({ x: Math.max(0, s.w - FLOAT_W - 10), y: Math.max(0, s.h - FLOAT_H - 10),
-                      width: FLOAT_W, height: FLOAT_H });
+      st.floatSaved = { x: b.x, y: b.y, width: b.width, height: b.height, wasOnTop: st.pin };
+      const d = displayBounds();
+      setPos(d.x + d.w - FLOAT_W - 10, d.y + d.h - FLOAT_H - 10, FLOAT_W, FLOAT_H);
       win.setAlwaysOnTop(true);
       st.float = true;
     }
@@ -250,11 +312,9 @@ function registerIpc() {
   h('pin_state', () => ({ ok: true, pinned: st.pin }));
 
   h('resize_win', (w, hh) => {
-    if (win) {
-      const b = win.getBounds();
-      win.setBounds({ x: b.x, y: b.y, width: Math.max(parseInt(w, 10) || 360, 360),
-                      height: Math.max(parseInt(hh, 10) || 220, 220) });
-    }
+    if (!win) return { ok: false };
+    const b = win.getBounds();
+    setPos(b.x, b.y, Math.max(parseInt(w, 10) || 360, 360), Math.max(parseInt(hh, 10) || 220, 220));
     return { ok: true };
   });
 
@@ -265,11 +325,9 @@ function registerIpc() {
   });
 
   h('move_win', (x, y) => {
-    if (win) {
-      const b = win.getBounds();
-      win.setBounds({ x: parseInt(x, 10) || b.x, y: parseInt(y, 10) || b.y,
-                      width: b.width, height: b.height });
-    }
+    if (!win) return { ok: false };
+    const b = win.getBounds();
+    setPos(parseInt(x, 10) || b.x, parseInt(y, 10) || b.y, b.width, b.height);
     return { ok: true };
   });
 
