@@ -14,10 +14,9 @@ lzc/skeleton/
 __pycache__/
 *.pyc
 
+# Android 构建产物 / 生成工程
 android/android/
-lptv-debug.apk
+*.apk
 .capacitorrc.json
-android/android/
-lptv-debug.apk
 capacitor.config.json
 www/
