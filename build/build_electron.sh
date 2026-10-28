@@ -45,11 +45,23 @@ fi
 echo "==> [2/3] electron-builder 打 AppImage"
 npm run dist
 
-echo "==> [3/3] 拷贝到 lzc/content/appimage/LPTV.AppImage"
+echo "==> [3/3] 定位版本化 AppImage 并同步到 lzc/content/appimage/"
+# electron-builder 的 artifactName = LPTV-${os}-${arch}-${version}.${ext}
+# （package.json build.artifactName），产物形如 LPTV-linux-x64-1.0.0.AppImage。
+# 启动脚本 launch_lptv.sh 固定引用 appimage/LPTV.AppImage，故保留一份固定名，
+# 同时把版本化产物原样留在 dist/ 作为对外交付物。
+VER_APPIMAGE=$(ls "$OUT_DIR"/LPTV-*.AppImage 2>/dev/null | head -1 || true)
+if [ -z "$VER_APPIMAGE" ]; then
+  echo "错误：未在 $OUT_DIR 找到 LPTV-*.AppImage。请检查 electron-builder 输出。" >&2
+  exit 1
+fi
+APPVER="$(basename "$VER_APPIMAGE")"
 mkdir -p "$LPTV_ROOT/lzc/content/appimage"
-cp "$OUT_DIR/LPTV.AppImage" "$LPTV_ROOT/lzc/content/appimage/LPTV.AppImage"
+cp "$VER_APPIMAGE" "$LPTV_ROOT/lzc/content/appimage/LPTV.AppImage"
 chmod +x "$LPTV_ROOT/lzc/content/appimage/LPTV.AppImage"
 
-ls -lh "$OUT_DIR/LPTV.AppImage" "$LPTV_ROOT/lzc/content/appimage/LPTV.AppImage"
-echo "完成：$LPTV_ROOT/lzc/content/appimage/LPTV.AppImage"
+echo "    版本化产物：$OUT_DIR/$APPVER"
+echo "    启动用副本：$LPTV_ROOT/lzc/content/appimage/LPTV.AppImage"
+ls -lh "$VER_APPIMAGE" "$LPTV_ROOT/lzc/content/appimage/LPTV.AppImage"
+echo "完成：$LPTV_ROOT/lzc/content/appimage/LPTV.AppImage（对外交付见 dist/$APPVER）"
 echo "下一步：bash lzc/content/assemble_lpk.sh（重打 LPK）"

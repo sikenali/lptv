@@ -39,7 +39,7 @@
       "category": "AudioVideo",
       "icon": "assets/icon.png",
       "executableName": "lptv",
-      "artifactName": "LPTV.${ext}",
+      "artifactName": "LPTV-${os}-${arch}-${version}.${ext}",
       "desktop": {
         "Name": "LPTV",
         "Comment": "LPTV 远程电视"

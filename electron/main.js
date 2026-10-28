@@ -250,8 +250,12 @@ function createWindow() {
   win.on('closed', () => { win = null; });
 
   win.once('ready-to-show', () => {
-    // xpra corral 已把窗口放到初始位置：把它记为坐标偏移基准（仅容器模式）
-    calibrateOrigin();
+    // xpra corral 已把窗口放到初始位置：把它记为坐标偏移基准（仅容器模式，
+    // 且 ready-to-show 的校准优先于早前 setPos 的粗校）。本地桌面恒为 {0,0}。
+    try {
+      if (IS_CONTAINER) winOrigin = win.getBounds();
+      else if (winOrigin === null) winOrigin = { x: 0, y: 0 };
+    } catch (e) {}
     win.show();
   });
 
