@@ -881,7 +881,6 @@
   /* 设置卡片: 3 个 section, 每块一张卡 */
   .lptv-set-card{border:1px solid var(--line);border-radius:12px;padding:4px 14px 8px;margin-bottom:12px;
     background:rgba(255,255,255,.03);flex-shrink:0}
-  #lptv-pane-play{display:flex;flex-direction:column;gap:0;flex:1;min-height:0}
   /* 播放设置 pane 内部滚动 */
   #lptv-pane-play{display:flex;flex-direction:column;gap:0;flex:1;min-height:0;overflow-y:auto}
   .lptv-set-card-t{font-size:calc(10.5px * var(--fs-scale));color:var(--tx3);letter-spacing:2.5px;padding:9px 0 2px}
