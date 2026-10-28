@@ -27,6 +27,10 @@ app.commandLine.appendSwitch('disable-dev-shm-usage');
 // 启动即恢复上次频道自动播放：容器内无用户手势，默认策略会拒播并静音降级
 // （inject.js tryPlay 捕到 reject 会强制 muted），放开后声音开播即出
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+// 硬件视频解码 (VAAPI)：盒子无 GPU/驱动不支持时 Chromium 自动回退软解，无副作用。
+// 央视频 720p H.264 软解在弱核 CPU 上是掉帧主因，打开后可显著提升流畅度。
+app.commandLine.appendSwitch('enable-accelerated-video-decode');
+app.commandLine.appendSwitch('enable-features', 'VaapiVideoDecoder,VaapiVideoDecodeLinuxGL');
 
 // ---- 资源路径（开发/打包兼容）------------------------------------------
 function frontendDir() {

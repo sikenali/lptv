@@ -600,17 +600,37 @@
   .lx-now-sep{color:var(--tx3);margin:0 2px}
   .lx-now-prog{font-size:11.5px;color:var(--tx2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .lx-vol-txt{font-size:11.5px;color:var(--tx2);width:26px;text-align:center}
-  .lx-btn{border:0;cursor:pointer;color:var(--tx);border-radius:8px;background:rgba(255,255,255,.07);
+  .lx-btn{border:0;cursor:pointer;color:var(--tx);border-radius:9px;background:rgba(255,255,255,.07);
     display:inline-flex;align-items:center;justify-content:center;height:32px;padding:0 8px;
-    font-size:12.5px;transition:background .15s,color .15s;white-space:nowrap}
-  .lx-btn:hover{background:rgba(255,255,255,.16)}
-  .lx-btn:active{transform:scale(.95)}
+    font-size:12.5px;white-space:nowrap;position:relative;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.05);
+    transition:background .16s,color .16s,box-shadow .16s,transform .12s}
+  .lx-btn:hover{background:rgba(255,255,255,.18);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 4px 14px rgba(0,0,0,.35)}
+  .lx-btn:active{transform:scale(.92)}
   .lx-btn-ico{width:32px;padding:0}
-  .lx-btn-ico svg{width:18px;height:18px;fill:currentColor;stroke:currentColor;transition:all .15s}
-  .lx-btn-main{width:40px;height:40px;background:var(--acc);color:#fff;font-size:15px}
-  .lx-btn-main:hover{background:#5fb0ff}
+  .lx-btn-ico svg{width:18px;height:18px;fill:currentColor;stroke:currentColor;transition:transform .18s}
+  .lx-btn-ico:hover svg{transform:scale(1.1)}
+  .lx-btn-main{width:40px;height:40px;background:linear-gradient(135deg,#3d9bff,#2f7fe0);color:#fff;
+    font-size:15px;box-shadow:0 4px 14px rgba(47,127,224,.4)}
+  .lx-btn-main:hover{background:linear-gradient(135deg,#54a8ff,#3d8fe8);
+    box-shadow:0 4px 18px rgba(80,160,255,.55)}
   .lx-btn-main svg{width:19px;height:19px;fill:#fff;stroke:#fff}
   .lx-btn-txt svg{width:16px;height:16px}
+  /* 样式化 hover 提示 (由 title 转 data-tip) */
+  .lx-btn[data-tip]:hover::after{
+    content:attr(data-tip);position:absolute;bottom:calc(100% + 11px);left:50%;
+    transform:translateX(-50%) translateY(4px);white-space:nowrap;z-index:30;
+    background:rgba(16,20,32,.97);color:#e6ecff;font-size:11.5px;font-weight:500;
+    letter-spacing:.3px;padding:6px 10px;border-radius:8px;
+    border:1px solid rgba(255,255,255,.14);box-shadow:0 8px 24px rgba(0,0,0,.55);
+    opacity:0;pointer-events:none;transition:opacity .18s,transform .18s}
+  .lx-btn[data-tip]:hover::before{
+    content:"";position:absolute;bottom:calc(100% + 6px);left:50%;z-index:30;
+    transform:translateX(-50%);border:5px solid transparent;border-top-color:rgba(255,255,255,.2);
+    opacity:0;transition:opacity .18s}
+  .lx-btn[data-tip]:hover::after{opacity:1;transform:translateX(-50%)}
+  .lx-btn[data-tip]:hover::before{opacity:1}
   .lx-btn.rec-on,#lx-b-rec.rec-on{background:rgba(255,77,77,.85);color:#fff}
   #lx-b-rec.rec-on svg{color:#fff;animation:lxrec 1.2s ease-in-out infinite}
   #lx-b-full.on,#lx-b-float.on{background:rgba(61,155,255,.22);color:#9ccbff}
@@ -620,6 +640,21 @@
   #lx-c-vol{width:82px;accent-color:var(--acc);cursor:pointer}
   .lx-chlabel{font-size:12.5px;font-weight:600;color:var(--tx);overflow:hidden;
     text-overflow:ellipsis;white-space:nowrap}
+  /* 窄窗口(最小360): 收缩控制栏, 隐藏信息性元素防溢出 */
+  @media (max-width:760px){
+    #lx-controls{gap:5px;padding:6px 8px}
+    .lx-ctl-now{display:none}
+    #lx-c-vol{width:56px}
+  }
+  @media (max-width:560px){
+    .lx-btn-txt{display:none}
+    #lx-b-rec,#lx-b-shot{display:none}
+  }
+  /* 流畅模式: 关掉 backdrop-blur/大阴影/呼吸动画, 降低渲染合成开销 */
+  #lx-root.perf *{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
+    box-shadow:none!important}
+  #lx-root.perf .lx-now-dot{animation:none}
+  #lx-root.perf .lx-set-dir,#lx-root.perf .lx-set-row{transition:none}
 
   /* 上下台预览: 当前台的上一个/下一个 毛玻璃标识 */
   #lx-nextch{position:absolute;left:50%;bottom:104px;transform:translate(-50%,8px);opacity:0;z-index:9;
@@ -1003,6 +1038,7 @@
       '<div class="lx-set-row"><label><input type="checkbox" id="lx-s-resume" ' + (cfg.resumeLast !== false ? "checked" : "") + '>启动时恢复上次频道</label></div>' +
       '<div class="lx-set-row"><label><input type="checkbox" id="lx-s-autofs">启动时自动全屏</label></div>' +
       '<div class="lx-set-row"><label><input type="checkbox" id="lx-s-autostart">开机自启动</label></div>' +
+      '<div class="lx-set-row"><label><input type="checkbox" id="lx-s-perf">流畅模式（降低毛玻璃特效）</label></div>' +
       '<div class="lx-set-sep"></div>' +
       '<div class="lx-set-row"><span>画面模式</span>' +
       '<select id="lx-s-fit"><option value="contain">完整画面（黑边）</option><option value="cover">铺满（裁剪）</option><option value="fill">拉伸铺满（不裁切）</option></select></div>' +
@@ -1104,6 +1140,12 @@
     root.appendChild(floatCtl);
     root.appendChild(el("div", { id: "lx-win-grip", title: "调整窗口大小" }));
     document.body.appendChild(root);
+
+    // 原生 title 提示 → 样式化 data-tip 悬浮提示 (避免原生气泡遮挡)
+    root.querySelectorAll(".lx-btn[title]").forEach(function (b) {
+      var t = b.getAttribute("title");
+      if (t) { b.setAttribute("data-tip", t); b.removeAttribute("title"); }
+    });
 
     Lx.ui = { root: root, osd: osd, digit: digit, vol: vol,
               controls: controls, nextch: nextch, panel: panel, epg: epg, settings: settings, about: about,
@@ -1888,6 +1930,10 @@
       var fsBox = document.getElementById("lx-s-autofs");
       if (fsBox && a9.get_ui_state) a9.get_ui_state().then(function (st) {
         if (st && st.ok && fsBox) fsBox.checked = !!st.autoFullscreen;
+        if (st && st.ok) {
+          var pf = document.getElementById("lx-s-perf");
+          if (pf) pf.checked = !!st.perfMode;
+        }
       });
       // 填充 开机自启动 (来自注册表实际值)
       var stBox = document.getElementById("lx-s-autostart");
@@ -1895,6 +1941,9 @@
         if (stBox && r) stBox.checked = !!r.enabled;
       });
     }
+  }
+  function setPerfMode(on) {
+    Lx.ui.root.classList.toggle("perf", !!on);
   }
 
   /* ================= 节目实时录制 (MediaRecorder) =================
@@ -2005,7 +2054,7 @@
     }
 
     try {
-      Rec.mr = new MediaRecorder(cs, { mimeType: mime, videoBitsPerSecond: 6_000_000 });
+      Rec.mr = new MediaRecorder(cs, { mimeType: mime, videoBitsPerSecond: 4_000_000 });
     } catch (e) {
       try { Rec.mr = new MediaRecorder(cs, { mimeType: mime }); }
       catch (e2) { toast("录制器创建失败"); return; }
@@ -2695,6 +2744,7 @@
         }
       }
       if (t.id === "lx-s-fit") { cfg.fit = t.value; styleOfficial(); pyStatePush({ fit: t.value }); }
+      if (t.id === "lx-s-perf") { setPerfMode(t.checked); pyStatePush({ perfMode: t.checked }); }
       saveCfg();
     });
 
@@ -2884,6 +2934,8 @@
               if (st.autoFullscreen) {
                 setTimeout(function () { fullToggle(); }, 2600);
               }
+              // 流畅模式: 关掉毛玻璃特效降低渲染开销
+              if (typeof st.perfMode === "boolean") setPerfMode(st.perfMode);
               // 预约列表跨启动恢复 (localStorage -> resLoad 可直接读)
               if (Array.isArray(st.res) && st.res.length) {
                 try { localStorage.setItem(RES_KEY, JSON.stringify(st.res)); } catch (e) {}
