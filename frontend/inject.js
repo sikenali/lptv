@@ -248,7 +248,13 @@
 
   function bindVideoEvents() {
     var v = lptv.video;
-    v.addEventListener("loadeddata", function () { showSpin(false); });
+    v.addEventListener("loadeddata", function () {
+      showSpin(false);
+      if (lptv.ui && lptv.ui.root && lptv.ui.root.classList.contains("float")) syncFloatHeight();
+    });
+    v.addEventListener("resize", function () {
+      if (lptv.ui && lptv.ui.root && lptv.ui.root.classList.contains("float")) syncFloatHeight();
+    });
     v.addEventListener("waiting", function () { showSpin(true); dbg("vwaiting t=" + Math.floor(v.currentTime)); });
     v.addEventListener("stalled", function () { showSpin(true); dbg("vstalled"); });
     // 官方播放器切台时会重置音量为默认(50%) -> 强制回到用户设置的音量
@@ -606,9 +612,11 @@
   #lptv-vol .lptv-vol-label{font-size:calc(13.0px * var(--fs-scale));color:var(--tx2);margin-bottom:6px;letter-spacing:1px}
 
   /* 底部控制栏: 居中收窄 (不再贴满左右边缘), 避免遮挡左(频道)/右(节目单)的
-     hover 触发带与滑出面板; 内容超出 max-width 时 .lptv-ctl-now 自行截断 */
+     hover 触发带(18px)与滑出面板; 内容超出 max-width 时 .lptv-ctl-now 自行截断。
+     88vw/1080px: 比旧 84vw/860px 更宽, 但两侧仍留 ≥6vw(>18px 触发带), 任一
+     分辨率下都不压 hover 触发带; ≤760px 时 .lptv-ctl-now 隐藏, 栏为纯按钮。 */
   #lptv-controls{position:absolute;left:50%;bottom:16px;z-index:8;
-    width:max-content;max-width:min(84vw,860px);
+    width:max-content;max-width:min(88vw,1080px);
     display:flex;align-items:center;gap:6px;padding:6px 9px;border-radius:12px;
     background:var(--glass);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
     border:1px solid var(--line);box-shadow:0 8px 30px rgba(0,0,0,.5);
@@ -616,7 +624,7 @@
     pointer-events:none}
   #lptv-controls.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
   .lptv-ctl-seg{display:flex;align-items:center;gap:4px}
-  .lptv-ctl-now{flex:1;justify-content:center;min-width:0;overflow:hidden;padding:0 4px}
+  .lptv-ctl-now{flex:1;justify-content:center;min-width:110px;overflow:hidden;padding:0 4px}
   .lptv-ctl-side{gap:2px}
   .lptv-now-dot{width:7px;height:7px;border-radius:50%;background:var(--red);
     box-shadow:0 0 7px var(--red);flex-shrink:0;animation:lptvnow 2s ease-in-out infinite}
@@ -883,8 +891,10 @@
   .lptv-side-item.on{color:#b9dcff;background:rgba(61,155,255,.2)}
   /* 块级滚动容器(ea6bedb 可正常显示的布局): 面板 display:block 自然流式,
      整个主区滚动, 不再用 flex列+height:0+overflow:hidden 挤压面板 */
-  /* padding-top:44px 为右上角关闭按钮(✕, top:8+30=底y38)让位, 避免遮挡首个区块 */
-  .lptv-modal-main{flex:1;min-width:0;height:100%;overflow-y:auto;padding:44px 22px 14px;position:relative}
+  /* padding-top:44px 为右上角关闭按钮(✕, top:8+30=底y38)让位, 避免遮挡首个区块;
+     scrollbar 隐藏(仍可滚动), 弹框不出现滚动条 */
+  .lptv-modal-main{flex:1;min-width:0;height:100%;overflow-y:auto;padding:44px 22px 14px;position:relative;scrollbar-width:none}
+  .lptv-modal-main::-webkit-scrollbar{display:none}
   /* flex 居中替代 line-height, 让 ✕ 字形在 26px 方框内光学居中, 不再错位 */
   .lptv-modal-x{position:absolute;top:8px;right:8px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;
     border-radius:8px;color:var(--tx3);font-size:calc(14.0px * var(--fs-scale));line-height:1;cursor:pointer;transition:all .12s;user-select:none;z-index:1}
@@ -1010,8 +1020,8 @@
     background:var(--glass);border:1px solid var(--line);box-shadow:0 8px 24px rgba(0,0,0,.55);
     backdrop-filter:blur(16px) saturate(1.4);-webkit-backdrop-filter:blur(16px) saturate(1.4);
     opacity:0;pointer-events:none;transition:opacity .2s}
-  #lptv-root.float #lptv-floatctl{display:flex}
-  #lptv-root.float.show-floatctl #lptv-floatctl{opacity:1;pointer-events:auto}
+  /* 仅悬窗模式且悬停/操作时出现; 否则彻底隐藏(不再常驻一个不可见的flex容器) */
+  #lptv-root.float.show-floatctl #lptv-floatctl{display:flex;opacity:1;pointer-events:auto}
   #lptv-floatctl .lptv-btn{position:static;width:32px;height:32px}
   #lptv-floatctl .lptv-btn-main{width:40px;height:40px}
   #lptv-floatctl .lptv-fc-sep{width:1px;height:18px;background:var(--line);margin:0 3px}
@@ -1114,7 +1124,7 @@
     var settings = el("div", { id: "lptv-settings", html:
       '<div class="lptv-modal-card">' +
         '<div class="lptv-modal-side">' +
-          '<span class="lptv-side-item on" data-pane="play"><svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zm9 4a7 7 0 01-.1 1.2l2 1.6-2 3.4-2.4-1a7 7 0 01-2 1.2L16 21h-4l-.4-2.6a7 7 0 01-2-1.2l-2.5 1-2-3.4 2-1.6A7 7 0 017 12a7 7 0 01.1-1.2l-2-1.6 2-3.4 2.4 1a7 7 0 012-1.2L10 3h4l.4 2.6a7 7 0 012 1.2l2.5-1 2 3.4-2 1.6c.1.4.1.8.1 1.2z" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>播放设置</span>' +
+          '<span class="lptv-side-item on" data-pane="play"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M8 5.5v13l11-6.5z"/></svg>播放设置</span>' +
           '<span class="lptv-side-item" data-pane="keys"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h.01M18 14h.01M9 14h6"/></svg>快捷键</span>' +
           '<span class="lptv-side-item" data-pane="about"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 11v5M12 7.5v.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>关于</span>' +
         '</div>' +
@@ -1205,17 +1215,13 @@
       '<span id="lptv-tb-btns">' +
       '<button class="lptv-tb-btn" id="lptv-tb-min" title="最小化"></button>' +
       '<button class="lptv-tb-btn" id="lptv-tb-pin" title="窗口置顶"></button>' +
-      '<button class="lptv-tb-btn" id="lptv-tb-float" title="小浮窗 (小尺寸并自动置顶)"></button>' +
-      '<button class="lptv-tb-btn" id="lptv-tb-fs" title="全屏 / 退出全屏 (F11)"></button>' +
-      '<button class="lptv-tb-btn" id="lptv-tb-max" title="最大化/还原 (保留任务栏)"></button>' +
+      '<button class="lptv-tb-btn" id="lptv-tb-max" title="最大化"></button>' +
       '<button class="lptv-tb-btn close" id="lptv-tb-close" title="关闭"></button>' +
       "</span>";
     topbar.querySelector("#lptv-tb-min").innerHTML = LX_ICO.min;
     topbar.querySelector("#lptv-tb-pin").innerHTML = LX_ICO.pin;
-    topbar.querySelector("#lptv-tb-fs").innerHTML = LX_ICO.fs;
     topbar.querySelector("#lptv-tb-max").innerHTML = LX_ICO.max;
     topbar.querySelector("#lptv-tb-close").innerHTML = LX_ICO.close;
-    topbar.querySelector("#lptv-tb-float").innerHTML = LX_ICO.float;
     topbar.classList.add("show");
 
     root.appendChild(osd);
@@ -2398,9 +2404,12 @@
     function wvApi() { return window.lptv ? window.lptv : null; }
     function setMaxIcon(isMax) {
       var b = document.getElementById("lptv-tb-max");
-      if (b) b.innerHTML = isMax
-        ? '<svg viewBox="0 0 16 16" width="14" height="14"><rect x="3" y="5" width="8" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 3h6.5a1 1 0 0 1 1 1V11" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>'
-        : '<svg viewBox="0 0 16 16" width="14" height="14"><rect x="2.5" y="2.5" width="11" height="11" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
+      if (b) {
+        b.innerHTML = isMax
+          ? '<svg viewBox="0 0 16 16" width="14" height="14"><rect x="3" y="5" width="8" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 3h6.5a1 1 0 0 1 1 1V11" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>'
+          : '<svg viewBox="0 0 16 16" width="14" height="14"><rect x="2.5" y="2.5" width="11" height="11" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
+        b.title = isMax ? "还原" : "最大化";
+      }
     }
     function setPinIcon(pinned) {
       var b = document.getElementById("lptv-tb-pin");
@@ -2422,8 +2431,6 @@
       if (a && a.maximize_toggle) a.maximize_toggle().then(function (r) { setMaxIcon(r && r.maximized); });
       else setMaxIcon(false);
     });
-    document.getElementById("lptv-tb-fs").addEventListener("click", function () { fullToggle(); });
-    document.getElementById("lptv-tb-float").addEventListener("click", function () { floatToggle(); });
     document.getElementById("lptv-tb-close").addEventListener("click", function () {
       if (a && a.close_window) a.close_window();
       else window.close();
@@ -2469,9 +2476,14 @@
     // 全屏长按拖动窗口: 除已有拖动面(topbar)/交互控件/悬浮面板外, 任意处按住
     // ~400ms 进入拖动模式, 移动即 move_win。短按(<400ms)仍走正常点击, 不干扰。
     // 唯一的长按拖动实现(播放器区不再重复绑定, 避免双 move_win 争抢导致漂移)。
+    // 用 pointer 事件(window capture)而非 mousedown: 官方播放页可能在 window
+    // capture 拦 mousedown 并 stopPropagation(其自身交互), 会掐断 document 级
+    // 长按; pointer 是独立事件流, 不受其 mousedown 拦截影响, 且天然覆盖鼠标/
+    // 触摸/触控笔。
     (function () {
       var LP = 400, timer = null, dragging = false, started = false;
       var sx = 0, sy = 0, wx = 0, wy = 0, posReady = false, moved = false;
+      var lastX = 0, lastY = 0;  // 最近光标: 长按触发时重基线, 首帧不跳
       var raf = null, pend = null;  // rAF 合帧: 每帧至多一次 move_win, 不刷爆 IPC
       var SKIP = "#lptv-topbar,#lptv-tb-btns,.lptv-tb-btn,#lptv-controls,#lptv-panel," +
         "#lptv-epg,#lptv-settings,#lptv-win-grip,#lptv-vol,#lptv-osd,#lptv-nextch," +
@@ -2484,7 +2496,7 @@
         if (api && api.move_win) api.move_win(pend[0], pend[1]);
         pend = null;
       }
-      function cancel() {
+      function endDrag() {
         clearTimeout(timer); timer = null; started = false;
         if (raf) { cancelAnimationFrame(raf); raf = null; }
         if (pend) { flush(); }  // 松开前落定最后一步, 避免窗口停在半路
@@ -2497,13 +2509,16 @@
         }
         moved = false;
       }
-      document.addEventListener("mousedown", function (e) {
+      window.addEventListener("pointerdown", function (e) {
         if (e.button !== 0) return;
         if (e.target.closest && e.target.closest(SKIP)) return;
-        sx = e.screenX; sy = e.screenY; started = false; dragging = false; posReady = false; moved = false;
+        sx = lastX = e.screenX; sy = lastY = e.screenY;
+        started = false; dragging = false; posReady = false; moved = false;
         clearTimeout(timer);
         timer = setTimeout(function () {
           started = true; dragging = true;
+          // 以按住期间最后光标为基线: 抵消保持中的手部漂移, 进拖动不跳变
+          sx = lastX; sy = lastY;
           var api = wvApi();
           if (api && api.win_pos) {
             api.win_pos().then(function (r) { if (r && r.ok) { wx = r.x; wy = r.y; } posReady = true; });
@@ -2511,19 +2526,16 @@
           wake();
         }, LP);
       }, true);
-      document.addEventListener("mousemove", function (e) {
-        if (!started) {
-          // 长按未触发前位移超过容差: 取消(视为点击/滚动画布)。12px 容差吸收
-          // 400ms 保持期间的手部抖动/呼吸起伏, 长按不再被误取消
-          if (timer && (Math.abs(e.screenX - sx) > 12 || Math.abs(e.screenY - sy) > 12)) cancel();
-          return;
-        }
+      window.addEventListener("pointermove", function (e) {
+        lastX = e.screenX; lastY = e.screenY;
+        if (!started) return;  // 不因移动取消: 按住够时长必进拖动, 更可靠
         if (!dragging || !posReady) return;
         if (Math.abs(e.screenX - sx) + Math.abs(e.screenY - sy) > 3) moved = true;
         pend = [wx + (e.screenX - sx), wy + (e.screenY - sy)];
         if (!raf) raf = requestAnimationFrame(flush);
       }, true);
-      document.addEventListener("mouseup", cancel, true);
+      window.addEventListener("pointerup", endDrag, true);
+      window.addEventListener("pointercancel", endDrag, true);
     })();
     if (a && a.is_maximized) {
       setInterval(function () { a.is_maximized().then(function (r) { setMaxIcon(r && r.maximized); }); }, 2000);
@@ -2599,7 +2611,26 @@
       if (f && !was) showFloatCtl();
       if (!f && was) hideFloatCtl();
     }
+    // 悬窗: 按视频宽高比调窗口高度(只显示画面大小, 去上下黑边), 铺满不裁剪;
+    // 退出恢复用户 fit 设置
+    if (f) {
+      if (lptv.video) lptv.video.style.setProperty("object-fit", "cover", "important");
+      syncFloatHeight();
+    } else {
+      if (lptv.video) styleOfficial();
+    }
     if (f) syncPlayBtn();
+  }
+  // 悬窗: 按视频宽高比计算窗口高度(宽固定480), 只显示画面大小, 去上下黑边
+  function syncFloatHeight() {
+    var root = lptv.ui && lptv.ui.root;
+    var v = lptv.video;
+    if (!root || !root.classList.contains("float") || !v) return;
+    var vw = v.videoWidth, vh = v.videoHeight;
+    if (!(vw > 0) || !(vh > 0)) return;
+    var h = Math.round(480 * vh / vw);
+    var a = window.lptv ? window.lptv : null;
+    if (a && a.set_float_height) a.set_float_height(h).catch(function () {});
   }
   function pollFloatState() {
     var a = window.lptv ? window.lptv : null;

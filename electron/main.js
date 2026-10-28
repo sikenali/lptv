@@ -138,6 +138,18 @@ function displayBounds() {
              h: parseInt(process.env.LPTV_SCREEN_H || '1080', 10) || 1080 };
   }
 }
+// 最大化: 铺满工作区(保留任务栏); 全屏: 铺满整个桌面(桌面全屏, 覆盖任务栏区)。
+// 容器内无 WM 时 workArea==bounds, 二者相同; 本地桌面则区分。
+function workAreaBounds() {
+  try {
+    const { screen } = require('electron');
+    const b = screen.getPrimaryDisplay().workArea;
+    return { x: b.x, y: b.y, w: b.width, h: b.height };
+  } catch (e) {
+    return { x: 0, y: 0, w: parseInt(process.env.LPTV_SCREEN_W || '1920', 10) || 1920,
+             h: parseInt(process.env.LPTV_SCREEN_H || '1080', 10) || 1080 };
+  }
+}
 
 // setPos: 目标位置用 getBounds 坐标（win_pos 返回值），内部换算回 setBounds 请求。
 function setPos(x, y, w, h) {
@@ -293,7 +305,7 @@ function registerIpc() {
       st.max = false;
     } else {
       st.maxSaved = win.getBounds();
-      const d = displayBounds();
+      const d = workAreaBounds();
       setPos(d.x, d.y, d.w, d.h);
       st.max = true;
     }
@@ -309,6 +321,7 @@ function registerIpc() {
       if (b) setPos(b.x, b.y, b.width, b.height);
       st.fs = false;
     } else {
+      // 桌面全屏: 铺满整个桌面(display bounds, 覆盖任务栏区)
       st.fsSaved = win.getBounds();
       const d = displayBounds();
       setPos(d.x, d.y, d.w, d.h);
@@ -343,6 +356,17 @@ function registerIpc() {
 
   h('is_float', () => ({ ok: true, floating: st.float, float: st.float }));
 
+  // 悬窗: 按视频宽高比调节窗口高度(只显示画面大小, 去上下黑边), 右下锚定
+  h('set_float_height', (h) => {
+    if (!win || !st.float) return { ok: false };
+    let hh = parseInt(h, 10);
+    if (!(hh > 0)) hh = FLOAT_H;
+    hh = Math.max(120, Math.min(600, hh));
+    const d = displayBounds();
+    setPos(d.x + d.w - FLOAT_W - 10, d.y + d.h - hh - 10, FLOAT_W, hh);
+    return { ok: true, height: hh };
+  });
+
   h('pin_toggle', () => {
     st.pin = !st.pin;
     if (win) win.setAlwaysOnTop(st.pin);
@@ -376,7 +400,13 @@ function registerIpc() {
   // ---- 数据 ----------------------------------------------------------------
   h('get_channels', () => channelsList());
 
-  h('get_version', () => app.getVersion());
+  h('get_version', () => {
+    // About 版本号与 AppImage 文件名同步(如 LPTV-linux-x86_64-1.0.0.AppImage):
+    // 打包变更版本后 About 页自动跟随, 不依赖 package.json。非 AppImage 环境回落。
+    const ap = process.env.APPIMAGE || '';
+    const m = ap.match(/LPTV-.+?(\d+\.\d+\.\d+)\.AppImage$/i);
+    return (m && m[1]) || app.getVersion();
+  });
 
   h('get_asset_image', (name, prefix) => {
     let p;

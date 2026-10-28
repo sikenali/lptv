@@ -87,9 +87,12 @@
       '#lptv-splash.lptv-out{opacity:0;pointer-events:none}',
       '#lptv-splash::before{content:"";position:absolute;inset:-24%;pointer-events:none;',
       '  background:radial-gradient(48% 36% at 50% 42%, rgba(28,86,196,.22), rgba(0,0,0,0) 72%)}',
-      /* 静态图片字标 (lptv.png 横幅), 原图直显不加水 */
-      '.lptv-art{position:relative;width:min(76vw,880px);aspect-ratio:2264/516;',
-      '  animation:lxIn .9s ease both}',
+      /* 静态图片字标 (lptv.png 横幅), 原图直显不加水。
+         去毛边: ①aspect-ratio 用图片真实比例(2283/519), 避免 object-fit:contain
+         提前 letterbox 造成分数坐标边缘; ②入场动画 fill 不用 both, 结束后元素
+         脱离合成层, 图片按设备像素重栅格化, 字母描边不再发虚 */
+      '.lptv-art{position:relative;width:min(76vw,880px);aspect-ratio:2283/519;',
+      '  animation:lxIn .9s ease backwards}',
       '.lptv-art img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;',
       '  filter:drop-shadow(0 16px 50px rgba(40,120,255,.28));user-select:none}',
       /* 彩色进度条: 横幅下方, 四色色块来回扫动 (不定态加载) */
@@ -105,7 +108,7 @@
       /* 无 lptv.png 兜底: 方形图标 */
       '.lptv-splash-icon{position:relative;width:min(150px,22vh);height:min(150px,22vh);',
       '  object-fit:contain;border-radius:32px;box-shadow:0 24px 80px rgba(40,110,255,.35);',
-      '  animation:lxIn .9s ease both}',
+      '  animation:lxIn .9s ease backwards}',
       '@keyframes lxIn{from{opacity:0;transform:translateY(12px) scale(.98)}',
       '  to{opacity:1;transform:none}}',
       ''
@@ -127,6 +130,10 @@
       img.onload = function () {
         try { if (img.naturalWidth && img.naturalHeight) art.style.aspectRatio = img.naturalWidth + '/' + img.naturalHeight; } catch (e) {}
       };
+      /* 入场动画结束后清掉 animation: 元素脱离合成层, 图片按设备像素重栅格化去毛边 */
+      art.addEventListener('animationend', function () {
+        try { art.style.animation = 'none'; } catch (e) {}
+      }, { once: true });
       art.appendChild(img);
     } else {
       art.className = '';
