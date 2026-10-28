@@ -982,6 +982,10 @@
 
   #lptv-root.idle{cursor:none}
   #lptv-root.idle #lptv-osd,#lptv-root.idle #lptv-vol,#lptv-root.idle #lptv-win-grip{opacity:0;pointer-events:none}
+  /* idle 时顶栏半透明常显, 方便用户定位 */
+  #lptv-root.idle #lptv-topbar{opacity:.35!important;transform:none!important;pointer-events:auto!important}
+  /* 非 idle 时鼠标离开顶部区域后也保持半透明提示 */
+  #lptv-topbar.lptv-topbar--dim{opacity:.35!important;transform:none!important;pointer-events:auto!important}
   #lptv-root.idle.ctrl-on{cursor:auto}
   #lptv-root.idle.ctrl-on #lptv-controls{opacity:1;transform:translate(-50%,0);pointer-events:auto}
 
@@ -1523,7 +1527,7 @@
     if (!tb) return;
     // 「启动时显示顶栏」开启: 常显, 不参与 hover 隐藏
     if (lptv.tbAlways) { tb.classList.add("show"); return; }
-    tb.classList.toggle("show", e.clientY <= 56);
+    tb.classList.add("show");
   }
   function cancelPanelHide() {
     clearTimeout(lptv._panelHideT);
@@ -2614,7 +2618,22 @@
     var root = lptv.ui.root;
 
     root.addEventListener("mousemove", function (e) {
-      wake(); panelPointer(e); epgPointer(e); topbarPointer(e); showFloatCtl();
+      wake();
+      panelPointer(e);
+      epgPointer(e);
+      topbarPointer(e);
+      showFloatCtl();
+      // 鼠标离开顶部区域: idle 时半透明, 非 idle 时加 dim 类半透明
+      if (!lptv.tbAlways && e.clientY > 56) {
+        var tb2 = document.getElementById("lptv-topbar");
+        if (tb2) {
+          tb2.classList.remove("show");
+          if (!lptv.ui.root.classList.contains("idle")) tb2.classList.add("lptv-topbar--dim");
+        }
+      } else if (e.clientY <= 56) {
+        var tb3 = document.getElementById("lptv-topbar");
+        if (tb3) tb3.classList.remove("lptv-topbar--dim");
+      }
       if (e.clientY >= innerHeight - CTRL_ZONE) showControls();
       else scheduleHideControls();
     });
