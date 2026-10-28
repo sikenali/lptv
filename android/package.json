@@ -1,0 +1,14 @@
+{
+  "name": "lptv-android",
+  "version": "1.0.0",
+  "private": true,
+  "description": "LPTV Android APK (Capacitor WebView)",
+  "scripts": {
+    "build": "bash android/build.sh",
+    "sync": "npx cap sync android"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/cli": "^6.0.0"
+  }
+}

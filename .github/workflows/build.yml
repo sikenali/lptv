@@ -1,27 +1,27 @@
 # ---------------------------------------------------------------------------
 # GitHub Actions 流水线
 #
-# 流程：build AppImage → download skeleton → assemble LPK
-#   1. electron/package.json 的 npm run dist 打出 LPTV-linux-x64-*.AppImage
-#   2. 从 GitHub Release 下载骨架（cde-supervisor/rim/web，~32MB）
-#   3. lzc/content/assemble_lpk.sh 组装最终 LPK
+# 三路产物：
+#   Linux  → LPTV-linux-x64-*.AppImage + cloud.lazycat.catlink.lptv-*.lpk
+#   Android→ lptv-*.apk (Capacitor WebView + 官方央视频 iframe)
 #
-# 首次运行前需手动建一个 Release（含骨架压缩包），详见 workflow 注释。
+# 流程：
+#   linux-build   : AppImage + LPK（需要下载骨架 ~32MB）
+#   android-build : 构建 APK（无需骨架）
+#   release       : 手动触发时合并三路产物创建 GitHub Release
 #
-# APK 问题说明：
-#   Electron 官方不支持 Android，electron-builder 的 apk 目标需要 Android SDK
-#   + Capacitor/Cordova 等原生壳，无法直接用。如需懒猫盒子的 Android 端，
-#   需要单独构建一个 Android APK（建议用 Capacitor 或 flutter），
-#   与 Electron AppImage 是两条独立交付路径。
+# APK 方案说明：
+#   Capacitor WebView + bridge.js。桥接层读取 bundles/channels.json 和
+#   bundles/logos/{pid}.webp，注入 window.lptv API，inject.js 正常运行。
+#   index.html 用 iframe 加载央视频播放页，#lptv-root 覆盖层承载 UI。
 # ---------------------------------------------------------------------------
-name: Build AppImage & LPK
+name: Build AppImage LPK & APK
 
 on:
   push:
     branches: [master, main]
   pull_request:
     branches: [master, main]
-  # 手动触发（带版本号，方便发布）
   workflow_dispatch:
     inputs:
       version:
@@ -31,27 +31,33 @@ on:
 
 env:
   NODE_VERSION: '20'
-  SKELETON_RELEASE_TAG: 'skeleton-v1'   # 首次发布骨架时的 tag（改这个即可更新）
-  SKELETON_ASSET:   'lzc-skeleton.tar.gz'
+  JDK_VERSION:  '17'
+  ANDROID_SDK_VERSION: 'commandlinetools-linux-11076708_latest'
+  SKELETON_RELEASE_TAG: 'skeleton-v1'
+  SKELETON_ASSET: 'lzc-skeleton.tar.gz'
 
 jobs:
-  build:
-    name: Build
+  # ==================================================================
+  # Linux：AppImage + LPK
+  # ==================================================================
+  linux-build:
+    name: Linux (AppImage + LPK)
     runs-on: ubuntu-22.04
+    outputs:
+      appimage_path: ${{ steps.verify-appimage.outputs.path }}
+      lpk_path:      ${{ steps.assemble-lpk.outputs.path }}
+      version:       ${{ steps.version.outputs.v }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ------------------------------------------------------------------
-      # 1. 环境准备
-      # ------------------------------------------------------------------
+      # ---- 环境 ----
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-
-      - name: Install system deps (AppImage runtime libs)
+      - name: Install system deps
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
@@ -59,118 +65,166 @@ jobs:
             libcups2 libxss1 libdrm2 libgbm1 libxkbcommon0 \
             libnotify-bin
 
-      # ------------------------------------------------------------------
-      # 2. 构建 AppImage
-      # ------------------------------------------------------------------
+      # ---- 版本 ----
+      - name: Get version
+        id: version
+        run: echo "v=$(grep -m1 '^version:' lzc/package.yml | awk '{print $2}')" >> $GITHUB_OUTPUT
+
+      # ---- AppImage ----
       - name: Build AppImage
         run: |
           cd electron
           npm ci --ignore-scripts || npm install --ignore-scripts
           npm run dist
-
       - name: Verify AppImage
+        id: verify-appimage
         run: |
           FILE=$(ls electron/dist/LPTV-*.AppImage 2>/dev/null | head -1)
-          if [ -z "$FILE" ]; then
-            echo "错误：未找到 AppImage 产物" >&2
-            ls -la electron/dist/ >&2
-            exit 1
-          fi
-          echo "APPIMAGE_PATH=$(pwd)/$FILE" >> $GITHUB_ENV
+          [ -n "$FILE" ] || { echo "错误：未找到 AppImage" >&2; exit 1; }
           chmod +x "$FILE"
+          echo "path=$(pwd)/$FILE" >> $GITHUB_OUTPUT
           echo "AppImage: $(basename "$FILE") ($(du -h "$FILE" | cut -f1))"
 
-      - name: Upload AppImage artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: lptv-appimage
-          path: ${{ env.APPIMAGE_PATH }}
-          retention-days: 7
-
-      # ------------------------------------------------------------------
-      # 3. 下载骨架（懒猫盒子容器所需：cde-supervisor / rim / web SPA）
-      #
-      # 首次运行时（Release 不存在）：跳过骨架下载，仅打 AppImage；
-      # 然后手动执行：
-      #   cd lzc && tar czf ../lzc-skeleton.tar.gz skeleton/
-      #   gh release create <TAG> lzc-skeleton.tar.gz --prerelease
-      # ------------------------------------------------------------------
+      # ---- 下载骨架 ----
       - name: Download skeleton
         id: skeleton
         run: |
           SKELETON_DIR="$(pwd)/lzc/skeleton"
           TARBALL="/tmp/lzc-skeleton.tar.gz"
           TAG="${{ env.SKELETON_RELEASE_TAG }}"
-
-          # 尝试从 Release 下载
-          if gh release view "$TAG" --json assets -q '.assets[] | select(.name=="${{ env.SKELETON_ASSET }}")' 2>/dev/null | grep -q .; then
+          if gh release view "$TAG" --json assets \
+              -q '.assets[] | select(.name=="${{ env.SKELETON_ASSET }}")' 2>/dev/null \
+              | grep -q .; then
             gh release download "$TAG" -D /tmp -A '${{ env.SKELETON_ASSET }}'
             mkdir -p "$SKELETON_DIR"
             tar -xzf "$TARBALL" -C "$SKELETON_DIR"
-            echo "skeleton_downloaded=true" >> $GITHUB_OUTPUT
-            echo "骨架已下载：$(ls "$SKELETON_DIR" | tr '\n' ' ')"
+            echo "found=true" >> $GITHUB_OUTPUT
           else
-            echo "skeleton_downloaded=false" >> $GITHUB_OUTPUT
-            echo "警告：未找到 Release $TAG/$SKELETON_ASSET，跳过骨架（LPK 构建将降级为纯内容模式）" >&2
-            echo "首次发布请执行：" >&2
-            echo "  cd lzc && tar czf ../lzc-skeleton.tar.gz skeleton/" >&2
-            echo "  gh release create $TAG lzc-skeleton.tar.gz" >&2
+            echo "found=false" >> $GITHUB_OUTPUT
+            echo "警告：未找到骨架 Release $TAG，LPK 将降级为纯内容模式" >&2
           fi
 
-      # ------------------------------------------------------------------
-      # 4. 组装 LPK
-      # ------------------------------------------------------------------
+      # ---- LPK ----
       - name: Assemble LPK
-        id: lpk
+        id: assemble-lpk
         run: |
           set -euo pipefail
-          VERSION="$(grep -m1 '^version:' lzc/package.yml | awk '{print $2}')"
-          INPUT_VERSION="${{ github.event.inputs.version }}"
-          [ -n "${INPUT_VERSION:-}" ] && VERSION="$INPUT_VERSION"
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          VERSION="${{ steps.version.outputs.v }}"
+          APP="${{ steps.verify-appimage.outputs.path }}"
+          [ -f "$APP" ] || { echo "AppImage 缺失" >&2; exit 1; }
 
           SKELETON_DIR="$(pwd)/lzc/skeleton"
-          APP="${{ env.APPIMAGE_PATH }}"
-
-          if [ "${{ steps.skeleton.outputs.skeleton_downloaded }}" = "true" ] \
+          if [ "${{ steps.skeleton.outputs.found }}" = "true" ] \
              && [ -f "$SKELETON_DIR/cde-supervisor" ] && [ -f "$SKELETON_DIR/rim" ]; then
             export LZC_SKELETON="$SKELETON_DIR"
-            echo "使用本地骨架：$SKELETON_DIR"
-          else
-            echo "警告：骨架不可用，使用纯内容模式（无 rim/cde-supervisor）" >&2
+            echo "使用本地骨架"
           fi
           export APP
-
           bash lzc/content/assemble_lpk.sh
 
           OUT="$(pwd)/lzc/cloud.lazycat.catlink.lptv-${VERSION}.lpk"
-          echo "LPK_PATH=$OUT" >> $GITHUB_ENV
-          if [ -f "$OUT" ]; then
-            echo "lpk_exists=true" >> $GITHUB_OUTPUT
-            ls -lh "$OUT"
-          else
-            echo "lpk_exists=false" >> $GITHUB_OUTPUT
-            echo "错误：LPK 未生成（检查骨架是否可用）" >&2
-          fi
+          [ -f "$OUT" ] || { echo "LPK 未生成" >&2; exit 1; }
+          echo "path=$OUT" >> $GITHUB_OUTPUT
+          ls -lh "$OUT"
 
-      - name: Upload LPK artifact
-        if: steps.lpk.outputs.lpk_exists == 'true'
+      - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: lptv-lpk
-          path: ${{ env.LPK_PATH }}
+          name: lptv-linux
+          path: |
+            ${{ steps.verify-appimage.outputs.path }}
+            ${{ steps.assemble-lpk.outputs.path }}
           retention-days: 7
 
-      # ------------------------------------------------------------------
-      # 5. 发布 GitHub Release（仅 workflow_dispatch + 有版本号时）
-      # ------------------------------------------------------------------
+  # ==================================================================
+  # Android：APK
+  # ==================================================================
+  android-build:
+    name: Android (APK)
+    runs-on: ubuntu-22.04
+    outputs:
+      apk_path: ${{ steps.assemble-apk.outputs.path }}
+      version:  ${{ steps.version.outputs.v }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ---- 环境：Node + JDK + Android SDK ----
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JDK_VERSION }}
+          distribution: temurin
+      - name: Setup Android SDK
+        run: |
+          SDK_DIR="$HOME/android-sdk"
+          mkdir -p "$SDK_DIR"
+          # 下载命令行工具
+          curl -sL "https://dl.google.com/android/repository/${{ env.ANDROID_SDK_VERSION }}.zip" \
+            -o /tmp/cmdline-tools.zip
+          mkdir -p "$SDK_DIR/cmdline-tools/latest"
+          unzip -q /tmp/cmdline-tools.zip -d "$SDK_DIR/cmdline-tools/latest/.."
+          export PATH="$SDK_DIR/cmdline-tools/latest/bin:$PATH"
+          export ANDROID_HOME="$SDK_DIR"
+          # 安装需要的 SDK 组件
+          sdkmanager --install "platforms;android-34" "build-tools;34.0.0" \
+                    "platform-tools" --sdk_root="$SDK_DIR" --no_history 2>&1 | tail -5
+          echo "ANDROID_HOME=$SDK_DIR" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=$SDK_DIR" >> $GITHUB_ENV
+
+      # ---- 版本 ----
+      - name: Get version
+        id: version
+        run: echo "v=$(grep -m1 '^version:' lzc/package.yml | awk '{print $2}')" >> $GITHUB_OUTPUT
+
+      # ---- 构建 APK ----
+      - name: Build APK
+        id: assemble-apk
+        run: |
+          bash android/build.sh
+          APK=$(find android/android/app/build/outputs/apk -name "*.apk" -type f | head -1)
+          [ -n "$APK" ] || { echo "错误：APK 未生成" >&2; exit 1; }
+          echo "path=$APK" >> $GITHUB_OUTPUT
+          echo "APK: $(basename "$APK") ($(du -h "$APK" | cut -f1))"
+
+      - name: Upload Android artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lptv-android
+          path: ${{ steps.assemble-apk.outputs.path }}
+          retention-days: 7
+
+  # ==================================================================
+  # Release（仅 workflow_dispatch + 有版本号）
+  # ==================================================================
+  release:
+    name: GitHub Release
+    needs: [linux-build, android-build]
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.version != ''
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Download Linux artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: lptv-linux
+          path: release-linux
+      - name: Download Android artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: lptv-android
+          path: release-android
       - name: Create GitHub Release
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.version != '' && steps.lpk.outputs.lpk_exists == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ github.event.inputs.version }}
           name: LPTV v${{ github.event.inputs.version }}
           files: |
-            ${{ env.APPIMAGE_PATH }}
-            ${{ env.LPK_PATH }}
+            release-linux/LPTV-linux-x64-*.AppImage
+            release-linux/cloud.lazycat.catlink.lptv-*.lpk
+            release-android/*.apk
           generate_release_notes: true
