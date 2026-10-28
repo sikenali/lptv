@@ -346,7 +346,7 @@ function registerIpc() {
     } else {
       const b = win.getBounds();
       st.floatSaved = { x: b.x, y: b.y, width: b.width, height: b.height, wasOnTop: st.pin };
-      const d = displayBounds();
+      const d = workAreaBounds();
       setPos(d.x + d.w - FLOAT_W - 10, d.y + d.h - FLOAT_H - 10, FLOAT_W, FLOAT_H);
       win.setAlwaysOnTop(true);
       st.float = true;
@@ -356,13 +356,15 @@ function registerIpc() {
 
   h('is_float', () => ({ ok: true, floating: st.float, float: st.float }));
 
-  // 悬窗: 按视频宽高比调节窗口高度(只显示画面大小, 去上下黑边), 右下锚定
+  // 悬窗: 按视频宽高比调节窗口高度(只显示画面大小, 去上下黑边), 右下锚定。
+  // 高度钳制在 120~360: 始终保持小窗横版(16:9→270, 4:3→360), 不因竖屏/异常
+  // 比例变成右侧高条(侧边显示)。宽固定 FLOAT_W=480。
   h('set_float_height', (h) => {
     if (!win || !st.float) return { ok: false };
     let hh = parseInt(h, 10);
     if (!(hh > 0)) hh = FLOAT_H;
-    hh = Math.max(120, Math.min(600, hh));
-    const d = displayBounds();
+    hh = Math.max(120, Math.min(360, hh));
+    const d = workAreaBounds();
     setPos(d.x + d.w - FLOAT_W - 10, d.y + d.h - hh - 10, FLOAT_W, hh);
     return { ok: true, height: hh };
   });
@@ -423,6 +425,19 @@ function registerIpc() {
     try {
       const b64 = fs.readFileSync(p).toString('base64');
       return { ok: true, src: 'data:' + mime + ';base64,' + b64 };
+    } catch (e) { return { ok: false, error: String(e && e.message || e), src: '' }; }
+  });
+
+  // 字体（frontend/fonts/，base64 内联给 @font-face，随页面注入无需网络）
+  h('get_asset_font', (name) => {
+    const allowed = ['MiSans-Regular.woff2', 'MiSans-Medium.woff2', 'MiSans-Demibold.woff2',
+                     'MiSans-Bold.woff2', 'JetBrainsMono-VF.woff2'];
+    if (allowed.indexOf(name) < 0) return { ok: false, error: 'font not allowed', src: '' };
+    const p = assetFile('fonts/' + name);
+    if (!fs.existsSync(p)) return { ok: false, error: 'font missing', src: '' };
+    try {
+      const b64 = fs.readFileSync(p).toString('base64');
+      return { ok: true, src: 'data:font/woff2;base64,' + b64 };
     } catch (e) { return { ok: false, error: String(e && e.message || e), src: '' }; }
   });
 

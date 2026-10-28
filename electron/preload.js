@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld('lptv', {
   is_fullscreen: invoke('is_fullscreen'),
   float_toggle: invoke('float_toggle'),
   is_float: invoke('is_float'),
+  set_float_height: invoke('set_float_height'),
   pin_toggle: invoke('pin_toggle'),
   pin_state: invoke('pin_state'),
   resize_win: invoke('resize_win'),
@@ -32,6 +33,7 @@ contextBridge.exposeInMainWorld('lptv', {
   get_channels: invoke('get_channels'),
   get_version: invoke('get_version'),
   get_asset_image: invoke('get_asset_image'),
+  get_asset_font: invoke('get_asset_font'),
   // UI 状态
   get_ui_state: invoke('get_ui_state'),
   set_ui_state: invoke('set_ui_state'),
