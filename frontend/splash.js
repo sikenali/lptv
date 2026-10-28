@@ -5,7 +5,7 @@
  * 先注入 __LPTV_SPLASH_CFG 再跑本脚本，早于央视频自己的 HTML / JS 解析完成。
  * 因此在导航期间屏幕上始终是本动画，不会闪现央视频裸页。
  *
- * 切台走官方 SPA 的 pushState（window.__lxCctv.switchChannel），不构成新的
+ * 切台走官方 SPA 的 pushState（window.__lptv.switchChannel），不构成新的
  * 文档导航，本脚本不会重复出现。
  *
  * 配置（由 main.js 在本文件之前注入）：
@@ -15,8 +15,8 @@
  * --------------------------------------------------------------------------- */
 (function () {
   'use strict';
-  if (window.__lxCctvSplash) return;
-  window.__lxCctvSplash = true;
+  if (window.__lptvSplash) return;
+  window.__lptvSplash = true;
 
   var CFG = window.__LPTV_SPLASH_CFG || {};
   var ICON = CFG.icon || '';
@@ -72,40 +72,40 @@
   /* --- 动画层 -------------------------------------------------------------- */
   function build() {
     var st = document.createElement('style');
-    st.id = 'lx-splash-style';
+    st.id = 'lptv-splash-style';
     st.textContent = [
       '@font-face{font-family:"LXAnton";src:url(' + LX_FONT + ') format("woff2");',
       '  font-weight:400;font-style:normal;font-display:block}',
       /* 全覆盖: 锁死 html/body 背景与滚动, 官方页无法从缝隙/滚动边缘漏出 */
-      'html.lx-splash-lock,html.lx-splash-lock body{background:#04070d!important;',
+      'html.lptv-splash-lock,html.lptv-splash-lock body{background:#04070d!important;',
       '  overflow:hidden!important;height:100%!important}',
       /* 挂到 <html> 而非 <body>: 官方页若给 body 加 transform/filter, fixed 会被
          错误参照而错位漏缝; <html> 一般无 transform, 遮罩最稳 */
-      '#lx-splash{position:fixed;inset:0;z-index:2147483647;overflow:hidden;',
+      '#lptv-splash{position:fixed;inset:0;z-index:2147483647;overflow:hidden;',
       '  background:#04070d;display:flex;flex-direction:column;',
       '  align-items:center;justify-content:center;transition:opacity .25s ease}',
-      '#lx-splash.lx-out{opacity:0;pointer-events:none}',
-      '#lx-splash::before{content:"";position:absolute;inset:-24%;pointer-events:none;',
+      '#lptv-splash.lptv-out{opacity:0;pointer-events:none}',
+      '#lptv-splash::before{content:"";position:absolute;inset:-24%;pointer-events:none;',
       '  background:radial-gradient(48% 36% at 50% 42%, rgba(28,86,196,.22), rgba(0,0,0,0) 72%)}',
       /* 静态图片字标 (lptv.png 横幅) + 字母形状掩膜上的注水动画 */
-      '.lx-art{position:relative;width:min(76vw,880px);aspect-ratio:2264/516;',
+      '.lptv-art{position:relative;width:min(76vw,880px);aspect-ratio:2264/516;',
       '  animation:lxIn .9s ease both}',
-      '.lx-art img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;',
+      '.lptv-art img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;',
       '  filter:drop-shadow(0 16px 50px rgba(40,120,255,.28));user-select:none}',
       /* 注水: lptv.png 作掩膜(字母形状), 四色水自下而上淹没字母 */
-      '.lx-water{position:absolute;inset:0;pointer-events:none;',
+      '.lptv-water{position:absolute;inset:0;pointer-events:none;',
       '  -webkit-mask-size:100% 100%;mask-size:100% 100%;',
       '  -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}',
-      '.lx-water i{position:absolute;left:0;right:0;bottom:0;height:0;',
+      '.lptv-water i{position:absolute;left:0;right:0;bottom:0;height:0;',
       '  background:linear-gradient(90deg,#1a6fe8 0%,#0fae92 34%,#f07d18 67%,#e8318f 100%);',
       '  box-shadow:0 -12px 44px rgba(80,170,255,.5);',
       '  animation:lxRise 1.05s cubic-bezier(.22,.75,.3,1) both}',
-      '.lx-water i::before{content:"";position:absolute;left:0;right:0;top:-8px;height:16px;',
+      '.lptv-water i::before{content:"";position:absolute;left:0;right:0;top:-8px;height:16px;',
       '  background:radial-gradient(50% 100% at 50% 100%,',
       '    rgba(255,255,255,.65), rgba(255,255,255,0) 72%);filter:blur(2px)}',
       '@keyframes lxRise{to{height:100%}}',
       /* 无 lptv.png 兜底: 方形图标 */
-      '.lx-splash-icon{position:relative;width:min(150px,22vh);height:min(150px,22vh);',
+      '.lptv-splash-icon{position:relative;width:min(150px,22vh);height:min(150px,22vh);',
       '  object-fit:contain;border-radius:32px;box-shadow:0 24px 80px rgba(40,110,255,.35);',
       '  animation:lxIn .9s ease both}',
       '@keyframes lxIn{from{opacity:0;transform:translateY(12px) scale(.98)}',
@@ -115,12 +115,12 @@
     (document.head || document.documentElement).appendChild(st);
 
     var mask = document.createElement('div');
-    mask.id = 'lx-splash';
+    mask.id = 'lptv-splash';
 
     /* 主图: 优先 lptv.png 字标横幅, 兜底 icon */
     var art = document.createElement('div');
     if (BANNER) {
-      art.className = 'lx-art';
+      art.className = 'lptv-art';
       var img = document.createElement('img');
       img.src = BANNER;
       img.alt = TITLE;
@@ -133,7 +133,7 @@
       /* 字母上注水动画: 掩膜 = lptv.png 字母形状 (直接内联 url(dataURI), 不绕 var),
          内层 i 自下而上四色水, 只在字母不透明处显示 */
       var water = document.createElement('div');
-      water.className = 'lx-water';
+      water.className = 'lptv-water';
       water.style.webkitMaskImage = 'url("' + BANNER + '")';
       water.style.maskImage = 'url("' + BANNER + '")';
       var wi = document.createElement('i');
@@ -142,7 +142,7 @@
     } else {
       art.className = '';
       var img2 = document.createElement('img');
-      img2.className = 'lx-splash-icon';
+      img2.className = 'lptv-splash-icon';
       img2.src = ICON || '';
       img2.alt = TITLE;
       img2.draggable = false;
@@ -152,7 +152,7 @@
 
     /* 锁定页面背景/滚动 (全覆盖), 并挂到 <html> 最稳 */
     var dEl = document.documentElement;
-    if (dEl) dEl.classList.add('lx-splash-lock');
+    if (dEl) dEl.classList.add('lptv-splash-lock');
     (dEl || document.body).appendChild(mask);
     return mask;
   }
@@ -181,15 +181,15 @@
       clearInterval(timer);
       var m = mask;
       mask = null;
-      try { m.classList.add('lx-out'); } catch (e) {}
+      try { m.classList.add('lptv-out'); } catch (e) {}
       setTimeout(function () {
         try { if (m.parentNode) m.parentNode.removeChild(m); } catch (e) {}
         try {
           var dE = document.documentElement;
-          if (dE) dE.classList.remove('lx-splash-lock');
+          if (dE) dE.classList.remove('lptv-splash-lock');
         } catch (e) {}
-        try { var s = document.getElementById('lx-splash-style'); if (s && s.parentNode) s.parentNode.removeChild(s); } catch (e) {}
-        try { window.__lxCctvSplash = false; } catch (e) {}
+        try { var s = document.getElementById('lptv-splash-style'); if (s && s.parentNode) s.parentNode.removeChild(s); } catch (e) {}
+        try { window.__lptvSplash = false; } catch (e) {}
         window.dispatchEvent(new CustomEvent('lptv:player-ready'));
       }, 620);
       return;

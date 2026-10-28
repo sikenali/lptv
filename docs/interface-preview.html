@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>LPTV 界面预览 · LX TV for Linux</title>
+<title>LPTV 界面预览 · LPTV for Linux</title>
 <style>
   :root{
     --glass:rgba(18,20,28,.74);
@@ -271,21 +271,21 @@
     <span><b>拖拽顶栏</b>移动窗口</span>
     <span><b>鼠标动一动</b>控制栏会像真实运行时一样隐显</span>
     <span><b>点 ✕</b> 不会关页，只是演示</span>
-    <span>所有 <b>#lx-*</b> 元素 id 与 inject.js 一一对应</span>
+    <span>所有 <b>#lptv-*</b> 元素 id 与 inject.js 一一对应</span>
   </div>
 </div>
 
 <div class="stage">
   <div class="win" id="win">
     <div class="video">
-      <div class="logo">LPTV<small>LX TV FOR LINUX</small></div>
+      <div class="logo">LPTV<small>LPTV FOR LINUX</small></div>
       <div class="ph">这是央视频 CMG 播放器占位区域。<br>真实运行时这里加载 <b style="color:#9ccbff">www.yangshipin.cn/tv/home?pid=600001859</b>，<br>由真 Chrome 解码 H.264/MSE 直播流（已实测 1920×1080 / readyState=4）。</div>
       <div class="live"><i></i>LIVE · 正在直播</div>
     </div>
 
     <!-- 顶栏 -->
     <div class="topbar">
-      <span class="tb-title"><b>LX TV</b></span>
+      <span class="tb-title"><b>LPTV</b></span>
       <span class="tb-meta"><i></i><span id="tbch">CCTV-1 综合</span></span>
       <span class="tb-sp"></span>
       <span class="tb-btns">
@@ -430,7 +430,7 @@
       <div class="about-card">
         <span class="about-x" onclick="setPanel(null)">✕</span>
         <div class="about-app">
-          <div class="about-logo">LX</div>
+          <div class="about-logo">LPTV</div>
           <div>
             <div class="about-appname">LPTV</div>
             <div class="about-ver">版本 v1.0.0-linux · LPTV 远程电视</div>
@@ -465,7 +465,7 @@
 <!-- 图例：界面区域 → inject.js 元素 id -->
 <div class="legend">
   <div class="card">
-    <h3><i></i>顶部功能区 <code>#lx-topbar</code></h3>
+    <h3><i></i>顶部功能区 <code>#lptv-topbar</code></h3>
     <ul>
       <li><b>整条可拖拽</b>移动窗口（<code>easy_drag=True</code>）</li>
       <li><b>最右侧</b>最小化 / 置顶 / 小浮窗 / 全屏 / 最大化 / 关闭</li>
@@ -474,7 +474,7 @@
     </ul>
   </div>
   <div class="card">
-    <h3><i></i>底部控制栏 <code>#lx-controls</code></h3>
+    <h3><i></i>底部控制栏 <code>#lptv-controls</code></h3>
     <ul>
       <li>上一台 / 播放暂停 / 下一台（<code>↑</code> <code>↓</code> <code>空格</code>）</li>
       <li>音量条 + 静音（<code>M</code>）</li>
@@ -483,16 +483,16 @@
     </ul>
   </div>
   <div class="card">
-    <h3><i></i>频道面板 <code>#lx-panel</code></h3>
+    <h3><i></i>频道面板 <code>#lptv-panel</code></h3>
     <ul>
       <li>59 个频道：央视 21 / CGTN 6 / 卫视 32</li>
       <li>分类标签切换 + 收藏过滤</li>
       <li>数字键 1-9 直选频道</li>
-      <li>收藏持久化到 <code>~/.local/share/lptv/lx.state.json</code></li>
+      <li>收藏持久化到 <code>~/.local/share/lptv/lptv.state.json</code></li>
     </ul>
   </div>
   <div class="card">
-    <h3><i></i>节目单 <code>#lx-epg</code></h3>
+    <h3><i></i>节目单 <code>#lptv-epg</code></h3>
     <ul>
       <li>央视频 <b>capi EPG</b> 接口取节目表</li>
       <li>支持<b>节目预约</b>与预约列表</li>
@@ -502,8 +502,8 @@
   <div class="card">
     <h3><i></i>浮窗与录制状态</h3>
     <ul>
-      <li><code>#lx-floatctl</code>：小窗模式只保留上一台/播放/下一台/退出</li>
-      <li><code>#lx-rec-badge</code>：录制角标<b>常显</b>，UI 闲置也能看到</li>
+      <li><code>#lptv-floatctl</code>：小窗模式只保留上一台/播放/下一台/退出</li>
+      <li><code>#lptv-rec-badge</code>：录制角标<b>常显</b>，UI 闲置也能看到</li>
       <li>录制 = <code>MediaRecorder</code> webm 分块 → 桥 base64 落盘</li>
       <li>截图 = canvas 取画面 → 桥 base64 落 PNG</li>
     </ul>

@@ -78,11 +78,11 @@ function videosDir() {
   return path.join(os.homedir(), 'Videos');
 }
 const DATA_DIR = xdgDataDir();
-const STATE_FILE = path.join(DATA_DIR, 'lx.state.json');
-const RECDIR_FILE = path.join(DATA_DIR, 'lx.recdir.json');
+const STATE_FILE = path.join(DATA_DIR, 'lptv.state.json');
+const RECDIR_FILE = path.join(DATA_DIR, 'lptv.recdir.json');
 const DEFAULT_REC_DIR = path.join(videosDir(), 'LPTV', '录制');
 const DEFAULT_SHOT_DIR = path.join(videosDir(), 'LPTV', '截图');
-const STATE_WHITELIST = ['lastPid', 'favs', 'resumeLast', 'res', 'autoFullscreen', 'fit'];
+const STATE_WHITELIST = ['lastPid', 'favs', 'resumeLast', 'res', 'autoFullscreen', 'fit', 'topbarAlways'];
 
 // 浮窗几何（16:9 小窗）
 const FLOAT_W = 480, FLOAT_H = 270;
@@ -188,7 +188,7 @@ function injectUi() {
   if (!win || win.isDestroyed()) return;
   // 只注入 UI 脚本；splash 由 injectSplashOnce 独占（did-start-navigation,
   // 带 banner 配置, 且 splashShown 只放行首次）。这里不再混入 splash,
-  // 避免 __LPTV_SPLASH_CFG 被覆盖成无 banner 且 __lxCctvSplash 被重置后再闪现。
+  // 避免 __LPTV_SPLASH_CFG 被覆盖成无 banner 且 __lptvSplash 被重置后再闪现。
   const inject = readText(assetFile('inject.js'));
   if (!inject) return;
   win.webContents.executeJavaScript(inject).catch((e) => {
@@ -242,7 +242,7 @@ function createWindow() {
   win.webContents.setUserAgent(CHROME_UA);
 
   // 注入时机：splash 在 did-start-navigation（文档起点，覆盖黑屏空窗），
-  // inject 在 load 完成后。splash.js 自带 __lxCctvSplash 守卫，重复注入无副作用。
+  // inject 在 load 完成后。splash.js 自带 __lptvSplash 守卫，重复注入无副作用。
   // 注意：LPTV 启动动画只在【首次打开】展示一次。切台走官方 SPA 的 pushState 不
   // 触发导航；但部分频道会回退到 location.href（整页导航），若每次导航都注入
   // splash，切台时就会反复播启动动画。用 splashShown 只放行第一次导航。
@@ -535,12 +535,12 @@ function registerIpc() {
 
   // ---- 备用（bridge 保留，Electron 下直接页面内转发）------------------------
   h('play_channel', (pid) => {
-    if (win) win.webContents.executeJavaScript("window.__lxCctv && window.__lxCctv.switchChannel('" + pid + "')").catch(() => {});
+    if (win) win.webContents.executeJavaScript("window.__lptv && window.__lptv.switchChannel('" + pid + "')").catch(() => {});
     return { ok: true };
   });
 
   h('copy_m3u8', (pid) => {
-    return win.webContents.executeJavaScript("window.__lxCctv ? window.__lxCctv.getPlayUrl() : ''")
+    return win.webContents.executeJavaScript("window.__lptv ? window.__lptv.getPlayUrl() : ''")
       .then((url) => {
         if (url) { try { require('electron').clipboard.writeText(url); } catch (e) {} }
         return { ok: !!url, url: url || '' };
