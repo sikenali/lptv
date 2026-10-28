@@ -30,6 +30,7 @@
     playUrl: "",
     currentPid: "",
     channels: [],
+    logoCache: {},           // pid -> data URI (懒加载, 首次渲染时按需获取)
     video: null,             // 官方 video 元素 (我们复用的画面源)
     currentHls: null,        // 官方 Hls 实例 (画质控制用)
     darkCount: 0,
@@ -431,6 +432,17 @@
     var idx = Lx.channels.findIndex(function (c) { return c.pid === Lx.currentPid; });
     return idx >= 0 ? String(idx + 1).padStart(2, "0") : "--";
   }
+  /* 懒加载频道台标: pid -> logos/{pid}.webp 的 data URI, 缓存到 Lx.logoCache */
+  function getLogoDataUri(pid) {
+    if (!pid || !/^\d+$/.test(pid)) return '';
+    if (Lx.logoCache[pid]) return Lx.logoCache[pid];
+    var api = window.lptv;
+    if (!api || !api.get_asset_image) return '';
+    api.get_asset_image(pid + '.webp', 'logos').then(function (r) {
+      if (r && r.ok && r.src) Lx.logoCache[pid] = r.src;
+    }).catch(function () {});
+    return '';
+  }
 
   function findOfficialButton(official) {
     var want = normChName(official);
@@ -736,6 +748,11 @@
   .lx-ch.focus{outline:1px solid rgba(61,155,255,.65);outline-offset:-1px}
   .lx-ch .lx-ch-num{font-size:11px;color:var(--tx3);width:28px;flex-shrink:0;font-family:Consolas,monospace;font-variant-numeric:tabular-nums}
   .lx-ch.active .lx-ch-num{color:var(--acc)}
+  /* 台标: 正方形圆角图, 数字与名称之间 */
+  .lx-ch .lx-ch-logo{width:22px;height:22px;flex-shrink:0;border-radius:4px;
+    background-size:cover;background-position:center;background-color:rgba(255,255,255,.07);
+    background-repeat:no-repeat;opacity:.85}
+  .lx-ch .lx-ch-logo.lx-ch-logo--loading{opacity:.4}
   .lx-ch .lx-ch-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .lx-ch .live-dot{width:5px;height:5px;border-radius:50%;background:#5b6884;flex-shrink:0}
   .lx-ch.active .live-dot{background:var(--acc2);box-shadow:0 0 6px var(--acc2)}
@@ -823,7 +840,8 @@
   #lx-settings{position:fixed;inset:0;z-index:2147483005;display:none;align-items:center;justify-content:center;
     background:rgba(6,8,13,.62);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
   #lx-settings.open{display:flex}
-  .lx-modal-card{display:flex;width:560px;max-width:92vw;max-height:86vh;overflow:hidden;
+  /* 固定高度 = 内容最多一栏 (播放设置) 的高度, 切标签不跳动; 内部滚动 */
+  .lx-modal-card{display:flex;width:560px;max-width:92vw;height:min(444px,86vh);overflow:hidden;
     background:linear-gradient(160deg,rgba(34,40,58,.97),rgba(18,22,34,.97));
     backdrop-filter:blur(24px) saturate(1.5);-webkit-backdrop-filter:blur(24px) saturate(1.5);
     border-radius:16px;border:1px solid var(--line);
@@ -1027,7 +1045,7 @@
       '<div class="lx-ctl-seg lx-ctl-side">' +
         '<button class="lx-btn lx-btn-ico" id="lx-b-epg" title="节目单 (E)"><svg viewBox="0 0 24 24"><path d="M8.5 6h11M8.5 12h11M8.5 18h11" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="4.6" cy="6" r="1.1" fill="currentColor" stroke="none"/><circle cx="4.6" cy="12" r="1.1" fill="currentColor" stroke="none"/><circle cx="4.6" cy="18" r="1.1" fill="currentColor" stroke="none"/></svg></button>' +
         '<button class="lx-btn lx-btn-ico" id="lx-b-panel" title="频道列表 (S)"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7.2" height="7.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="13.3" y="3.5" width="7.2" height="7.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="3.5" y="13.3" width="7.2" height="7.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="13.3" y="13.3" width="7.2" height="7.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>' +
-        '<button class="lx-btn lx-btn-ico" id="lx-b-set" title="设置"><svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zm9 4a7 7 0 01-.1 1.2l2 1.6-2 3.4-2.4-1a7 7 0 01-2 1.2L16 21h-4l-.4-2.6a7 7 0 01-2-1.2l-2.5 1-2-3.4 2-1.6A7 7 0 017 12a7 7 0 01.1-1.2l-2-1.6 2-3.4 2.4 1a7 7 0 012-1.2L10 3h4l.4 2.6a7 7 0 012 1.2l2.5-1 2 3.4-2 1.6c.1.4.1.8.1 1.2z" fill="none" stroke-width="1.6"/></svg></button>' +
+        '<button class="lx-btn lx-btn-ico" id="lx-b-set" title="设置"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>' +
       '</div>' });
     controls.querySelector("#lx-c-vol").value = Math.round(cfg.volume * 100);
     fillRange(controls.querySelector("#lx-c-vol"));
@@ -1254,8 +1272,11 @@
   function chRowHtml(c) {
     var idx = Lx.channels.indexOf(c) + 1;
     var faved = favHas(c.pid);
+    var logoSrc = Lx.logoCache[c.pid] || '';
     return '<div class="lx-ch' + (faved ? " faved" : "") + '" data-pid="' + c.pid + '">' +
       '<span class="lx-ch-num">' + String(idx).padStart(2, "0") + "</span>" +
+      '<span class="lx-ch-logo' + (logoSrc ? '' : ' lx-ch-logo--loading') + '"' +
+        (logoSrc ? ' style="background-image:url(' + logoSrc + ')"' : '') + '></span>' +
       '<span class="lx-ch-name">' + c.name + '</span>' +
       '<span class="lx-ch-fav' + (faved ? " on" : "") + '" data-pid="' + c.pid + '" title="' +
         (faved ? "取消收藏" : "收藏频道") + '">' + favStarSvg(faved) + '</span>' +
@@ -3007,6 +3028,17 @@
       return c.category !== "付费" && !isPayChannel(c.official || "") && !isPayChannel(c.name || "");
     });
     renderPanel(); setChLabel();
+    // 预取所有台标, 填充 logoCache, 下一次 renderPanel 即可直接展示
+    (function preloadLogos() {
+      var api = window.lptv;
+      if (!api || !api.get_asset_image) return;
+      Lx.channels.forEach(function (c) {
+        if (Lx.logoCache[c.pid]) return;
+        api.get_asset_image(c.pid + '.webp', 'logos').then(function (r) {
+          if (r && r.ok && r.src) Lx.logoCache[c.pid] = r.src;
+        }).catch(function () {});
+      });
+    })();
   };
 
   Lx.switchChannel = function (pid) { switchChannel(pid); };

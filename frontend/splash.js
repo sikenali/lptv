@@ -125,6 +125,10 @@
       img.src = BANNER;
       img.alt = TITLE;
       img.draggable = false;
+      /* 宽高比跟随图片实际比例, 避免换图后留白/裁切 */
+      img.onload = function () {
+        try { if (img.naturalWidth && img.naturalHeight) art.style.aspectRatio = img.naturalWidth + '/' + img.naturalHeight; } catch (e) {}
+      };
       art.appendChild(img);
       /* 字母上注水动画: 掩膜 = lptv.png 字母形状 (直接内联 url(dataURI), 不绕 var),
          内层 i 自下而上四色水, 只在字母不透明处显示 */

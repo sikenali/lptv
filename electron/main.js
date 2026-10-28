@@ -387,10 +387,15 @@ function registerIpc() {
 
   h('get_version', () => app.getVersion());
 
-  h('get_asset_image', (name) => {
-    const allowed = ['icon.png'];
-    if (allowed.indexOf(name) < 0) return { ok: false, error: 'asset not allowed', src: '' };
-    const p = assetFile(name);
+  h('get_asset_image', (name, prefix) => {
+    let p;
+    if (prefix === 'logos') {
+      p = path.join(path.dirname(assetFile('icon.png')), '..', 'logos', name);
+    } else {
+      const allowed = ['icon.png'];
+      if (allowed.indexOf(name) < 0) return { ok: false, error: 'asset not allowed', src: '' };
+      p = assetFile(name);
+    }
     if (!fs.existsSync(p)) return { ok: false, error: 'asset missing', src: '' };
     const ext = path.extname(name).toLowerCase();
     const mime = ext === '.png' ? 'image/png' : ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : 'application/octet-stream';
