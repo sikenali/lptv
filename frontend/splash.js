@@ -159,14 +159,24 @@
 
   var mask = null;
   function onReady() {
-    brandIcon();   // head 此时已存在，favicon link 才能挂上
     brandTitle();  // 官方页解析完又改过 title，这里再设一次
     if (!mask) { try { mask = build(); } catch (e) {} }
   }
+  /* 尽早盖: 官方页首帧绘制恰发生在 DOMContentLoaded, 等它才建遮罩就晚一帧,
+   * 会闪出官方页。改为 documentElement 一出现就建 —— 远早于首帧。
+   * document-start 时 <html> 可能还没建, 用 rAF 轮询, 一出现立即盖 (同 pumpIcon)。 */
+  function pumpSplash() {
+    if (document.documentElement) onReady();
+    else requestAnimationFrame(pumpSplash);
+  }
   try {
-    if (document.body) onReady();
-    else document.addEventListener('DOMContentLoaded', onReady, true);
+    if (document.documentElement) onReady();
+    else requestAnimationFrame(pumpSplash);
   } catch (e) {}
+  /* favicon link / title 需 head 存在 (document-start 可能还没有), 保 DOMContentLoaded */
+  document.addEventListener('DOMContentLoaded', function () {
+    try { brandIcon(); brandTitle(); if (!mask) onReady(); } catch (e) {}
+  }, true);
 
   /* --- 视频真正开始播放后淡出 -------------------------------------------- */
   function videoReady() {
