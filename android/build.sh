@@ -54,7 +54,8 @@ fi
 if [ -z "$APK" ]; then
   echo "错误：未找到 APK" >&2; exit 1
 fi
-DEST="$ROOT/LPTV-${ABI}-${VERSION}-$(echo $BUILD_TYPE).apk"
+DEST="$ANDROID_DIR/LPTV-${ABI}-${VERSION}-$(echo $BUILD_TYPE).apk"
 cp "$APK" "$DEST"
 chmod +x "$DEST"
 echo "APK: $DEST ($(du -h "$DEST" | cut -f1))"
+echo "完成：$DEST"

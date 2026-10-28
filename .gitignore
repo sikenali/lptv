@@ -3,20 +3,17 @@
 *.lpk
 # AppImage
 *.AppImage
-# 依赖（npm / Gradle，可随时重建）
-node_modules/
+# APK
+*.apk
 # Electron 构建
 electron/node_modules/
 electron/dist/
-# 持久保存的懒猫骨架（cde-supervisor/rim/web SPA，来自 chrome lpk）
-lzc/skeleton/
+# Android 构建产物 / 原生工程
+android/android/
+android/node_modules/
+android/package-lock.json
+# 懒猫骨架（大二进制文件，单独 release 管理）
+lzc/
 # 解包/缓存目录
 __pycache__/
 *.pyc
-
-# Android 构建产物 / 生成工程
-android/android/
-*.apk
-.capacitorrc.json
-capacitor.config.json
-www/
