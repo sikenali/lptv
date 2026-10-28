@@ -655,10 +655,15 @@
     #lx-b-rec,#lx-b-shot{display:none}
   }
   /* 流畅模式: 关掉 backdrop-blur/大阴影/呼吸动画, 降低渲染合成开销 */
+  /* 流畅模式: 砍掉毛玻璃/阴影/动画/过渡 —— 明显提帧, 且切换后一眼可辨。
+     毛玻璃(backdrop-filter)在软渲染下代价最高, 是全屏逐帧重采样, 去掉收益最大。 */
   #lx-root.perf *{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
-    box-shadow:none!important}
+    box-shadow:none!important;transition:none!important;animation:none!important}
   #lx-root.perf .lx-now-dot{animation:none}
-  #lx-root.perf .lx-set-dir,#lx-root.perf .lx-set-row{transition:none}
+  /* 毛玻璃去掉后半透明底衬会透出画面, 换成高不透明度实色, 观感不变糊 */
+  #lx-root.perf #lx-controls,#lx-root.perf #lx-panel,#lx-root.perf #lx-epg,
+  #lx-root.perf #lx-topbar,#lx-root.perf #lx-settings .lx-modal-card,
+  #lx-root.perf #lx-floatctl,#lx-root.perf .lx-nextch-c{background:rgba(20,23,33,.95)!important}
 
   /* 上下台预览: 当前台的上一个/下一个 毛玻璃标识 */
   #lx-nextch{position:absolute;left:50%;bottom:104px;transform:translate(-50%,8px);opacity:0;z-index:9;
@@ -742,12 +747,15 @@
   .lx-ch .lx-ch-fav svg{width:14px;height:14px}
   /* 面板分类 tab */
   #lx-panel-tabs{display:flex;gap:4px;padding:9px 14px;flex-wrap:wrap}
-  .lx-ptab{padding:4px 11px;border-radius:20px;font-size:11.5px;color:var(--tx2);cursor:pointer;
+  .lx-ptab{display:inline-flex;align-items:center;padding:4px 11px;border-radius:20px;font-size:11.5px;
+    color:var(--tx2);cursor:pointer;line-height:1.4;
     background:rgba(255,255,255,.06);border:1px solid transparent;transition:all .12s}
   .lx-ptab:hover{color:#fff}
   .lx-ptab.on{color:#b9dcff;background:rgba(61,155,255,.2);border-color:rgba(61,155,255,.45)}
-  .lx-ptab b{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;margin-left:5px;
-    border-radius:50%;background:var(--acc2);color:#08202a;font-size:9.5px;font-weight:700;padding:0}
+  /* 收藏数徽标: 白底深字 (高对比, 数字清晰), 与标签文字垂直居中对齐 */
+  .lx-ptab b{display:inline-flex;align-items:center;justify-content:center;min-width:15px;height:15px;
+    margin-left:6px;padding:0 3px;border-radius:999px;background:#fff;color:#0d1226;
+    font-size:9px;font-weight:800;line-height:1}
   .lx-panel-empty{padding:30px 20px;text-align:center;color:var(--tx3);font-size:13px;line-height:1.7}
 
   /* 节目单 (右侧): 行样式与 .epg-row 一致 */
@@ -1182,6 +1190,14 @@
       var t = b.getAttribute("title");
       if (t) { b.setAttribute("data-tip", t); b.removeAttribute("title"); }
     });
+
+    // 运行期更新提示文案: 只写 data-tip, 不再写 title。
+    // title 会触发浏览器原生气泡, 与 data-tip 的样式化气泡并存 → 文字重复,
+    // 且原生气泡还常被窗口裁剪. 所有状态切换 (录制/静音/全屏/浮窗) 都走这里.
+    function setTip(b, text) {
+      if (!b) return;
+      if (text) { b.setAttribute("data-tip", text); b.removeAttribute("title"); }
+    }
 
     Lx.ui = { root: root, osd: osd, digit: digit, vol: vol,
               controls: controls, nextch: nextch, panel: panel, epg: epg, settings: settings,
@@ -1799,15 +1815,15 @@
     if (!tabs) return;
     var cur = epgDayOffset();
     var pid = Lx.currentPid;
-    var avail = Lx.epg.avail || {};
     var html = "";
-    // 官方可用窗口 (前2天~后2天): 已知无数据的日期不展示, 杜绝空白日; 当前选中日始终保留
+    // 固定 5 天窗口 (前天/昨天/今天/明天/后天): 官方个别日期无数据也只降级为
+    // 「当日暂无节目单」, 绝不隐藏日期 tab —— 用户要求恒见 5 天 (前天/后天也要有)。
     for (var off = -EPG_DAY_PAST; off <= EPG_DAY_FUTURE; off++) {
       var d = new Date();
       d.setDate(d.getDate() + off);
-      if (avail[pid + "|" + ymdStr(d)] === false && off !== cur) continue;
       var label = off === 0 ? "今天" : off === 1 ? "明天" : off === -1 ? "昨天" :
-        "周" + ["日", "一", "二", "三", "四", "五", "六"][d.getDay()];
+        off === -2 ? "前天" : off === 2 ? "后天" :
+          "周" + ["日", "一", "二", "三", "四", "五", "六"][d.getDay()];
       var cls = "lx-epg-tab" + (off < 0 ? " past" : "") +
         (off === cur && !Lx.epg._resView ? " on" : "");
       html += '<span class="' + cls + '" data-off="' + off + '">' + label +
@@ -2032,7 +2048,7 @@
     if (root) root.classList.toggle("recording", on);
     if (btn) {
       btn.classList.toggle("rec-on", on);
-      btn.title = on ? "停止录制 (R)" : "录制节目 (R)";
+      setTip(btn, on ? "停止录制 (R)" : "录制节目 (R)");
     }
     if (badge) badge.classList.toggle("show", on);
     if (on) {
@@ -2399,7 +2415,7 @@
     var b = document.getElementById("lx-b-full");
     if (b) {
       b.classList.toggle("on", !!full);
-      b.title = full ? "退出全屏 (F11/双击)" : "全屏 (F11/双击)";
+      setTip(b, full ? "退出全屏 (F11/双击)" : "全屏 (F11/双击)");
     }
     var t = document.getElementById("lx-tb-fs");
     if (t) t.classList.toggle("on", !!full);
@@ -2428,7 +2444,7 @@
   function setFloatIcon(f) {
     f = !!f;
     var b = document.getElementById("lx-b-float");
-    if (b) { b.classList.toggle("on", f); b.title = f ? "退出小浮窗" : "小浮窗 (小尺寸并自动置顶)"; }
+    if (b) { b.classList.toggle("on", f); setTip(b, f ? "退出小浮窗" : "小浮窗 (小尺寸并自动置顶)"); }
     var t = document.getElementById("lx-tb-float");
     if (t) t.classList.toggle("on", f);
     var root = Lx.ui && Lx.ui.root;
@@ -2498,7 +2514,7 @@
     var b = document.getElementById("lx-b-mute");
     if (b) {
       b.classList.toggle("muted", !!cfg.muted);
-      b.title = cfg.muted ? "取消静音 (M)" : "静音 (M)";
+      setTip(b, cfg.muted ? "取消静音 (M)" : "静音 (M)");
     }
   }
 
@@ -2846,7 +2862,10 @@
         }
       }
       if (t.name === "fit") { cfg.fit = t.value; styleOfficial(); pyStatePush({ fit: t.value }); }
-      if (t.id === "lx-s-perf") { setPerfMode(t.checked); pyStatePush({ perfMode: t.checked }); }
+      if (t.id === "lx-s-perf") {
+        setPerfMode(t.checked); pyStatePush({ perfMode: t.checked });
+        toast(t.checked ? "已开启流畅模式 (特效已降低)" : "已关闭流畅模式");
+      }
       saveCfg();
     });
 

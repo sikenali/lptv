@@ -173,18 +173,25 @@ function iconDataUri() {
   } catch (e) { return ''; }
 }
 
+// lptv.png 字标 → data URI，注入 splash 作为注水动画主体（字母掩膜 + 上升水色）。
+function bannerDataUri() {
+  const p = assetFile('lptv.png');
+  try {
+    if (!fs.existsSync(p)) return '';
+    const mime = 'image/png';
+    const b64 = fs.readFileSync(p).toString('base64');
+    return 'data:' + mime + ';base64,' + b64;
+  } catch (e) { return ''; }
+}
+
 function injectUi() {
   if (!win || win.isDestroyed()) return;
-  const splash = readText(assetFile('splash.js'));
+  // 只注入 UI 脚本；splash 由 injectSplashOnce 独占（did-start-navigation,
+  // 带 banner 配置, 且 splashShown 只放行首次）。这里不再混入 splash,
+  // 避免 __LPTV_SPLASH_CFG 被覆盖成无 banner 且 __lxCctvSplash 被重置后再闪现。
   const inject = readText(assetFile('inject.js'));
   if (!inject) return;
-  const cfg = JSON.stringify({ icon: iconDataUri(), title: 'LPTV' });
-  // splash 需要先注入 __LPTV_SPLASH_CFG（模拟 chromium.py 的 document-start 注入）
-  const splashSrc = splash
-    ? '(function(){window.__LPTV_SPLASH_CFG=' + cfg + ';})();\n' + splash
-    : '';
-  const full = splashSrc + '\n' + inject;
-  win.webContents.executeJavaScript(full).catch((e) => {
+  win.webContents.executeJavaScript(inject).catch((e) => {
     console.error('[LPTV] inject failed:', e && e.message);
   });
 }
@@ -194,12 +201,14 @@ function createWindow() {
   // 窗口上限 = 屏幕可用区：1920x1080 是期望值，但容器/小屏会被裁剪，
   // 一旦窗口大于可见屏幕，底部/右缘的 hover 触发带（CTRL_ZONE/EPG_EDGE）落到
   // 屏幕外，控制栏/节目单永远滑不出来 → 必须按屏幕尺寸收敛。
-  const wa = screen.getPrimaryDisplay().workAreaSize;
-  const W = Math.min(1920, (wa && wa.width) || 1920);
-  const H = Math.min(1080, (wa && wa.height) || 1080);
+  const disp = screen.getPrimaryDisplay();
+  const W = Math.min(1920, (disp.workAreaSize && disp.workAreaSize.width) || 1920);
+  const H = Math.min(1080, (disp.workAreaSize && disp.workAreaSize.height) || 1080);
   win = new BrowserWindow({
     width: W,
     height: H,
+    x: disp.workArea ? Math.round(disp.workArea.x + (disp.workArea.width - W) / 2) : undefined,
+    y: disp.workArea ? Math.round(disp.workArea.y + (disp.workArea.height - H) / 2) : undefined,
     minWidth: 360,
     minHeight: 220,
     frame: false,
@@ -240,7 +249,7 @@ function createWindow() {
   const splashSrc = (() => {
     const splash = readText(assetFile('splash.js'));
     if (!splash) return '';
-    const cfg = JSON.stringify({ icon: iconDataUri(), title: 'LPTV' });
+  const cfg = JSON.stringify({ icon: iconDataUri(), banner: bannerDataUri(), title: 'LPTV' });
     return '(function(){window.__LPTV_SPLASH_CFG=' + cfg + ';})();\n' + splash;
   })();
   let splashShown = false;
