@@ -917,8 +917,7 @@
   /* 关于: 居中 logo 换行 LPTV 换行版本号 + 一段文字 + 底部 Powered by */
   .lptv-about-pane{text-align:center;padding:10px 6px 6px}
   /* 关于图标: 去掉渐变背景, 直接用透明 PNG 原图 + 柔和投影 */
-  .lptv-about-logo{width:140px;height:auto;max-width:70vw;margin:0 auto 12px;display:block;filter:drop-shadow(0 8px 24px rgba(61,155,255,.30))}
-    display:block;filter:drop-shadow(0 8px 24px rgba(61,155,255,.30))}
+  .lptv-about-logo{width:240px;height:auto;max-width:60vw;margin:0 auto 14px;display:block;filter:drop-shadow(0 8px 24px rgba(61,155,255,.30))}
 
   .lptv-about-ver{font-size:calc(12.0px * var(--fs-scale));color:var(--tx3);margin-top:10px;font-family:Consolas,monospace}
   .lptv-about-desc{font-size:calc(12.5px * var(--fs-scale));color:var(--tx2);line-height:1.95;margin:20px auto 0;max-width:340px}
