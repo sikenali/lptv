@@ -32,6 +32,11 @@
         "from": "../frontend",
         "to": "frontend",
         "filter": ["**/*"]
+      },
+      {
+        "from": "../logos",
+        "to": "logos",
+        "filter": ["**/*"]
       }
     ],
     "linux": {

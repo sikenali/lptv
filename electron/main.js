@@ -184,9 +184,13 @@ function createWindow() {
   // 窗口上限 = 屏幕可用区：1920x1080 是期望值，但容器/小屏会被裁剪，
   // 一旦窗口大于可见屏幕，底部/右缘的 hover 触发带（CTRL_ZONE/EPG_EDGE）落到
   // 屏幕外，控制栏/节目单永远滑不出来 → 必须按屏幕尺寸收敛。
+  // 基准 1280x720，按屏幕宽度等比缩放 (最高 1920)，保证高 DPI 屏幕也合适
   const disp = screen.getPrimaryDisplay();
-  const W = Math.min(1920, (disp.workAreaSize && disp.workAreaSize.width) || 1920);
-  const H = Math.min(1080, (disp.workAreaSize && disp.workAreaSize.height) || 1080);
+  const sw = (disp.workAreaSize && disp.workAreaSize.width) || 1920;
+  const sh = (disp.workAreaSize && disp.workAreaSize.height) || 1080;
+  const scale = Math.min(sw / 1280, sh / 720, 1.5); // 最大 1.5x 倍率
+  const W = Math.max(360, Math.round(1280 * scale));
+  const H = Math.max(220, Math.round(720 * scale));
   win = new BrowserWindow({
     width: W,
     height: H,

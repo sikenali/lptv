@@ -40,7 +40,7 @@ cd "$ANDROID_DIR"
 if [ ! -d "android" ]; then
   echo "    首次初始化 Capacitor Android 工程..."
   npm install --silent 2>/dev/null || npm install
-  npx cap init cn.lazycat.lptv LPTV --web-dir=../www --framework=vanilla
+  npx cap init 
 fi
 npx cap sync android
 

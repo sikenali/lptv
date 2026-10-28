@@ -1,0 +1,14 @@
+{
+  "appId": "cn.lazycat.lptv",
+  "appName": "LPTV",
+  "webDir": "../www",
+  "server": {
+    "url": "https://www.yangshipin.cn/tv/home?pid=600001859",
+    "cleartext": true
+  },
+  "android": {
+    "backgroundColor": "#04070d",
+    "allowMixedContent": true,
+    "preferRelativeTargets": true
+  }
+}

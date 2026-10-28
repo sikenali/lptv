@@ -3,6 +3,8 @@
 *.lpk
 # AppImage
 *.AppImage
+# 依赖（npm / Gradle，可随时重建）
+node_modules/
 # Electron 构建
 electron/node_modules/
 electron/dist/
