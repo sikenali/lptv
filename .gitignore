@@ -13,3 +13,7 @@ lzc/skeleton/
 # 解包/缓存目录
 __pycache__/
 *.pyc
+
+android/android/
+lptv-debug.apk
+.capacitorrc.json
