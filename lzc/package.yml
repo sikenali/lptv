@@ -1,6 +1,6 @@
 # LPTV 远程应用包信息（对标 cloud.lazycat.catlink.chrome.lpk）
 package: cloud.lazycat.catlink.lptv
-version: 1.0.2
+version: 1.0.0
 name: 懒猫微视
 min_os_version: v1.4.3
 locales:

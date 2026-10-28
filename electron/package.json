@@ -44,9 +44,6 @@
         "Name": "LPTV",
         "Comment": "LPTV 远程电视"
       }
-    },
-    "appImage": {
-      "license": "MIT"
     }
   }
 }
