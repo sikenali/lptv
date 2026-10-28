@@ -32,6 +32,21 @@ app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 app.commandLine.appendSwitch('enable-accelerated-video-decode');
 app.commandLine.appendSwitch('enable-features', 'VaapiVideoDecoder,VaapiVideoDecodeLinuxGL');
 
+// ---- xpra 容器判定 --------------------------------------------------------
+// 同一个 AppImage 有两种运行环境：
+//   1. 懒猫容器：run.sh 注入 CATLINK_APP_ID / XPRA_*，launch_lptv.sh 注入
+//      LPTV_DISPLAY。窗口挂在 xpra 上，corral 会给 setBounds 请求叠加一个
+//      winOrigin 偏移，getBounds() != setBounds()，必须校准。
+//   2. 本地桌面：真 WM，getBounds() == setBounds()，无需任何偏移。
+// 若在本地桌面仍按容器逻辑去 getBounds() 校准，拖拽会以初始窗口位置为原点
+// 换算，窗口一路漂向 (0,0)，拖动失灵。因此用环境变量区分两种模式。
+const IS_CONTAINER = !!(
+  process.env.CATLINK_APP_ID ||
+  process.env.XPRA_ENCODING_STRICT_MODE ||
+  process.env.XPRA_SCALING ||
+  process.env.LPTV_DISPLAY
+);
+
 // ---- 资源路径（开发/打包兼容）------------------------------------------
 function frontendDir() {
   // 打包后 extraResources 放在 resourcesPath/frontend；开发时用 ../frontend
@@ -92,7 +107,15 @@ const st = { max: false, fs: false, float: false, pin: false, floatSaved: null, 
 // xpra seamless 的 corral 会把窗口放到初始位置 (winOrigin)，导致 Electron 的
 // setBounds 请求坐标与实际 getBounds 恒差一个 winOrigin。所有 setBounds 需减去它，
 // 否则 move_win/float 每步多走一个 winOrigin，窗口乱跳、拖动失灵（已实测 +100 → +3556）。
+// 仅容器模式需要校准；本地桌面 getBounds()==setBounds()，winOrigin 恒为 {0,0}，
+// 否则 move_win 会把窗口位置误当成偏移，拖拽时窗口漂向 (0,0)。
 let winOrigin = null;
+function calibrateOrigin() {
+  if (winOrigin !== null) return;
+  try {
+    winOrigin = IS_CONTAINER ? win.getBounds() : { x: 0, y: 0 };
+  } catch (e) { winOrigin = { x: 0, y: 0 }; }
+}
 
 function displayBounds() {
   try {
@@ -108,7 +131,7 @@ function displayBounds() {
 // setPos: 目标位置用 getBounds 坐标（win_pos 返回值），内部换算回 setBounds 请求。
 function setPos(x, y, w, h) {
   if (!win) return;
-  if (!winOrigin) { const b = win.getBounds(); winOrigin = { x: b.x, y: b.y }; }
+  calibrateOrigin();
   win.setBounds({ x: Math.round(x - winOrigin.x), y: Math.round(y - winOrigin.y),
                   width: Math.max(Math.round(w), 1), height: Math.max(Math.round(h), 1) });
 }
@@ -205,27 +228,30 @@ function createWindow() {
 
   // 注入时机：splash 在 did-start-navigation（文档起点，覆盖黑屏空窗），
   // inject 在 load 完成后。splash.js 自带 __lxCctvSplash 守卫，重复注入无副作用。
+  // 注意：LPTV 启动动画只在【首次打开】展示一次。切台走官方 SPA 的 pushState 不
+  // 触发导航；但部分频道会回退到 location.href（整页导航），若每次导航都注入
+  // splash，切台时就会反复播启动动画。用 splashShown 只放行第一次导航。
   const splashSrc = (() => {
     const splash = readText(assetFile('splash.js'));
     if (!splash) return '';
     const cfg = JSON.stringify({ icon: iconDataUri(), title: 'LPTV' });
     return '(function(){window.__LPTV_SPLASH_CFG=' + cfg + ';})();\n' + splash;
   })();
-  win.webContents.on('did-start-navigation', () => {
-    if (!splashSrc) return;
+  let splashShown = false;
+  const injectSplashOnce = () => {
+    if (splashShown || !splashSrc || !win || win.isDestroyed()) return;
+    splashShown = true;
     win.webContents.executeJavaScript(splashSrc).catch(() => {});
-  });
-  win.webContents.on('dom-ready', () => {
-    if (!splashSrc) return;
-    win.webContents.executeJavaScript(splashSrc).catch(() => {});
-  });
+  };
+  win.webContents.on('did-start-navigation', injectSplashOnce);
+  win.webContents.on('dom-ready', injectSplashOnce);
   win.webContents.on('did-finish-load', injectUi);
 
   win.on('closed', () => { win = null; });
 
   win.once('ready-to-show', () => {
-    // xpra corral 已把窗口放到初始位置：把它记为坐标偏移基准
-    try { winOrigin = win.getBounds(); } catch (e) {}
+    // xpra corral 已把窗口放到初始位置：把它记为坐标偏移基准（仅容器模式）
+    calibrateOrigin();
     win.show();
   });
 

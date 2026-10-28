@@ -84,6 +84,11 @@ cp "$HERE/run.sh"            "$STAGE/content/run.sh"
 cp "$HERE/launch_lptv.sh"    "$STAGE/content/launch_lptv.sh"
 cp "$HERE/launch_chrome.sh"  "$STAGE/content/launch_chrome.sh"
 cp "$HERE/90_lzc.conf"       "$STAGE/content/90_lzc.conf"
+# rlptv 任务栏图标（hicolor 各尺寸），run.sh 安装到 /usr/share/icons/hicolor/*/apps/
+if [ -d "$HERE/icons" ]; then
+  echo "    叠加任务栏图标：$HERE/icons"
+  cp -a "$HERE/icons" "$STAGE/content/icons"
+fi
 # 覆盖骨架自带的 catlink SPA（web/）：改远程 Chrome 文案/LPTV 标题/客户端 quality 等
 if [ -d "$HERE/web" ]; then
   echo "    叠加自定义 web/（覆盖骨架 SPA）：$HERE/web"

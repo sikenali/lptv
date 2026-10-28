@@ -30,8 +30,10 @@ services:
     command: /lzcapp/pkg/content/run.sh
     environment:
       - HOME=/lzcapp/var/
-      # 注意：会话层 rim 只接受 rwx/rwps/rchrome 三个 id（rim/app_id.go 硬校验），
-      # rlptv 这类自定义值会让 rim 直接退出，浏览器侧输入/截图全挂。subdomain 可以自定义。
-      - CATLINK_APP_ID=rchrome
+      # 会话层 rim 的 app_id 校验 = /lzcapp/var/apps/<id> 目录存在（非硬编码白名单，
+      # 实测：建 rlptv 目录→rim 接受，删→拒绝）。run.sh 会先建 /lzcapp/var/apps/rlptv
+      # 并装 LPTV 图标到 hicolor/apps/rlptv.png，任务栏即显示 LPTV 而非 Chrome。
+      # 旧值 rchrome 会让任务栏显示 Chrome（远程chrome 官方 id）。
+      - CATLINK_APP_ID=rlptv
     binds:
       - /lzcapp/var/fonts:/usr/local/share/fonts/ex_fonts

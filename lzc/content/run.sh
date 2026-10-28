@@ -15,6 +15,27 @@ case "${CATLINK_APP_ID:-}" in
     *) echo "CATLINK_APP_ID must be rwx, rwps, rchrome, or rlptv" >&2; exit 1 ;;
 esac
 
+# 会话层 rim 的 app_id 校验 = /lzcapp/var/apps/<id> 目录存在（非硬编码白名单）。
+# 为自定义 id（rlptv）预建注册目录，保证 rim 启动时不报 unsupported CATLINK_APP_ID。
+# （实测：建 rlptv 目录 → rim 接受；删 → rim/app_id.go:21 拒绝。）
+if [ "$CATLINK_APP_ID" = "rlptv" ]; then
+    mkdir -p /lzcapp/var/apps/rlptv
+    # 装 LPTV 图标到 hicolor 主题：任务栏按 <appid> 查 /usr/share/icons/hicolor/*/apps/rlptv.png
+    if [ -d /lzcapp/pkg/content/icons ]; then
+        for px in 16 24 32 48 64 128 256 512; do
+            [ -f "/lzcapp/pkg/content/icons/rlptv-${px}.png" ] || continue
+            mkdir -p "/usr/share/icons/hicolor/${px}x${px}/apps"
+            cp -f "/lzcapp/pkg/content/icons/rlptv-${px}.png" "/usr/share/icons/hicolor/${px}x${px}/apps/rlptv.png"
+        done
+        command -v gtk-update-icon-cache >/dev/null 2>&1 && gtk-update-icon-cache -f /usr/share/icons/hicolor 2>/dev/null || true
+        # WM_CLASS=lptv 回退用：同时铺一份 lptv.png，防任务栏按窗口类名查
+        for px in 24 48 256; do
+            [ -f "/usr/share/icons/hicolor/${px}x${px}/apps/rlptv.png" ] && cp -f "/usr/share/icons/hicolor/${px}x${px}/apps/rlptv.png" "/usr/share/icons/hicolor/${px}x${px}/apps/lptv.png"
+        done
+        echo "已安装 LPTV 图标 (rlptv/lptv) 到 hicolor 主题" >&2
+    fi
+fi
+
 WECHAT_OLD_ROOT=/lzcapp/var/wechat
 WECHAT_ROOT=/lzcapp/var/apps/wechat
 

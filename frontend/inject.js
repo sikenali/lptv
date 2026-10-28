@@ -583,14 +583,16 @@
   #lx-vol.show{opacity:1;pointer-events:auto}
   #lx-vol .lx-vol-label{font-size:13px;color:var(--tx2);margin-bottom:6px;letter-spacing:1px}
 
-  /* 底部控制栏: 与 interface-preview.html .controls 一致 (全宽毛玻璃贴边) */
-  #lx-controls{position:absolute;left:10px;right:10px;bottom:10px;z-index:8;
-    display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:12px;
+  /* 底部控制栏: 居中收窄 (不再贴满左右边缘), 避免遮挡左(频道)/右(节目单)的
+     hover 触发带与滑出面板; 内容超出 max-width 时 .lx-ctl-now 自行截断 */
+  #lx-controls{position:absolute;left:50%;bottom:10px;z-index:8;
+    width:max-content;max-width:min(76vw,760px);
+    display:flex;align-items:center;gap:6px;padding:6px 9px;border-radius:12px;
     background:var(--glass);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
     border:1px solid var(--line);box-shadow:0 8px 30px rgba(0,0,0,.5);
-    opacity:0;transform:translateY(14px);transition:opacity .25s,transform .25s;
+    opacity:0;transform:translate(-50%,14px);transition:opacity .25s,transform .25s;
     pointer-events:none}
-  #lx-controls.show{opacity:1;transform:none;pointer-events:auto}
+  #lx-controls.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
   .lx-ctl-seg{display:flex;align-items:center;gap:4px}
   .lx-ctl-now{flex:1;justify-content:center;min-width:0;overflow:hidden;padding:0 4px}
   .lx-ctl-side{gap:2px}
@@ -754,8 +756,9 @@
   .lx-epg-row.past{color:var(--tx3)}
   .lx-epg-row.future{color:var(--tx2)}
   .lx-epg-row.live{background:rgba(61,155,255,.1);box-shadow:inset 2px 0 0 var(--acc)}
-  .lx-epg-t{font-size:11px;color:var(--tx3);width:52px;flex-shrink:0;padding-top:2px;
-    font-family:Consolas,monospace;font-variant-numeric:tabular-nums}
+  .lx-epg-t{font-size:11px;color:var(--tx3);width:72px;flex-shrink:0;padding-top:2px;
+    font-family:Consolas,monospace;font-variant-numeric:tabular-nums;
+    white-space:nowrap;overflow:hidden}
   .lx-epg-row.live .lx-epg-t{color:var(--acc)}
   .lx-epg-n{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   /* 长节目名悬停气泡 (JS 检测截断后显示) */
@@ -800,7 +803,7 @@
     padding:1px 7px;border-radius:5px;margin-right:7px;vertical-align:middle}
   .lx-res-name{font-size:13px;color:var(--tx);vertical-align:middle}
   .lx-res-when{display:block;font-size:11px;color:var(--tx3);margin-top:3px;
-    font-family:Consolas,monospace}
+    font-family:Consolas,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .lx-res-when em{font-style:normal;color:#ffb36b}
   .lx-res-x{flex-shrink:0;width:22px;height:22px;line-height:20px;text-align:center;border-radius:6px;
     color:var(--tx3);font-size:15px;cursor:pointer;transition:all .12s}
@@ -920,7 +923,7 @@
   #lx-root.idle{cursor:none}
   #lx-root.idle #lx-osd,#lx-root.idle #lx-vol,#lx-root.idle #lx-topbar,#lx-root.idle #lx-win-grip{opacity:0;pointer-events:none}
   #lx-root.idle.ctrl-on{cursor:auto}
-  #lx-root.idle.ctrl-on #lx-controls{opacity:1;transform:none;pointer-events:auto}
+  #lx-root.idle.ctrl-on #lx-controls{opacity:1;transform:translate(-50%,0);pointer-events:auto}
 
   /* 小浮窗模式: 隐藏列表/控制栏/OSD, 仅保留悬浮的 上一台/暂停/下一台, 鼠标离开即隐藏 */
   #lx-root.float #lx-controls,#lx-root.float #lx-panel,#lx-root.float #lx-epg,
@@ -1516,7 +1519,7 @@
        每个 blob: f1(eventId str) f2(节目名 utf8) f3(开始epoch秒) f4(结束epoch秒)
                   f5("HH:MM"开始) f6("HH:MM"结束) f7(时长秒) f9/f10(len1 "1") */
 
-  var EPG_DAY_MAX = 5;  // 官方仅提供 今天±5 天节目单 (更远日期返回 404/空), 依此收敛, 不展示空白未来日
+  var EPG_DAY_MAX = 2;  // 只展示 5 天: 今天±2 (官方虽提供±5, 但 UI 收敛到前后2天, 更清爽)
 
   function utf8Bytes(bytes, a, n) {
     try {
@@ -2551,6 +2554,57 @@
       }, { passive: false });
     }
 
+    /* ---- 长按画面拖动窗口 (无边框) ----
+     * 除了顶栏，播放器区域也支持拖拽：按住 ~350ms 不松手即进入拖拽态，随后
+     * 移动就 move_win。短按释放不进入拖拽态，因此不干扰单击(控制栏显隐)/
+     * 双击(全屏) 手势。拖拽发生过的释放会置 Lx._longDrag，由 click 处理器消费，
+     * 避免拖完的 click 被误判成"双击第二击"触发全屏。 */
+    (function () {
+      var r = Lx.ui.root;
+      var holdT = null, hx = 0, hy = 0;
+      var dragging = false, moved = false, sx = 0, sy = 0, wx = 0, wy = 0, posReady = false;
+      function api() { return window.lptv ? window.lptv : null; }
+      function endDrag() {
+        if (dragging && moved) {
+          Lx._longDrag = true;
+          setTimeout(function () { Lx._longDrag = false; }, 500);
+        }
+        clearTimeout(holdT); holdT = null;
+        dragging = false; moved = false; posReady = false;
+      }
+      r.addEventListener("mousedown", function (e) {
+        if (e.button !== 0) return;
+        var t = e.target;
+        // UI 控件/抽屉/输入框不参与长按拖拽 (与顶栏拖拽的豁免区一致)
+        if (t && t.closest && t.closest(DRAG_GUARD_SEL)) return;
+        hx = e.screenX; hy = e.screenY; moved = false;
+        clearTimeout(holdT);
+        holdT = setTimeout(function () {
+          dragging = true; sx = hx; sy = hy; posReady = false;
+          var a = api();
+          if (a && a.win_pos) {
+            a.win_pos().then(function (res) {
+              if (res && res.ok) { wx = res.x; wy = res.y; }
+              posReady = true;
+            });
+          } else { posReady = true; }
+          wake();
+        }, 350);
+      });
+      window.addEventListener("mousemove", function (e) {
+        // 长按计时内鼠标快速移动 -> 取消本次长按 (这是单击/双击, 非拖拽)
+        if (holdT && (Math.abs(e.screenX - hx) > 6 || Math.abs(e.screenY - hy) > 6)) {
+          clearTimeout(holdT); holdT = null;
+        }
+        if (!dragging || !posReady) return;
+        if (Math.abs(e.screenX - sx) + Math.abs(e.screenY - sy) > 3) moved = true;
+        var a = api();
+        if (a && a.move_win) a.move_win(wx + (e.screenX - sx), wy + (e.screenY - sy));
+      });
+      window.addEventListener("mouseup", endDrag);
+      window.addEventListener("blur", endDrag);
+    })();
+
     /* 长名称悬停气泡: 指向截断的节目/预约名 (.lx-epg-n/.lx-res-name) 时显示完整文本 */
     var NAME_POP_SEL = ".lx-epg-n,.lx-res-name";
     function namePopHide() {
@@ -2680,6 +2734,8 @@
     // 双击画面 全屏/窗口 切换; 单击不再触发暂停 (空格键暂停/播放)
     var lastTap = 0;
     root.addEventListener("click", function (e) {
+      // 长按拖拽窗口后的这次 click 属于拖动产物, 忽略, 防止误判成"双击第二击"全屏
+      if (Lx._longDrag) { Lx._longDrag = false; return; }
       var t = e.target;
       if (t.closest && t.closest("#lx-controls,#lx-nextch,#lx-panel,#lx-epg,#lx-settings,#lx-toast,#lx-hint,#lx-osd,#lx-vol,#lx-digit,#lx-topbar,#lx-win-grip,#lx-rec-badge")) return;
       var now = Date.now();
