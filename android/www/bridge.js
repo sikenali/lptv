@@ -1,10 +1,39 @@
 (function(){if(window.__lptvBridge)return;window.__lptvBridge=true;
 var _channels=null,_logoCache={},_state=null;
-function loadChannels(){return fetch('channels.json').then(function(r){return r.json();}).then(function(c){_channels=c;return c;}).catch(function(){_channels=[];return[];});}
-function loadLogo(pid){if(_logoCache[pid])return Promise.resolve(_logoCache[pid]);if(!/^\d+$/.test(String(pid)))return Promise.resolve('');return fetch('logos/'+pid+'.webp').then(function(r){return r.blob();}).then(function(b){return new Promise(function(resolve){var reader=new FileReader();reader.onloadend=function(){_logoCache[pid]=reader.result;resolve(_logoCache[pid]);};reader.readAsDataURL(b);});}).catch(function(){return '';});}
+
+/* 从预加载数据读取频道 */
+function loadChannels(){
+  if(window.__lptvPreload && window.__lptvPreload.channels){
+    _channels=window.__lptvPreload.channels;
+    return Promise.resolve(_channels);
+  }
+  return fetch('channels.json').then(function(r){return r.json();}).then(function(c){_channels=c;return c;}).catch(function(){_channels=[];return[];});
+}
+
+/* 从预加载数据或 fetch 读取台标 */
+function loadLogo(pid){
+  if(_logoCache[pid])return Promise.resolve(_logoCache[pid]);
+  if(!/^\d+$/.test(String(pid)))return Promise.resolve('');
+  /* 优先从预加载读取 */
+  if(window.__lptvPreload && window.__lptvPreload.logos && window.__lptvPreload.logos[pid]){
+    _logoCache[pid]=window.__lptvPreload.logos[pid];
+    return Promise.resolve(_logoCache[pid]);
+  }
+  /* 兜底: fetch 大台标 */
+  return fetch('logos/'+pid+'.webp').then(function(r){return r.blob();}).then(function(b){
+    return new Promise(function(resolve){
+      var reader=new FileReader();
+      reader.onloadend=function(){_logoCache[pid]=reader.result;resolve(_logoCache[pid]);};
+      reader.readAsDataURL(b);
+    });
+  }).catch(function(){return '';});
+}
+
+/* UI 状态 (localStorage 持久化) */
 var LS_KEY='lptv.cfg.v3';
 function loadState(){try{_state=JSON.parse(localStorage.getItem(LS_KEY)||'{}');}catch(e){_state={};}return _state||{};}
 function saveState(patch){_state=Object.assign(_state||{},patch);try{localStorage.setItem(LS_KEY,JSON.stringify(_state));}catch(e){}}
+
 window.lptv={
   get_channels:function(){return Promise.resolve(_channels||[]);},
   get_version:function(){return Promise.resolve('1.0.0');},

@@ -16,8 +16,13 @@
   <iframe id="lptv-iframe" src="" allow="autoplay; fullscreen; encrypted-media"
           sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-presentation">
   </iframe>
+  <!-- 预加载频道数据和台标 (小图直接嵌入) -->
+  <script src="preload.js"></script>
+  <!-- 桥接层 -->
   <script src="bridge.js"></script>
+  <!-- 启动动画 -->
   <script src="splash.js"></script>
+  <!-- LPTV UI 注入层 -->
   <script src="inject.js"></script>
 </body>
 </html>

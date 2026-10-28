@@ -751,7 +751,7 @@
   .lptv-panel-cur-sub{font-size:calc(11.0px * var(--fs-scale));color:var(--tx3);margin-top:2px}
   .lptv-panel-body,.lptv-epg-body{flex:1;overflow-y:auto;padding:0 8px 14px;overscroll-behavior:contain;
     scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.15) transparent}
-  .lptv-panel-body::-webkit-scrollbar,.lptv-epg-body::-webkit-scrollbar{width:6px}
+  .lptv-panel-body::-webkit-scrollbar,.lptv-epg-body::-webkit-scrollbar,#lptv-pane-play::-webkit-scrollbar{width:4px}
   .lptv-panel-body::-webkit-scrollbar-track,.lptv-epg-body::-webkit-scrollbar-track{background:transparent}
   .lptv-panel-body::-webkit-scrollbar-thumb,.lptv-epg-body::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:3px}
   .lptv-cat{color:var(--tx3);font-size:calc(11.0px * var(--fs-scale));padding:9px 14px 5px;letter-spacing:1px}
@@ -856,8 +856,8 @@
   #lptv-settings{position:fixed;inset:0;z-index:2147483005;display:none;align-items:center;justify-content:center;
     background:rgba(6,8,13,.62);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
   #lptv-settings.open{display:flex}
-  /* 固定高度 = 内容最多一栏 (播放设置) 的高度, 切标签不跳动; 内部滚动 */
-  .lptv-modal-card{position:relative;display:flex;width:560px;max-width:92vw;height:min(444px,86vh);overflow:hidden;
+  /* 足够大以容纳所有设置内容, 超出部分在 pane 内滚动 */
+  .lptv-modal-card{position:relative;display:flex;width:720px;max-width:95vw;height:min(640px,92vh);overflow:auto;
     background:linear-gradient(160deg,rgba(34,40,58,.97),rgba(18,22,34,.97));
     backdrop-filter:blur(24px) saturate(1.5);-webkit-backdrop-filter:blur(24px) saturate(1.5);
     border-radius:16px;border:1px solid var(--line);
@@ -871,16 +871,19 @@
   .lptv-side-item svg{width:16px;height:16px;flex-shrink:0}
   .lptv-side-item:hover{background:rgba(255,255,255,.07);color:#fff}
   .lptv-side-item.on{color:#b9dcff;background:rgba(61,155,255,.2)}
-  .lptv-modal-main{flex:1;min-width:0;height:100%;overflow-y:auto;padding:20px 22px 14px;position:relative}
+  .lptv-modal-main{flex:1;min-width:0;height:0;padding:20px 22px 14px;position:relative;display:flex;flex-direction:column;overflow:hidden}
   /* flex 居中替代 line-height, 让 ✕ 字形在 26px 方框内光学居中, 不再错位 */
-  .lptv-modal-x{position:absolute;top:10px;right:12px;width:26px;height:26px;display:flex;align-items:center;justify-content:center;
-    border-radius:6px;color:var(--tx3);font-size:calc(13.0px * var(--fs-scale));line-height:1;cursor:pointer;transition:all .12s;user-select:none}
+  .lptv-modal-x{position:absolute;top:8px;right:8px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;
+    border-radius:8px;color:var(--tx3);font-size:calc(14.0px * var(--fs-scale));line-height:1;cursor:pointer;transition:all .12s;user-select:none;z-index:1}
   .lptv-modal-x:hover{background:rgba(255,255,255,.1);color:#fff}
   .lptv-pane{display:none}
   .lptv-pane.on{display:block}
   /* 设置卡片: 3 个 section, 每块一张卡 */
   .lptv-set-card{border:1px solid var(--line);border-radius:12px;padding:4px 14px 8px;margin-bottom:12px;
-    background:rgba(255,255,255,.03)}
+    background:rgba(255,255,255,.03);flex-shrink:0}
+  #lptv-pane-play{display:flex;flex-direction:column;gap:0;flex:1;min-height:0}
+  /* 播放设置 pane 内部滚动 */
+  #lptv-pane-play{display:flex;flex-direction:column;gap:0;flex:1;min-height:0;overflow-y:auto}
   .lptv-set-card-t{font-size:calc(10.5px * var(--fs-scale));color:var(--tx3);letter-spacing:2.5px;padding:9px 0 2px}
   .lptv-set-row{display:flex;align-items:center;justify-content:space-between;gap:10px;
     padding:8px 0;font-size:calc(12.5px * var(--fs-scale));color:var(--tx)}
