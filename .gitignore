@@ -14,3 +14,6 @@ android/node_modules/
 android/package-lock.json
 # 懒猫骨架（大二进制文件，单独 release 管理）
 lzc/
+
+# 部署配置（非核心，按需参考）
+deploy/
