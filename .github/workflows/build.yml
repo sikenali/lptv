@@ -65,10 +65,19 @@ jobs:
             libcups2 libxss1 libdrm2 libgbm1 libxkbcommon0 \
             libnotify-bin
 
-      # ---- 版本 ----
+      # ---- 版本（支持手动覆盖）----
       - name: Get version
         id: version
-        run: echo "v=$(grep -m1 '^version:' lzc/package.yml | awk '{print $2}')" >> $GITHUB_OUTPUT
+        run: |
+          INPUT_VERSION="${{ github.event.inputs.version }}"
+          DEFAULT_VERSION="$(grep -m1 '^version:' lzc/package.yml | awk '{print $2}')"
+          VERSION="${INPUT_VERSION:-$DEFAULT_VERSION}"
+          echo "v=$VERSION" >> $GITHUB_OUTPUT
+          # 同步版本号到所有构建文件
+          sed -i "s/^version: .*/version: $VERSION/" lzc/package.yml
+          sed -i "s/"version": "[^"]*"/"version": "$VERSION"/" electron/package.json
+          sed -i "s/versionName "[^"]*"/versionName "$VERSION"/" android/android/app/build.gradle
+          echo "Version: $VERSION (default=$DEFAULT_VERSION)"
 
       # ---- AppImage ----
       - name: Build AppImage
@@ -156,6 +165,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
       - name: Setup JDK
+        id: java
         uses: actions/setup-java@v4
         with:
           java-version: ${{ env.JDK_VERSION }}
@@ -164,31 +174,46 @@ jobs:
         run: |
           SDK_DIR="$HOME/android-sdk"
           mkdir -p "$SDK_DIR"
-          # 下载命令行工具
           curl -sL "https://dl.google.com/android/repository/${{ env.ANDROID_SDK_VERSION }}.zip" \
             -o /tmp/cmdline-tools.zip
           mkdir -p "$SDK_DIR/cmdline-tools/latest"
           unzip -q /tmp/cmdline-tools.zip -d "$SDK_DIR/cmdline-tools/latest/.."
           export PATH="$SDK_DIR/cmdline-tools/latest/bin:$PATH"
           export ANDROID_HOME="$SDK_DIR"
-          # 安装需要的 SDK 组件
           sdkmanager --install "platforms;android-34" "build-tools;34.0.0" \
                     "platform-tools" --sdk_root="$SDK_DIR" --no_history 2>&1 | tail -5
+          # 写入 GITHUB_ENV 供后续步骤使用
           echo "ANDROID_HOME=$SDK_DIR" >> $GITHUB_ENV
           echo "ANDROID_SDK_ROOT=$SDK_DIR" >> $GITHUB_ENV
+          # setup-java 设置了 JAVA_HOME，但 build.sh 需要它
+          echo "JAVA_HOME=$JAVA_HOME" >> $GITHUB_ENV
 
-      # ---- 版本 ----
+      # ---- 版本（支持手动覆盖）----
       - name: Get version
         id: version
-        run: echo "v=$(grep -m1 '^version:' lzc/package.yml | awk '{print $2}')" >> $GITHUB_OUTPUT
+        run: |
+          INPUT_VERSION="${{ github.event.inputs.version }}"
+          DEFAULT_VERSION="$(grep -m1 '^version:' lzc/package.yml | awk '{print $2}')"
+          VERSION="${INPUT_VERSION:-$DEFAULT_VERSION}"
+          echo "v=$VERSION" >> $GITHUB_OUTPUT
+          # 同步版本号到所有构建文件
+          sed -i "s/^version: .*/version: $VERSION/" lzc/package.yml
+          sed -i "s/"version": "[^"]*"/"version": "$VERSION"/" electron/package.json
+          sed -i "s/versionName "[^"]*"/versionName "$VERSION"/" android/android/app/build.gradle
+          echo "Version: $VERSION (default=$DEFAULT_VERSION)"
 
       # ---- 构建 APK ----
+      # build.sh 输出到 android/LPTV-{abi}-{ver}-{type}.apk
       - name: Build APK
         id: assemble-apk
         run: |
+          export JAVA_HOME="${{ steps.java.outputs.java-home }}"
+          export ANDROID_HOME="${{ env.ANDROID_HOME }}"
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$JAVA_HOME/bin:$PATH"
           bash android/build.sh
-          APK=$(find android/android/app/build/outputs/apk -name "*.apk" -type f | head -1)
-          [ -n "$APK" ] || { echo "错误：APK 未生成" >&2; exit 1; }
+          # build.sh 已将 APK 复制到 android/LPTV-{abi}-{ver}-{type}.apk
+          APK=$(ls android/LPTV-*-*.apk 2>/dev/null | head -1)
+          [ -n "$APK" ] || { echo "错误：APK 未生成，检查 android/build.sh 输出" >&2; exit 1; }
           echo "path=$APK" >> $GITHUB_OUTPUT
           echo "APK: $(basename "$APK") ($(du -h "$APK" | cut -f1))"
 
@@ -226,5 +251,5 @@ jobs:
           files: |
             release-linux/LPTV-linux-x64-*.AppImage
             release-linux/cloud.lazycat.catlink.lptv-*.lpk
-            release-android/*.apk
+            release-android/LPTV-*-*.apk
           generate_release_notes: true
