@@ -42,9 +42,17 @@ if [ ! -e "$QT_SHORTCUTS_DIR/外接磁盘" ] && [ ! -L "$QT_SHORTCUTS_DIR/外接
 fi
 
 GTK_BOOKMARK=$HOME/.config/gtk-3.0/bookmarks
-install -D /lzcapp/pkg/content/gtk-bookmark "$GTK_BOOKMARK"
+if [ -f /lzcapp/pkg/content/gtk-bookmark ]; then
+    install -D /lzcapp/pkg/content/gtk-bookmark "$GTK_BOOKMARK"
+else
+    echo "warning: content 无 gtk-bookmark（纯内容打包），跳过书签设置" >&2
+fi
 QT_BOOKMARK=$HOME/.config/QtProject.conf
-install -D /lzcapp/pkg/content/qt-bookmark.ini "$QT_BOOKMARK"
+if [ -f /lzcapp/pkg/content/qt-bookmark.ini ]; then
+    install -D /lzcapp/pkg/content/qt-bookmark.ini "$QT_BOOKMARK"
+else
+    echo "warning: content 无 qt-bookmark.ini（纯内容打包），跳过书签设置" >&2
+fi
 export QT_QPA_PLATFORMTHEME=gtk3
 
 export XPRA_SCALING=false
@@ -136,7 +144,26 @@ rm -rf /etc/xpra/content-*/
 export XPRA_USER_CONF_DIRS=/tmp/catlink/
 export CATLINK_RESTORE_ACTIVE_TRANSIENT_ON_UNMAP="${CATLINK_RESTORE_ACTIVE_TRANSIENT_ON_UNMAP:-1}"
 install -D /lzcapp/pkg/content/90_lzc.conf /tmp/catlink/xpra.conf
-install -D /lzcapp/pkg/content/dummyscreen.sh /usr/bin/spectacle
+if [ -f /lzcapp/pkg/content/dummyscreen.sh ]; then
+    install -D /lzcapp/pkg/content/dummyscreen.sh /usr/bin/spectacle
+else
+    echo "warning: content 无 dummyscreen.sh（纯内容打包），跳过 spectacle 安装" >&2
+fi
+# 纯内容打包缺 rim 会话服务：xpra start= 指向不存在的 rim 会报错，剔除该行
+if [ ! -x /lzcapp/pkg/content/rim ]; then
+    echo "warning: content 无 rim（纯内容打包），已从 xpra.conf 剔除 start=rim" >&2
+    sed -i '\#start=/lzcapp/pkg/content/rim#d' /tmp/catlink/xpra.conf
+fi
 
-exec /lzcapp/pkg/content/cde-supervisor \
-    xpra seamless --backend=gtk --bind-ws 0.0.0.0:7890 --daemon=no
+# cde-supervisor 是骨架自带的 xpra 主管二进制；纯内容打包缺失时直跑 xpra 兜底
+#（cde 镜像通常自带 xpra）。若两者皆无则给出可读报错。
+if [ -x /lzcapp/pkg/content/cde-supervisor ]; then
+    exec /lzcapp/pkg/content/cde-supervisor \
+        xpra seamless --backend=gtk --bind-ws 0.0.0.0:7890 --daemon=no
+fi
+if command -v xpra >/dev/null 2>&1; then
+    echo "warning: 未找到 cde-supervisor，直接运行系统 xpra（功能可能不完整）" >&2
+    exec xpra seamless --backend=gtk --bind-ws 0.0.0.0:7890 --daemon=no
+fi
+echo "错误：缺少 cde-supervisor 且系统无 xpra。请用 chrome lpk 骨架重打（CHROME_LPK=/LZC_SKELETON=）" >&2
+exit 1
