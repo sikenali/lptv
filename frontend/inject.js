@@ -1519,7 +1519,8 @@
        每个 blob: f1(eventId str) f2(节目名 utf8) f3(开始epoch秒) f4(结束epoch秒)
                   f5("HH:MM"开始) f6("HH:MM"结束) f7(时长秒) f9/f10(len1 "1") */
 
-  var EPG_DAY_MAX = 2;  // 只展示 5 天: 今天±2 (官方虽提供±5, 但 UI 收敛到前后2天, 更清爽)
+  var EPG_DAY_PAST = 3;     // 过去最多 3 天
+  var EPG_DAY_FUTURE = 1;   // 未来最多 1 天 (共 5 天: 前3 + 今天 + 后1, 后面少一天)
 
   function utf8Bytes(bytes, a, n) {
     try {
@@ -1660,7 +1661,7 @@
     [1, -1].forEach(function (dir) {
       var off = dir;
       (function step() {
-        if (Math.abs(off) > EPG_DAY_MAX) return;
+        if (off > EPG_DAY_FUTURE || off < -EPG_DAY_PAST) return;
         var ymd = epgYmdOf(off);
         var av = (Lx.epg.avail || {})[pid + "|" + ymd];
         if (av === true) { off += dir; step(); return; }
@@ -1701,7 +1702,7 @@
     if (Lx.currentPid === pid && Lx.epg._day === (Lx.epg._dayMap || {})[ymd]) epgRender();
   }
 
-  /* EPG 日期偏移: 0=今天 最多+3; 面板头部按钮切换 */
+  /* EPG 日期偏移: 0=今天, 范围 -3(过去) ~ +1(未来); 面板头部按钮切换 */
   function epgDayOffset() { return Lx.epg._day || 0; }
 
   function epgYmdOf(off) {
@@ -1766,8 +1767,8 @@
     var pid = Lx.currentPid;
     var avail = Lx.epg.avail || {};
     var html = "";
-    // 官方可用窗口 (今天±5): 已知无数据的日期不展示, 杜绝空白未来日; 当前选中日始终保留
-    for (var off = -EPG_DAY_MAX; off <= EPG_DAY_MAX; off++) {
+    // 官方可用窗口 (前3天~后1天): 已知无数据的日期不展示, 杜绝空白日; 当前选中日始终保留
+    for (var off = -EPG_DAY_PAST; off <= EPG_DAY_FUTURE; off++) {
       var d = new Date();
       d.setDate(d.getDate() + off);
       if (avail[pid + "|" + ymdStr(d)] === false && off !== cur) continue;
@@ -1844,7 +1845,7 @@
   }
 
   function epgSetDay(off) {
-    Lx.epg._day = Math.max(-EPG_DAY_MAX, Math.min(EPG_DAY_MAX, off || 0));
+    Lx.epg._day = Math.max(-EPG_DAY_PAST, Math.min(EPG_DAY_FUTURE, off || 0));
     Lx.epg._dayMap = Lx.epg._dayMap || {};
     Lx.epg._dayMap[epgYmdOf(Lx.epg._day)] = Lx.epg._day;
     var dLabel = document.getElementById("lx-epg-date");
