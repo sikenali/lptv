@@ -14,6 +14,3 @@ android/node_modules/
 android/package-lock.json
 # 懒猫骨架（大二进制文件，单独 release 管理）
 lzc/
-# 解包/缓存目录
-__pycache__/
-*.pyc
