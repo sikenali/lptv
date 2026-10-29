@@ -12,8 +12,9 @@ electron/dist/
 # 其构建产物由 android/android/.gitignore(Android 模板) 排除
 android/node_modules/
 android/package-lock.json
-# 懒猫骨架（大二进制文件，单独 release 管理；lzc 其余配置文件/脚本/图标需入库供 CI 打包）
-lzc/skeleton/
+# lzc 整个打包目录不入库不推远端（content/skeleton/manifest/package 等均为本地打包产物，
+# 由构建流程在本地生成或从 release 单独下载；远端不需要）
+lzc/
 
 # 部署配置（非核心，按需参考）
 deploy/
