@@ -49,6 +49,16 @@
         "Name": "LPTV",
         "Comment": "LPTV 远程电视"
       }
+    },
+    "win": {
+      "target": [
+        "portable"
+      ],
+      "icon": "assets/icon.png",
+      "artifactName": "LPTV-${version}-portable.${ext}"
+    },
+    "portable": {
+      "artifactName": "LPTV-${version}-portable.${ext}"
     }
   }
 }

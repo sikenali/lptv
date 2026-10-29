@@ -146,6 +146,62 @@ jobs:
           retention-days: 7
 
   # ==================================================================
+  # Windows：单文件 portable exe（双击即用、免安装）
+  # ==================================================================
+  windows-build:
+    name: Windows (portable exe)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    outputs:
+      exe_path: ${{ steps.verify-exe.outputs.path }}
+      version:  ${{ steps.version.outputs.v }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ---- 环境 ----
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # ---- 版本（与 linux/android 保持一致）----
+      - name: Get version
+        id: version
+        run: |
+          INPUT_VERSION="${{ github.event.inputs.version }}"
+          DEFAULT_VERSION="$(grep -m1 '^version:' lzc/package.yml | awk '{print $2}')"
+          VERSION="${INPUT_VERSION:-$DEFAULT_VERSION}"
+          echo "v=$VERSION" >> $GITHUB_OUTPUT
+          sed -i "s/^version: .*/version: $VERSION/" lzc/package.yml
+          sed -i "s/"version": "[^"]*"/"version": "$VERSION"/" electron/package.json
+          echo "Version: $VERSION (default=$DEFAULT_VERSION)"
+
+      # ---- 构建 portable exe（原生 Windows，无需 wine）----
+      - name: Build portable exe
+        run: |
+          cd electron
+          npm ci --ignore-scripts || npm install --ignore-scripts
+          npx electron-builder --win portable
+      - name: Verify exe
+        id: verify-exe
+        run: |
+          FILE=$(ls electron/dist/LPTV-*-portable.exe 2>/dev/null | head -1)
+          [ -n "$FILE" ] || { echo "错误：未找到 portable exe" >&2; exit 1; }
+          echo "path=$(cygpath -w "$(pwd)/$FILE")" >> $GITHUB_OUTPUT
+          echo "exe: $(basename "$FILE") ($(du -h "$FILE" | cut -f1))"
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lptv-windows
+          path: ${{ steps.verify-exe.outputs.path }}
+          retention-days: 7
+
+  # ==================================================================
   # Android：APK
   # ==================================================================
   android-build:
@@ -229,7 +285,7 @@ jobs:
   # ==================================================================
   release:
     name: GitHub Release
-    needs: [linux-build, android-build]
+    needs: [linux-build, android-build, windows-build]
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.version != ''
     runs-on: ubuntu-22.04
     steps:
@@ -243,6 +299,11 @@ jobs:
         with:
           name: lptv-android
           path: release-android
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: lptv-windows
+          path: release-windows
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -252,4 +313,5 @@ jobs:
             release-linux/LPTV-linux-x64-*.AppImage
             release-linux/cloud.lazycat.catlink.lptv-*.lpk
             release-android/LPTV-*-*.apk
+            release-windows/LPTV-*-portable.exe
           generate_release_notes: true
