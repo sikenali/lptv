@@ -65,10 +65,25 @@ const IS_CONTAINER = !!(
 // ---- 渲染后端（Electron → X11/XDummy → xpra 捕获）-----------------
 // 显式用 EGL 硬件合成 + GPU 光栅化，帧更早落到 X11 供 xpra 捕获；避免 Chromium
 // 在容器/无 WM 环境下默认 GPU 初始化失败回退导致的合成抖动（"画面卡、点击不跟手"主因）。
-// EGL 初始化失败时 Chromium 自动回退软件合成，不会黑屏；本地桌面同样受益（GPU
-// 可用时硬件合成更流畅，不可用时软解降级）。
-app.commandLine.appendSwitch('use-gl', 'egl');
-app.commandLine.appendSwitch('enable-gpu-rasterization');
+// 仅当存在可用 DRI render 节点时才强制 EGL：容器/无 GPU 环境（无 renderD 节点）
+// 强制 use-gl=egl 会因 EGL 无法初始化而白屏（实测 cde 无 GPU 容器重建后白屏），
+// 此时不设置 use-gl，交 Chromium 自动探测 → 干净回退软件合成（能渲染，仅略卡）。
+// 本地桌面/有 GPU 容器 → 走 EGL 硬件合成（更流畅）。EGL 初始化失败时 Chromium
+// 会自动回退软件合成，不会黑屏。
+function driRenderNode() {
+  try {
+    for (const n of fs.readdirSync('/dev/dri')) {
+      if (!/^renderD/.test(n)) continue;
+      try { fs.accessSync('/dev/dri/' + n, fs.constants.R_OK | fs.constants.W_OK); return '/dev/dri/' + n; } catch (e) {}
+    }
+  } catch (e) {}
+  return null;
+}
+const DRI_RENDER = driRenderNode();
+if (DRI_RENDER) {
+  app.commandLine.appendSwitch('use-gl', 'egl');
+  app.commandLine.appendSwitch('enable-gpu-rasterization');
+}
 
 // ---- 资源路径（开发/打包兼容）------------------------------------------
 function frontendDir() {
@@ -219,11 +234,11 @@ function createWindow() {
   // 窗口上限 = 屏幕可用区：1920x1080 是期望值，但容器/小屏会被裁剪，
   // 一旦窗口大于可见屏幕，底部/右缘的 hover 触发带（CTRL_ZONE/EPG_EDGE）落到
   // 屏幕外，控制栏/节目单永远滑不出来 → 必须按屏幕尺寸收敛。
-  // 基准 1280x720，按屏幕宽度等比缩放 (最高 1920)，保证高 DPI 屏幕也合适
+  // 基准 1280x720：不再向上等比放大（大屏保持 1280x720），小屏收敛到可见区
   const disp = screen.getPrimaryDisplay();
   const sw = (disp.workAreaSize && disp.workAreaSize.width) || 1920;
   const sh = (disp.workAreaSize && disp.workAreaSize.height) || 1080;
-  const scale = Math.min(sw / 1280, sh / 720, 1.5); // 最大 1.5x 倍率
+  const scale = Math.min(sw / 1280, sh / 720, 1.0); // 上限 1.0x：不超过 1280x720
   const W = Math.max(360, Math.round(1280 * scale));
   const H = Math.max(220, Math.round(720 * scale));
   win = new BrowserWindow({
@@ -319,6 +334,8 @@ async function collectDiag() {
   };
   d.xpraSocket = xpraSocketDisplay();
   try { d.dri = fs.existsSync('/dev/dri') ? fs.readdirSync('/dev/dri') : []; } catch (e) { d.dri = []; }
+  d.driRender = DRI_RENDER;
+  if (!DRI_RENDER) d.verdict.push('无可用 DRI render 节点(renderD*) → 未强制 use-gl=egl/GPU光栅化, 走软件合成(能渲染, 仅可能卡顿)');
   try { d.gpuFeature = app.getGPUFeatureStatus(); } catch (e) { d.gpuFeature = { error: String(e && e.message || e) }; }
   try {
     const gi = await app.getGPUInfo('basic');
@@ -442,17 +459,20 @@ function registerIpc() {
 
   h('is_float', () => ({ ok: true, floating: st.float, float: st.float }));
 
-  // 悬窗: 按视频宽高比调节窗口高度(只显示画面大小, 去上下黑边), 右下锚定。
-  // 高度钳制在 120~360: 始终保持小窗横版(16:9→270, 4:3→360), 不因竖屏/异常
-  // 比例变成右侧高条(侧边显示)。宽固定 FLOAT_W=480。
-  h('set_float_height', (h) => {
+  // 悬窗: 按视频宽高比调节窗口尺寸(只显示画面大小, 无黑边), 右下锚定。
+  // 宽高来自 syncFloatHeight 的自适应计算(视频保持比例, 16:9→480×270,
+  // 竖版→270×480), 高度钳在工作区 65% 内, 宽不超 FLOAT_W, 避免超长浮窗。
+  h('set_float_height', (h, w) => {
     if (!win || !st.float) return { ok: false };
+    const d = workAreaBounds();
     let hh = parseInt(h, 10);
     if (!(hh > 0)) hh = FLOAT_H;
-    hh = Math.max(120, Math.min(360, hh));
-    const d = workAreaBounds();
-    setPos(d.x + d.w - FLOAT_W - 10, d.y + d.h - hh - 10, FLOAT_W, hh);
-    return { ok: true, height: hh };
+    let ww = parseInt(w, 10);
+    if (!(ww > 0)) ww = FLOAT_W;
+    hh = Math.max(120, Math.min(Math.round(d.h * 0.65), hh));
+    ww = Math.max(180, Math.min(FLOAT_W, ww));
+    setPos(d.x + d.w - ww - 10, d.y + d.h - hh - 10, ww, hh);
+    return { ok: true, height: hh, width: ww };
   });
 
   h('pin_toggle', () => {

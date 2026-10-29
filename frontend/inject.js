@@ -388,6 +388,10 @@
     styleOfficial();
     var v = lptv.video;
     if (!v) return;
+    // 官方换台会替换 <video> 元素, syncFloatHeight 绑在旧元素事件上不触发,
+    // 浮窗会残留旧尺寸 → 16:9 视频在错尺寸窗口里 letterbox 成竖条/黑边。
+    // 保活里浮窗激活时持续按当前视频比例重算尺寸。
+    if (lptv.ui && lptv.ui.root && lptv.ui.root.classList.contains("float")) syncFloatHeight();
     if (v.paused && lptv._autoplayPending && v.readyState >= 2 && v.videoWidth &&
         (lptv._resumes || 0) < 12) {
       dbg("wkr " + Math.floor(v.currentTime));
@@ -2662,16 +2666,19 @@
     }
     if (f) syncPlayBtn();
   }
-  // 悬窗: 按视频宽高比计算窗口高度(宽固定480), 只显示画面大小, 去上下黑边
+  // 悬窗: 视频保持比例适配到最大框 (480宽 × 480高), 只显示画面大小, 无黑边。
+  // 16:9→480×270, 4:3→480×360, 9:16竖版→270×480, 超宽21:9→480×206。
+  // 传 (h, w) 让主进程按实际宽度锚定右下角, 避免竖版被 480 宽 letterbox 成"右侧高条"。
   function syncFloatHeight() {
     var root = lptv.ui && lptv.ui.root;
     var v = lptv.video;
     if (!root || !root.classList.contains("float") || !v) return;
     var vw = v.videoWidth, vh = v.videoHeight;
     if (!(vw > 0) || !(vh > 0)) return;
-    var h = Math.round(480 * vh / vw);
+    var w = 480, h = 480 * vh / vw;
+    if (h > 480) { h = 480; w = 480 * vw / vh; }
     var a = window.lptv ? window.lptv : null;
-    if (a && a.set_float_height) a.set_float_height(h).catch(function () {});
+    if (a && a.set_float_height) a.set_float_height(h, w).catch(function () {});
   }
   function pollFloatState() {
     var a = window.lptv ? window.lptv : null;
