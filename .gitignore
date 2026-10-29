@@ -12,8 +12,8 @@ electron/dist/
 android/android/
 android/node_modules/
 android/package-lock.json
-# 懒猫骨架（大二进制文件，单独 release 管理）
-lzc/
+# 懒猫骨架（大二进制文件，单独 release 管理；lzc 其余配置文件/脚本/图标需入库供 CI 打包）
+lzc/skeleton/
 
 # 部署配置（非核心，按需参考）
 deploy/

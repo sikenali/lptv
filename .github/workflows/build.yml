@@ -61,7 +61,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            libgtk-3-0 libnss3 libasound2t64 libatk1.0-0 \
+            libgtk-3-0 libnss3 libasound2 libatk1.0-0 \
             libcups2 libxss1 libdrm2 libgbm1 libxkbcommon0 \
             libnotify-bin
 
