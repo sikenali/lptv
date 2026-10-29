@@ -41,6 +41,9 @@ cd "$ANDROID_DIR"
 [ -d "android" ] || node_modules/.bin/capacitor init "LPTV" "cn.lazycat.lptv" --web-dir=www
 node_modules/.bin/capacitor sync android
 
+echo "==> [2.5/4] 固化 TV 模式（横屏/banner/leanback，幂等）"
+bash "$ANDROID_DIR/apply_tv.sh"
+
 echo "==> [3/4] Gradle assemble"
 cd android
 [ -x "./gradlew" ] || ./gradlew --version >/dev/null 2>&1 || true
