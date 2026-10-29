@@ -34,6 +34,8 @@ contextBridge.exposeInMainWorld('lptv', {
   get_version: invoke('get_version'),
   get_asset_image: invoke('get_asset_image'),
   get_asset_font: invoke('get_asset_font'),
+  // 环境诊断快照（cde 卡顿排查）
+  diag: invoke('diag'),
   // UI 状态
   get_ui_state: invoke('get_ui_state'),
   set_ui_state: invoke('set_ui_state'),

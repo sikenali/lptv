@@ -822,7 +822,7 @@
   .lptv-epg-row.future{color:var(--tx2)}
   /* live(当前播放)行: 红色高亮背景+左侧红条 */
   .lptv-epg-row.live{background:rgba(255,77,79,.12);box-shadow:inset 2px 0 0 #ff4d4f}
-  .lptv-epg-t{font-size:calc(11.0px * var(--fs-scale));color:var(--tx3);width:86px;flex-shrink:0;padding-top:2px;
+  .lptv-epg-t{font-size:calc(11.0px * var(--fs-scale));color:var(--tx3);width:calc(86px * var(--fs-scale));flex-shrink:0;padding-top:2px;
     font-family:"JetBrains Mono",Consolas,monospace;font-variant-numeric:tabular-nums;
     white-space:nowrap;overflow:hidden}
   .lptv-epg-row.live .lptv-epg-t{color:#ff4d4f}

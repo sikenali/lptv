@@ -40,11 +40,26 @@ app.commandLine.appendSwitch('enable-features', 'VaapiVideoDecoder,VaapiVideoDec
 //   2. 本地桌面：真 WM，getBounds() == setBounds()，无需任何偏移。
 // 若在本地桌面仍按容器逻辑去 getBounds() 校准，拖拽会以初始窗口位置为原点
 // 换算，窗口一路漂向 (0,0)，拖动失灵。因此用环境变量区分两种模式。
+// 环境变量可能缺失（裸 cde 容器/手动起 xpra 不注入），再认"容器/流媒体会话"
+// 独有的文件系统标记：/lzcapp（懒猫容器根）、/run/xpra/<n>/socket（xpra 会话）。
+// 注意不要用 /run/catlink —— 它在懒猫宿主也存在，会误判容器，让本地桌面走
+// winOrigin 校准导致拖拽漂移。纯 Linux 桌面/宿主真实桌面无上述标记 → 判定本地。
+function lazycatSignals() {
+  const has = (p) => { try { return fs.existsSync(p); } catch (e) { return false; } };
+  if (has('/lzcapp')) return true;
+  try {
+    for (const n of fs.readdirSync('/run/xpra')) {
+      if (/^\d+$/.test(n) && has('/run/xpra/' + n + '/socket')) return true;
+    }
+  } catch (e) {}
+  return false;
+}
 const IS_CONTAINER = !!(
   process.env.CATLINK_APP_ID ||
   process.env.XPRA_ENCODING_STRICT_MODE ||
   process.env.XPRA_SCALING ||
-  process.env.LPTV_DISPLAY
+  process.env.LPTV_DISPLAY ||
+  lazycatSignals()
 );
 
 // ---- 容器内渲染后端（Electron → X11/XDummy → xpra 捕获）-----------------
@@ -254,6 +269,18 @@ function createWindow() {
   // inject 在 load 完成后注入；splash 由 preload 在 document-start 同步处理。
   win.webContents.on('did-finish-load', injectUi);
 
+  // 环境诊断：启动 ~3s 后(GPU 进程已初始化)打印快照到容器日志 + 落盘,
+  // 供 cde 卡顿排查(容器日志见 [LPTV-diag], 文件见 ~/.local/share/lptv/lptv.diag.json)。
+  setTimeout(() => {
+    collectDiag().then((d) => {
+      console.log('[LPTV-diag] ' + JSON.stringify(d));
+      try {
+        fs.mkdirSync(DATA_DIR, { recursive: true });
+        fs.writeFileSync(path.join(DATA_DIR, 'lptv.diag.json'), JSON.stringify(d, null, 2));
+      } catch (e) {}
+    }).catch(() => {});
+  }, 3000);
+
   win.on('closed', () => { win = null; });
 
   win.once('ready-to-show', () => {
@@ -267,6 +294,72 @@ function createWindow() {
   });
 
   win.loadURL(HOME_URL_BASE + readStatePid());
+}
+
+// ---- 环境诊断：容器判定 / GPU 后端 / xpra 配置 快照 + 卡顿判定 ----------
+// 供 cde 卡顿排查：启动即打印到容器日志，也可随时 window.lptv.diag() 拉取。
+// 判定维度：
+//   isContainer=false 且存在 xpra socket → 容器优化分支(EGL/GPU光栅化)未启用, 软件合成卡顿主因
+//   gl_renderer 含 swiftshader/software → 实际软渲染
+//   xpra.conf 缺 vaapih264enc → 可能软件 x264 编码; quality>=80 → YUV444P 掉帧风险
+function xpraSocketDisplay() {
+  try {
+    const ds = fs.readdirSync('/run/xpra').filter((n) => /^\d+$/.test(n));
+    if (ds.length) return ':' + ds[0];
+  } catch (e) {}
+  return process.env.LPTV_DISPLAY || (process.env.DISPLAY || '');
+}
+
+async function collectDiag() {
+  const d = { t: Date.now(), verdict: [] };
+  d.isContainer = !!IS_CONTAINER;
+  d.env = {
+    CATLINK_APP_ID: process.env.CATLINK_APP_ID || '',
+    XPRA_ENCODING_STRICT_MODE: process.env.XPRA_ENCODING_STRICT_MODE || '',
+    XPRA_SCALING: process.env.XPRA_SCALING || '',
+    LPTV_DISPLAY: process.env.LPTV_DISPLAY || '',
+    DISPLAY: process.env.DISPLAY || '',
+  };
+  d.xpraSocket = xpraSocketDisplay();
+  if (!IS_CONTAINER) {
+    d.verdict.push('isContainer=false → use-gl=egl + enable-gpu-rasterization 未启用');
+    if (d.xpraSocket) d.verdict.push('但显示=' + d.xpraSocket + ' 疑似懒猫/catlink 显示; 若这是 cde 容器, 应见 /lzcapp 或 /run/xpra/<n>/socket(否则启用不了 EGL 分支)');
+  }
+  try { d.dri = fs.existsSync('/dev/dri') ? fs.readdirSync('/dev/dri') : []; } catch (e) { d.dri = []; }
+  try { d.gpuFeature = app.getGPUFeatureStatus(); } catch (e) { d.gpuFeature = { error: String(e && e.message || e) }; }
+  try {
+    const gi = await app.getGPUInfo('basic');
+    const dev = (gi && (gi.gpuDevice || gi.devices) && (gi.gpuDevice || gi.devices)[0]) || {};
+    d.gpu = { vendorString: dev.vendorString || '', deviceString: dev.deviceString || '' };
+  } catch (e) { d.gpu = { error: String(e && e.message || e) }; }
+  const gr = d.gpuFeature && (d.gpuFeature.gl_renderer || '');
+  if (gr && /swiftshader|software|llvmpipe|softpipe/i.test(String(gr))) {
+    d.verdict.push('gl_renderer=' + gr + ' → 软件渲染/合成, 卡顿主因');
+  }
+  // 字体是否真的换上(渲染进程 document.fonts): MiSans/JetBrains 加载状态 + 根元素实际 family
+  try {
+    if (win && win.webContents && !win.webContents.isDestroyed()) {
+      d.fonts = await win.webContents.executeJavaScript(
+        "(()=>{var r=document.getElementById('lptv-root');" +
+        " var fam=function(e){return e?(getComputedStyle(e).fontFamily||''):null};" +
+        " return {miSans:document.fonts.check('16px \"MiSans\"')," +
+        " jbm:document.fonts.check('16px \"JetBrains Mono\"')," +
+        " rootExists:!!r, familyRoot:fam(r), familyBody:fam(document.body)};})()"
+      ).catch(() => null);
+      if (d.fonts && d.fonts.miSans === false) d.verdict.push('MiSans 未加载(document.fonts.check=false) → @font-face 未生效');
+    }
+  } catch (e) { d.fonts = { error: String(e && e.message || e) }; }
+  try {
+    d.xpraConf = fs.existsSync('/tmp/catlink/xpra.conf') ? fs.readFileSync('/tmp/catlink/xpra.conf', 'utf8') : '';
+  } catch (e) { d.xpraConf = ''; }
+  if (d.xpraConf) {
+    if (!/video-encoders\s*=\s*vaapih264enc/.test(d.xpraConf)) d.verdict.push('xpra.conf 缺 video-encoders=vaapih264enc → 可能回落软件 x264');
+    if (/quality\s*=\s*(8[0-9]|9[0-9]|100)/.test(d.xpraConf)) d.verdict.push('xpra quality>=80 → YUV444P→软件x264掉帧风险');
+  } else {
+    d.verdict.push('xpra.conf 缺失(/tmp/catlink/xpra.conf) → 90_lzc.conf 未安装');
+  }
+  if (!d.verdict.length) d.verdict.push('未发现明显异常');
+  return d;
 }
 
 // ===========================================================================
@@ -440,6 +533,9 @@ function registerIpc() {
       return { ok: true, src: 'data:font/woff2;base64,' + b64 };
     } catch (e) { return { ok: false, error: String(e && e.message || e), src: '' }; }
   });
+
+  // 环境诊断快照（cde 卡顿排查, window.lptv.diag()）
+  h('diag', collectDiag);
 
   // ---- UI 状态（跨启动，路径与旧版一致）------------------------------------
   h('get_ui_state', () => {
