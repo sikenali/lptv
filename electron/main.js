@@ -55,23 +55,20 @@ function lazycatSignals() {
   return false;
 }
 const IS_CONTAINER = !!(
-  process.env.CATLINK_APP_ID ||
-  process.env.XPRA_ENCODING_STRICT_MODE ||
-  process.env.XPRA_SCALING ||
-  process.env.LPTV_DISPLAY ||
+  typeof process.env.CATLINK_APP_ID !== 'undefined' ||
+  typeof process.env.XPRA_ENCODING_STRICT_MODE !== 'undefined' ||
+  typeof process.env.XPRA_SCALING !== 'undefined' ||
+  typeof process.env.LPTV_DISPLAY !== 'undefined' ||
   lazycatSignals()
 );
 
-// ---- 容器内渲染后端（Electron → X11/XDummy → xpra 捕获）-----------------
-// 盒子有 Intel iGPU（vaapih264enc 实测可用，DRM/GPU 可访问）。显式用 EGL 硬件
-// 合成 + GPU 光栅化，帧更早落到 X11 供 xpra 捕获；避免 Chromium 默认在容器里
-// GPU 初始化失败/回退导致的合成抖动（"画面卡、点击不跟手"主因）。
-// 若某盒子 EGL 初始化失败，Chromium 自动回退软件合成，不会黑屏；此时可注释
-// 此行回到默认行为。本地桌面不受影响（仅容器生效）。
-if (IS_CONTAINER) {
-  app.commandLine.appendSwitch('use-gl', 'egl');
-  app.commandLine.appendSwitch('enable-gpu-rasterization');
-}
+// ---- 渲染后端（Electron → X11/XDummy → xpra 捕获）-----------------
+// 显式用 EGL 硬件合成 + GPU 光栅化，帧更早落到 X11 供 xpra 捕获；避免 Chromium
+// 在容器/无 WM 环境下默认 GPU 初始化失败回退导致的合成抖动（"画面卡、点击不跟手"主因）。
+// EGL 初始化失败时 Chromium 自动回退软件合成，不会黑屏；本地桌面同样受益（GPU
+// 可用时硬件合成更流畅，不可用时软解降级）。
+app.commandLine.appendSwitch('use-gl', 'egl');
+app.commandLine.appendSwitch('enable-gpu-rasterization');
 
 // ---- 资源路径（开发/打包兼容）------------------------------------------
 function frontendDir() {
@@ -321,10 +318,6 @@ async function collectDiag() {
     DISPLAY: process.env.DISPLAY || '',
   };
   d.xpraSocket = xpraSocketDisplay();
-  if (!IS_CONTAINER) {
-    d.verdict.push('isContainer=false → use-gl=egl + enable-gpu-rasterization 未启用');
-    if (d.xpraSocket) d.verdict.push('但显示=' + d.xpraSocket + ' 疑似懒猫/catlink 显示; 若这是 cde 容器, 应见 /lzcapp 或 /run/xpra/<n>/socket(否则启用不了 EGL 分支)');
-  }
   try { d.dri = fs.existsSync('/dev/dri') ? fs.readdirSync('/dev/dri') : []; } catch (e) { d.dri = []; }
   try { d.gpuFeature = app.getGPUFeatureStatus(); } catch (e) { d.gpuFeature = { error: String(e && e.message || e) }; }
   try {
