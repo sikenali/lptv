@@ -8,8 +8,8 @@
 # Electron 构建
 electron/node_modules/
 electron/dist/
-# Android 构建产物 / 原生工程
-android/android/
+# Android 构建依赖（node_modules/锁文件）；原生工程 android/android/ 需入库供 CI 构建，
+# 其构建产物由 android/android/.gitignore(Android 模板) 排除
 android/node_modules/
 android/package-lock.json
 # 懒猫骨架（大二进制文件，单独 release 管理；lzc 其余配置文件/脚本/图标需入库供 CI 打包）
