@@ -17,3 +17,7 @@ lzc/
 
 # 部署配置（非核心，按需参考）
 deploy/
+
+# Android 签名（敏感，不入库）
+android/release.keystore
+android/keystore.properties
