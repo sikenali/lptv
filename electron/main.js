@@ -63,13 +63,10 @@ const IS_CONTAINER = !!(
 );
 
 // ---- 渲染后端（Electron → X11/XDummy → xpra 捕获）-----------------
-// 显式用 EGL 硬件合成 + GPU 光栅化，帧更早落到 X11 供 xpra 捕获；避免 Chromium
-// 在容器/无 WM 环境下默认 GPU 初始化失败回退导致的合成抖动（"画面卡、点击不跟手"主因）。
-// 仅当存在可用 DRI render 节点时才强制 EGL：容器/无 GPU 环境（无 renderD 节点）
-// 强制 use-gl=egl 会因 EGL 无法初始化而白屏（实测 cde 无 GPU 容器重建后白屏），
-// 此时不设置 use-gl，交 Chromium 自动探测 → 干净回退软件合成（能渲染，仅略卡）。
-// 本地桌面/有 GPU 容器 → 走 EGL 硬件合成（更流畅）。EGL 初始化失败时 Chromium
-// 会自动回退软件合成，不会黑屏。
+// 注意：不要强制 use-gl=egl！实测本环境（catlink :100 / cde 容器）DRI 节点存在但
+// EGL 初始化崩，GPU 进程反复 exit_code=133(SIGTRAP) → 页面加载不了 → 白屏。
+// "DRI 节点存在" ≠ "EGL 能工作"。交 Chromium 自动探测：能硬件则硬件，否则干净
+// 回退软件合成（能渲染，仅可能卡顿）。宁可卡顿不可白屏。
 function driRenderNode() {
   try {
     for (const n of fs.readdirSync('/dev/dri')) {
@@ -80,10 +77,6 @@ function driRenderNode() {
   return null;
 }
 const DRI_RENDER = driRenderNode();
-if (DRI_RENDER) {
-  app.commandLine.appendSwitch('use-gl', 'egl');
-  app.commandLine.appendSwitch('enable-gpu-rasterization');
-}
 
 // ---- 资源路径（开发/打包兼容）------------------------------------------
 function frontendDir() {
@@ -116,6 +109,36 @@ function videosDir() {
   return path.join(os.homedir(), 'Videos');
 }
 const DATA_DIR = xdgDataDir();
+
+// ---- GPU 健康自愈 ------------------------------------------------------
+// 本环境（catlink 显示 / cde 容器）GPU 进程初始化即崩（exit_code 133/15, viz_main_impl
+// "Exiting GPU process due to errors during initialization"），导致页面渲染进程被连带
+// 销毁 → 白屏。此前任何一次运行 GPU 进程崩溃即写 gpu.broken 标记，本次启动若见标记
+// 则禁用 GPU（软件合成，能渲染不白屏）；GPU 正常的机器不崩不写标记，保持硬件加速。
+// 宁可软件合成(可能卡顿)不可白屏。
+const GPU_BROKEN_MARKER = path.join(DATA_DIR, 'gpu.broken');
+if (fs.existsSync(GPU_BROKEN_MARKER)) {
+  app.commandLine.appendSwitch('disable-gpu');
+  console.log('[LPTV] 检测到 gpu.broken 标记 → 本次禁用 GPU(软件合成)');
+}
+let gpuCrashReloaded = false;
+app.on('child-process-gone', (e, details) => {
+  try {
+    if (details && details.type === 'GPU') {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+      fs.writeFileSync(GPU_BROKEN_MARKER, String(details.exitCode != null ? details.exitCode : details.reason));
+      console.log('[LPTV] GPU 进程退出 type=' + details.type +
+        ' exit_code=' + (details.exitCode != null ? details.exitCode : details.reason) +
+        ' → 写 gpu.broken, 下次启动禁用 GPU');
+      // 尽力当前次自恢复：GPU 崩后软件回退, 重载一次页面(首次运行不再白屏)
+      if (!gpuCrashReloaded && win && !win.isDestroyed()) {
+        gpuCrashReloaded = true;
+        try { win.webContents.reload(); } catch (err) {}
+      }
+    }
+  } catch (err) {}
+});
+
 const STATE_FILE = path.join(DATA_DIR, 'lptv.state.json');
 const RECDIR_FILE = path.join(DATA_DIR, 'lptv.recdir.json');
 const DEFAULT_REC_DIR = path.join(videosDir(), 'LPTV', '录制');
@@ -148,6 +171,9 @@ const st = { max: false, fs: false, float: false, pin: false, floatSaved: null, 
 // 仅容器模式需要校准；本地桌面 getBounds()==setBounds()，winOrigin 恒为 {0,0}，
 // 否则 move_win 会把窗口位置误当成偏移，拖拽时窗口漂向 (0,0)。
 let winOrigin = null;
+// 页面加载诊断：did-fail-load / did-finish-load 记录，供 collectDiag 判断白屏是
+// 页面没加载(网络/域名)还是渲染问题。
+const pageLoad = { fail: null, finish: null };
 function calibrateOrigin() {
   if (winOrigin !== null) return;
   try {
@@ -280,18 +306,26 @@ function createWindow() {
 
   // inject 在 load 完成后注入；splash 由 preload 在 document-start 同步处理。
   win.webContents.on('did-finish-load', injectUi);
+  win.webContents.on('did-finish-load', () => { pageLoad.finish = Date.now(); });
+  win.webContents.on('did-fail-load', (e, code, desc, url) => {
+    pageLoad.fail = { code, desc: String(desc || ''), url: String(url || ''), t: Date.now() };
+  });
 
-  // 环境诊断：启动 ~3s 后(GPU 进程已初始化)打印快照到容器日志 + 落盘,
-  // 供 cde 卡顿排查(容器日志见 [LPTV-diag], 文件见 ~/.local/share/lptv/lptv.diag.json)。
-  setTimeout(() => {
+  // 环境诊断：启动 ~3s(GPU 进程已初始化)与 ~15s(页面是否真正加载完成)各打一次
+  // 快照到容器日志 + 落盘, 供 cde 白屏/卡顿排查。
+  // (容器日志见 [LPTV-diag], 文件见 ~/.local/share/lptv/lptv.diag.json)
+  const diagAt = (ms) => setTimeout(() => {
     collectDiag().then((d) => {
+      d.snap = ms;
       console.log('[LPTV-diag] ' + JSON.stringify(d));
       try {
         fs.mkdirSync(DATA_DIR, { recursive: true });
         fs.writeFileSync(path.join(DATA_DIR, 'lptv.diag.json'), JSON.stringify(d, null, 2));
       } catch (e) {}
     }).catch(() => {});
-  }, 3000);
+  }, ms);
+  diagAt(3000);
+  diagAt(15000);
 
   win.on('closed', () => { win = null; });
 
@@ -346,6 +380,20 @@ async function collectDiag() {
   if (gr && /swiftshader|software|llvmpipe|softpipe/i.test(String(gr))) {
     d.verdict.push('gl_renderer=' + gr + ' → 软件渲染/合成, 卡顿主因');
   }
+  // 页面加载状态：区分白屏是"页面没加载(网络/域名)"还是"渲染问题"
+  try {
+    if (win && win.webContents && !win.webContents.isDestroyed()) {
+      d.page = {
+        url: win.webContents.getURL() || '',
+        title: win.webContents.getTitle() || '',
+        loading: win.webContents.isLoading(),
+        fail: pageLoad.fail,
+        finished: !!pageLoad.finish,
+      };
+      if (!pageLoad.finish) d.verdict.push('did-finish-load 未触发 → 页面未加载成功(白屏主因候选)');
+      if (pageLoad.fail) d.verdict.push('did-fail-load: code=' + pageLoad.fail.code + ' ' + pageLoad.fail.desc + ' url=' + pageLoad.fail.url);
+    }
+  } catch (e) {}
   // 字体是否真的换上(渲染进程 document.fonts): MiSans/JetBrains 加载状态 + 根元素实际 family
   try {
     if (win && win.webContents && !win.webContents.isDestroyed()) {
