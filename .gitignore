@@ -12,9 +12,10 @@ electron/dist/
 # 其构建产物由 android/android/.gitignore(Android 模板) 排除
 android/node_modules/
 android/package-lock.json
-# lzc 整个打包目录不入库不推远端（content/skeleton/manifest/package 等均为本地打包产物，
-# 由构建流程在本地生成或从 release 单独下载；远端不需要）
-lzc/
+# lzc 打包内容与骨架（大/构建产物，本地生成或 release 单独下载）不入库不推远端；
+# lzc 的轻量配置（manifest.yml/package.yml/icon.png）仍需入库
+lzc/skeleton/
+lzc/content/
 
 # 部署配置（非核心，按需参考）
 deploy/
