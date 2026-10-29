@@ -1,0 +1,39 @@
+# LPTV 远程应用清单（对标 cloud.lazycat.catlink.chrome.lpk）
+# 懒猫盒子上跑一个容器，容器里跑 LPTV（Electron 单包YSP壳），
+# Xpra seamless 抓它的 X11 窗口 → 编码 → WebSocket，浏览器端用 catlink SPA 看/控。
+#
+# Electron 官方构建带 H.264 编解码器，YSP（H.264/MSE）直接能播；
+# content/appimage/ 下是唯一的 LPTV.AppImage，由 launch_lptv.sh 启动（--no-sandbox）。
+ext_config:
+  enable_clientfs_access: true
+  enable_document_access: true
+  enable_media_access: true
+
+application:
+  multi_instance: true
+  subdomain: lptv
+  gpu_accel: true
+  public_path:
+    - /catlink/
+    - /rim/
+  health_check:
+    disable: true
+  routes:
+    - /=file:///lzcapp/pkg/content/web/
+    - /catlink/=http://cde:7890/
+    - /rim/=http://cde:8888/
+    - /d/=http://cde:8888/debug/catlink-file/
+
+services:
+  cde:
+    image: registry.lazycat.cloud/snyh/lzc-cde:0.2.9
+    command: /lzcapp/pkg/content/run.sh
+    environment:
+      - HOME=/lzcapp/var/
+      # LPTV 用自研 rlptv id（rim 源码已加 rlptv：app_id.go 白名单 + /rlptv 安装/
+      # 更新路由 + lptv_install.go 指向 LPTV.AppImage）。SPA 的 configs.rchrome
+      # 已后编辑为 id:rlptv + apiPrefix:"/rim/rlptv"，与 CATLINK_APP_ID 一致，
+      # rim 才响应 /rim/rlptv/*（否则 502 → SPA 死循环 "not ready"）。
+      - CATLINK_APP_ID=rlptv
+    binds:
+      - /lzcapp/var/fonts:/usr/local/share/fonts/ex_fonts
