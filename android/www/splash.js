@@ -191,7 +191,10 @@
   var t0 = Date.now();
   var timer = setInterval(function () {
     var el = Date.now() - t0;
-    if (mask && ((videoReady() && el >= MIN_MS) || el >= MAX_MS)) {
+    // Android（__lptvBridge, iframe 模型）: 视频在跨域 iframe 内, videoReady() 查不到
+    // 父页 <video>, 恒为 false; 走 MIN_MS 后淡出, 避免黑屏挂 22s。
+    if (mask && ((videoReady() && el >= MIN_MS) || el >= MAX_MS ||
+                 (window.__lptvBridge && el >= MIN_MS))) {
       clearInterval(timer);
       var m = mask;
       mask = null;

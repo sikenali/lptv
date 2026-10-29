@@ -81,4 +81,38 @@ else:
     print('apply_tv: 清单已就绪（无需改动）')
 EOF
 
+# 3) 品牌名（懒猫微视）: Capacitor 重建工程会还原成 LPTV, 这里幂等改回
+STR="$AND/app/src/main/res/values/strings.xml"
+if [ -f "$STR" ]; then
+  sed -i 's|<string name="app_name">[^<]*</string>|<string name="app_name">懒猫微视</string>|' "$STR"
+  sed -i 's|<string name="title_activity_main">[^<]*</string>|<string name="title_activity_main">懒猫微视</string>|' "$STR"
+fi
+
+# 4) launcher 图标: 从 frontend/icon.png 重新生成各密度 mipmap（Capacitor 默认图标非 LPTV）
+SRC_ICON="$HERE/../frontend/icon.png"
+if [ -f "$SRC_ICON" ] && command -v python3 >/dev/null 2>&1 && python3 -c "import PIL" 2>/dev/null; then
+  python3 - "$SRC_ICON" "$AND/app/src/main/res" <<'EOF'
+import sys, os
+from PIL import Image, ImageDraw, ImageOps
+src = sys.argv[1]; res = sys.argv[2]
+base = Image.open(src).convert('RGBA')
+sizes = {'mdpi':48,'hdpi':72,'xhdpi':96,'xxhdpi':144,'xxxhdpi':192}
+for dpi,s in sizes.items():
+    d = f'{res}/mipmap-{dpi}'
+    os.makedirs(d, exist_ok=True)
+    ic = base.resize((s,s), Image.LANCZOS); ic.save(f'{d}/ic_launcher.png')
+    mask = Image.new('L',(s,s),0); ImageDraw.Draw(mask).ellipse((0,0,s,s),fill=255)
+    fit = ImageOps.fit(base,(s,s),Image.LANCZOS)
+    out = Image.new('RGBA',(s,s),(0,0,0,0)); out.paste(fit,(0,0),mask)
+    out.save(f'{d}/ic_launcher_round.png')
+    fs = int(s*1.5); fg = Image.new('RGBA',(fs,fs),(0,0,0,0))
+    inner = base.resize((int(fs*0.6),int(fs*0.6)), Image.LANCZOS)
+    fg.paste(inner,((fs-inner.width)//2,(fs-inner.height)//2),inner)
+    fg.save(f'{d}/ic_launcher_foreground.png')
+print('apply_tv: launcher 图标已从 frontend/icon.png 生成')
+EOF
+else
+  echo "apply_tv: 跳过图标生成（无 PIL 或缺 frontend/icon.png）" >&2
+fi
+
 echo "apply_tv: 完成"

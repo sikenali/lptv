@@ -504,6 +504,14 @@
     }
     markActive();
     epgSync();
+    // Android（bridge.js iframe 模型）: 视频在跨域 iframe 内, 无法 findOfficialButton,
+    // 直接走 bridge 的 play_channel 设 iframe.src 加载官方播放器。__lptvBridge 仅 Android 设。
+    if (window.__lptvBridge && window.lptv && typeof window.lptv.play_channel === 'function') {
+      showSpin(false);
+      showOSD(chNumLabel(), chNameOf(pid));
+      window.lptv.play_channel(pid);
+      return;
+    }
     showOSD(chNumLabel(), chNameOf(pid) + " · 正在切换…", true);
     showSpin(true);
     var btn = findOfficialButton(officialNameOf(pid));
