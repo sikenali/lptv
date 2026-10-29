@@ -74,9 +74,7 @@ jobs:
           VERSION="${INPUT_VERSION:-$DEFAULT_VERSION}"
           echo "v=$VERSION" >> $GITHUB_OUTPUT
           # 同步版本号到所有构建文件
-          sed -i "s/^version: .*/version: $VERSION/" lzc/package.yml
-          sed -i "s/"version": "[^"]*"/"version": "$VERSION"/" electron/package.json
-          sed -i "s/versionName "[^"]*"/versionName "$VERSION"/" android/android/app/build.gradle
+          node tools/set_version.js "$VERSION"
           echo "Version: $VERSION (default=$DEFAULT_VERSION)"
 
       # ---- AppImage ----
@@ -176,8 +174,7 @@ jobs:
           DEFAULT_VERSION="$(grep -m1 '^version:' lzc/package.yml | awk '{print $2}')"
           VERSION="${INPUT_VERSION:-$DEFAULT_VERSION}"
           echo "v=$VERSION" >> $GITHUB_OUTPUT
-          sed -i "s/^version: .*/version: $VERSION/" lzc/package.yml
-          sed -i "s/"version": "[^"]*"/"version": "$VERSION"/" electron/package.json
+          node tools/set_version.js "$VERSION"
           echo "Version: $VERSION (default=$DEFAULT_VERSION)"
 
       # ---- 构建 portable exe（原生 Windows，无需 wine）----
@@ -253,9 +250,7 @@ jobs:
           VERSION="${INPUT_VERSION:-$DEFAULT_VERSION}"
           echo "v=$VERSION" >> $GITHUB_OUTPUT
           # 同步版本号到所有构建文件
-          sed -i "s/^version: .*/version: $VERSION/" lzc/package.yml
-          sed -i "s/"version": "[^"]*"/"version": "$VERSION"/" electron/package.json
-          sed -i "s/versionName "[^"]*"/versionName "$VERSION"/" android/android/app/build.gradle
+          node tools/set_version.js "$VERSION"
           echo "Version: $VERSION (default=$DEFAULT_VERSION)"
 
       # ---- 构建 APK ----
