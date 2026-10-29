@@ -70,7 +70,7 @@ jobs:
         id: version
         run: |
           INPUT_VERSION="${{ github.event.inputs.version }}"
-          DEFAULT_VERSION="$(grep -m1 '^version:' lzc/package.yml | awk '{print $2}')"
+          DEFAULT_VERSION="$(node -p "require('./electron/package.json').version")"
           VERSION="${INPUT_VERSION:-$DEFAULT_VERSION}"
           echo "v=$VERSION" >> $GITHUB_OUTPUT
           # 同步版本号到所有构建文件
@@ -171,7 +171,7 @@ jobs:
         id: version
         run: |
           INPUT_VERSION="${{ github.event.inputs.version }}"
-          DEFAULT_VERSION="$(grep -m1 '^version:' lzc/package.yml | awk '{print $2}')"
+          DEFAULT_VERSION="$(node -p "require('./electron/package.json').version")"
           VERSION="${INPUT_VERSION:-$DEFAULT_VERSION}"
           echo "v=$VERSION" >> $GITHUB_OUTPUT
           node tools/set_version.js "$VERSION"
@@ -246,7 +246,7 @@ jobs:
         id: version
         run: |
           INPUT_VERSION="${{ github.event.inputs.version }}"
-          DEFAULT_VERSION="$(grep -m1 '^version:' lzc/package.yml | awk '{print $2}')"
+          DEFAULT_VERSION="$(node -p "require('./electron/package.json').version")"
           VERSION="${INPUT_VERSION:-$DEFAULT_VERSION}"
           echo "v=$VERSION" >> $GITHUB_OUTPUT
           # 同步版本号到所有构建文件
