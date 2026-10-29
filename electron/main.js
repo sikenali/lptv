@@ -14,7 +14,7 @@
  * 与旧 bridge.py 的返回值契约保持一致（inject.js 读 r.ok/r.floating/r.maximized
  * /r.pinned/r.id/r.enabled 等），保证前端零逻辑改动。
  * ------------------------------------------------------------------------- */
-const { app, BrowserWindow, ipcMain, dialog, shell, nativeImage, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, nativeImage, screen, powerSaveBlocker } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -31,6 +31,11 @@ app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 // YSP 720p H.264 软解在弱核 CPU 上是掉帧主因，打开后可显著提升流畅度。
 app.commandLine.appendSwitch('enable-accelerated-video-decode');
 app.commandLine.appendSwitch('enable-features', 'VaapiVideoDecoder,VaapiVideoDecodeLinuxGL');
+// 视频流畅度：禁止渲染器/后台定时器节流（配合 webPreferences.backgroundThrottling=false）。
+// 窗口被判定"被遮挡/隐藏"或系统判定后台时，Chromium 默认降渲染至 ~1fps 甚至暂停视频，
+// xpra/浮窗模式下遮挡判定不可靠极易误触发 → 本可流畅却被节流的假卡顿。双保险。
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch('disable-background-timer-throttling');
 
 // ---- xpra 容器判定 --------------------------------------------------------
 // 同一个 AppImage 有两种运行环境：
@@ -288,6 +293,9 @@ function createWindow() {
       nodeIntegration: false,
       spellcheck: false,
       sandbox: false,
+      // 视频流畅度：禁止按窗口遮挡/隐藏节流渲染（xpra/浮窗下遮挡判定不可靠，
+      // 默认会降 ~1fps 甚至暂停视频 → 假卡顿）。配合 disable-renderer-backgrounding。
+      backgroundThrottling: false,
     },
   });
 
@@ -744,6 +752,9 @@ function registerIpc() {
 
 // ===========================================================================
 app.whenReady().then(() => {
+  // 视频流畅度：防系统"空闲/低电"判定后降帧、休眠显示器导致视频被拖慢。
+  // 保持电源唤醒策略，持续阻止休眠（对容器/流媒体无副作用，进程退出自动释放）。
+  try { powerSaveBlocker.start('prevent-display-sleep'); } catch (e) {}
   registerIpc();
   createWindow();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
