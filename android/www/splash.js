@@ -109,8 +109,9 @@
       '.lptv-splash-icon{position:relative;width:min(150px,22vh);height:min(150px,22vh);',
       '  object-fit:contain;border-radius:32px;box-shadow:0 24px 80px rgba(40,110,255,.35);',
       '  animation:lxIn .9s ease backwards}',
-      '@keyframes lxIn{from{opacity:0;transform:translateY(12px) scale(.98)}',
-      '  to{opacity:1;transform:none}}',
+      /* 纯 opacity 淡入：transform 动画会把元素提升到合成层，图片按层尺寸栅格化，
+         字母描边发虚（原 translateY+scale 已实测）。opacity 不触发重栅格化，logo 全程清晰 */
+      '@keyframes lxIn{from{opacity:0}to{opacity:1}}',
       ''
     ].join('\n');
     (document.head || document.documentElement).appendChild(st);
