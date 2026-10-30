@@ -5,9 +5,17 @@
 # 用法：
 #   bash box-diag.sh
 # 或逐条手工执行。
+#
+# 注意：必须在 LPTV 容器内跑（/lzcapp 存在）；在开发机上跑无效。
 # -----------------------------------------------------------------------------
 set +e
 PORT="${LPTV_PORT:-8888}"          # rim 端口，默认 8888（可按实际覆盖）
+
+if [ ! -d /lzcapp ]; then
+  echo "错误：当前不在懒猫 LPTV 容器内（/lzcapp 不存在）。" >&2
+  echo "请在盒子上进入 lptv 容器后执行（lzc-cli exec 或容器终端），不要在开发机上跑。" >&2
+  exit 1
+fi
 echo "==== 1. 进程：rim / cde-supervisor / LPTV 是否在跑 ===="
 ps aux | grep -E 'rim|cde-supervisor|LPTV' | grep -v grep
 echo
