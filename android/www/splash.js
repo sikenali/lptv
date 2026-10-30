@@ -71,28 +71,28 @@
       'html.lptv-splash-lock,html.lptv-splash-lock body{background:#04070d!important;',
       '  overflow:hidden!important;height:100%!important}',
       '#lptv-splash{position:fixed;inset:0;z-index:2147483647;overflow:hidden;',
-      '  background:#04070d;display:flex;flex-direction:column;',
-      '  align-items:center;justify-content:center;transition:opacity .25s ease}',
+      '  background:#04070d;display:flex;align-items:center;justify-content:center;',
+      '  transition:opacity .25s ease}',
       '#lptv-splash.lptv-out{opacity:0;pointer-events:none}',
       '#lptv-splash::before{content:"";position:absolute;inset:-24%;pointer-events:none;',
-      '  background:radial-gradient(48% 36% at 50% 42%, rgba(28,86,196,.22), rgba(0,0,0,0) 72%)}',
-      /* LPTV 字标：文字直渲（矢量）任何分辨率都清晰，无图片栅格化发虚问题 */
-      '.lptv-word{font-family:sans-serif;font-weight:700;',
-      '  font-size:clamp(64px,11vw,150px);line-height:1;letter-spacing:-0.05em;',
-      '  color:#eaf2ff;user-select:none;animation:lxIn .9s ease backwards;',
-      '  text-shadow:0 14px 48px rgba(60,130,255,.38)}',
-      /* 彩色进度条: 横幅下方, 四色色块来回扫动 (不定态加载) */
-      '.lptv-progress{position:relative;margin:26px auto 0;width:min(54vw,480px);',
-      '  height:6px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}',
-      '.lptv-progress i{position:absolute;top:0;bottom:0;left:0;width:40%;',
-      '  border-radius:999px;',
-      '  background:linear-gradient(90deg,#1a6fe8 0%,#0fae92 34%,#f07d18 67%,#e8318f 100%);',
-      '  box-shadow:0 0 16px rgba(80,170,255,.55);transform:translateX(0)}',
-      '@media (prefers-reduced-motion:no-preference){',
-      '  .lptv-progress i{animation:lxScan 1.5s ease-in-out infinite alternate}}',
-      '@keyframes lxScan{from{transform:translateX(0)}to{transform:translateX(150%)}}',
+      '  background:radial-gradient(48% 36% at 50% 46%, rgba(28,86,196,.22), rgba(0,0,0,0) 72%)}',
+      /* 圆圈加载: 四色渐变环(保留原进度条配色) + 居中 LPTV 字标。
+         环用 conic-gradient 铺四色 + radial mask 掏空成环, 旋转环体实现转圈;
+         LPTV 为独立非旋转子元素, 居中不跟着转。 */
+      '.lptv-ring-wrap{position:relative;width:min(42vw,210px);height:min(42vw,210px);',
+      '  display:flex;align-items:center;justify-content:center}',
+      '.lptv-ring{position:absolute;inset:0;border-radius:50%;',
+      '  background:conic-gradient(#1a6fe8 0%,#0fae92 34%,#f07d18 67%,#e8318f 100%,#1a6fe8 100%);',
+      '  -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 13px),#000 calc(100% - 12px));',
+      '  mask:radial-gradient(farthest-side,transparent calc(100% - 13px),#000 calc(100% - 12px));',
+      '  animation:lxRing 1.1s linear infinite;',
+      '  filter:drop-shadow(0 0 20px rgba(80,170,255,.35))}',
+      '.lptv-ring-label{font-family:sans-serif;font-weight:700;',
+      '  font-size:clamp(26px,6vw,54px);line-height:1;letter-spacing:-0.04em;color:#eaf2ff;',
+      '  user-select:none;text-shadow:0 10px 36px rgba(60,130,255,.4);animation:lxIn .9s ease backwards}',
       /* 纯 opacity 淡入：transform 动画会把元素提升到合成层，图片按层尺寸栅格化，
          字母描边发虚（原 translateY+scale 已实测）。opacity 不触发重栅格化，logo 全程清晰 */
+      '@keyframes lxRing{to{transform:rotate(360deg)}}',
       '@keyframes lxIn{from{opacity:0}to{opacity:1}}',
       ''
     ].join('\n');
@@ -101,20 +101,19 @@
     var mask = document.createElement('div');
     mask.id = 'lptv-splash';
 
-    /* 主视觉: "LPTV" 文字直渲，清晰无毛边 */
-    var art = document.createElement('div');
-    art.className = 'lptv-word';
-    art.textContent = 'LPTV';
-    art.setAttribute('aria-label', TITLE);
-    art.setAttribute('role', 'img');
-    mask.appendChild(art);
-
-    /* 彩色进度条: 横幅下方来回扫动 (两路径共用) */
-    var prog = document.createElement('div');
-    prog.className = 'lptv-progress';
-    var pi = document.createElement('i');
-    prog.appendChild(pi);
-    mask.appendChild(prog);
+    /* 主视觉: 四色渐变圆环(转) + 居中 LPTV 字标(不转)。文字直渲, 清晰无毛边 */
+    var wrap = document.createElement('div');
+    wrap.className = 'lptv-ring-wrap';
+    var ring = document.createElement('div');
+    ring.className = 'lptv-ring';
+    var label = document.createElement('div');
+    label.className = 'lptv-ring-label';
+    label.textContent = 'LPTV';
+    label.setAttribute('aria-label', TITLE);
+    label.setAttribute('role', 'img');
+    wrap.appendChild(ring);
+    wrap.appendChild(label);
+    mask.appendChild(wrap);
 
     /* 锁定页面背景/滚动 (全覆盖), 并挂到 <html> 最稳 */
     var dEl = document.documentElement;
@@ -126,6 +125,12 @@
   var mask = null;
   function onReady() {
     brandTitle();  // 官方页解析完又改过 title，这里再设一次
+    // 页面 canvas 默认白会在 documentElement 出现后、splash 覆盖前的间隙画出 →
+    // 白闪。先把 html/body 内联设暗（早于 splash 样式表生效），canvas 即暗。
+    try {
+      if (document.documentElement) document.documentElement.style.background = '#04070d';
+      if (document.body) document.body.style.background = '#04070d';
+    } catch (e) {}
     if (!mask) { try { mask = build(); } catch (e) {} }
   }
   /* 尽早盖: 官方页首帧绘制恰发生在 DOMContentLoaded, 等它才建遮罩就晚一帧,

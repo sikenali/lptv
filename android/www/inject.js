@@ -612,9 +612,17 @@
   #lptv-root.dev-hidden{display:none}
 
   #lptv-spin{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:none;z-index:3;
-    width:46px;height:46px;border-radius:50%;border:3px solid rgba(255,255,255,.15);
-    border-top-color:var(--acc);animation:lptvspin .8s linear infinite;pointer-events:none}
-  @keyframes lptvspin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+    width:68px;height:68px;pointer-events:none}
+  /* 频道切换转圈: 与启动画面(splash)一致 —— 四色渐变环 + 居中 LPTV 字标 */
+  #lptv-spin::before{content:"";position:absolute;inset:0;border-radius:50%;
+    background:conic-gradient(#1a6fe8 0%,#0fae92 34%,#f07d18 67%,#e8318f 100%,#1a6fe8 100%);
+    -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 5px),#000 calc(100% - 4px));
+    mask:radial-gradient(farthest-side,transparent calc(100% - 5px),#000 calc(100% - 4px));
+    animation:lptvspin .8s linear infinite}
+  #lptv-spin::after{content:"LPTV";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-size:14px;letter-spacing:-0.02em;color:#eaf2ff;
+    text-shadow:0 2px 10px rgba(60,130,255,.4)}
+  @keyframes lptvspin{to{transform:rotate(360deg)}}
 
   #lptv-osd{position:absolute;left:16px;bottom:64px;pointer-events:none;opacity:0;z-index:10;
     transition:opacity .35s;max-width:70vw;text-shadow:0 2px 12px rgba(0,0,0,.9)}
