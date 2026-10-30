@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+  <title>LPTV</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html,body { background:#04070d; overflow:hidden; height:100%; }
+    #lptv-iframe { position:fixed; inset:0; width:100%; height:100%; border:none; z-index:1; }
+    #lptv-root { position:fixed; inset:0; z-index:2; pointer-events:none; }
+    #lptv-root > * { pointer-events:auto; }
+  </style>
+</head>
+<body>
+  <iframe id="lptv-iframe" src="" allow="autoplay; fullscreen; encrypted-media"
+          sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-presentation">
+  </iframe>
+  <!-- 预加载频道数据和台标 (小图直接嵌入) -->
+  <script src="preload.js"></script>
+  <!-- 桥接层 -->
+  <script src="bridge.js"></script>
+  <!-- 启动动画 -->
+  <script src="splash.js"></script>
+  <!-- LPTV UI 注入层 -->
+  <script src="inject.js"></script>
+</body>
+</html>

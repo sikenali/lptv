@@ -1,0 +1,24 @@
+# 构建产物（体积大，可随时重建/重新下载，不入库）
+# LPK 包
+*.lpk
+# AppImage
+*.AppImage
+# APK
+*.apk
+# Electron 构建
+electron/node_modules/
+electron/dist/
+# Android 构建依赖（node_modules/锁文件）；原生工程 android/android/ 需入库供 CI 构建，
+# 其构建产物由 android/android/.gitignore(Android 模板) 排除
+android/node_modules/
+android/package-lock.json
+# lzc 骨架（rim 等大二进制，本地生成或 release 单独下载）不入库不推远端；
+# lzc/content（web/run.sh/launch/assemble 脚本与图标）与轻量配置（manifest/package/icon）仍需入库
+lzc/skeleton/
+
+# 部署配置（非核心，按需参考）
+deploy/
+
+# Android 签名（敏感，不入库）
+android/release.keystore
+android/keystore.properties
