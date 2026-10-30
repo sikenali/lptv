@@ -2139,7 +2139,7 @@
         if (st && st.ok && fsBox) fsBox.checked = !!st.autoFullscreen;
         if (st && st.ok) {
           var pf = document.getElementById("lptv-s-perf");
-          if (pf) pf.checked = !!st.perfMode;
+          if (pf) pf.checked = st.perfMode !== false;  // 流畅模式默认开启
           var tb = document.getElementById("lptv-s-tbalways");
           if (tb) tb.checked = !!st.topbarAlways;
         }
@@ -3314,8 +3314,8 @@
               if (st.autoFullscreen) {
                 setTimeout(function () { fullToggle(); }, 2600);
               }
-              // 流畅模式: 关掉毛玻璃特效降低渲染开销
-              if (typeof st.perfMode === "boolean") setPerfMode(st.perfMode);
+              // 流畅模式: 关掉毛玻璃特效降低渲染开销（默认开启，仅显式关闭才关）
+              setPerfMode(st.perfMode !== false);
               // 启动时显示顶栏: 常显顶栏 (去勾选为悬停显示)
               if (typeof st.topbarAlways === "boolean") setTopbarAlways(st.topbarAlways);
               // 预约列表跨启动恢复 (localStorage -> resLoad 可直接读)
