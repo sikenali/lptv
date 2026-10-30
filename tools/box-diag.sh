@@ -9,7 +9,16 @@
 # 注意：必须在 LPTV 容器内跑（/lzcapp 存在）；在开发机上跑无效。
 # -----------------------------------------------------------------------------
 set +e
-PORT="${LPTV_PORT:-8888}"          # rim 端口，默认 8888（可按实际覆盖）
+# 自动探测 rim 真实监听端口（优先 lptv 容器的 rim，其次任意 rim），失败回退 8888。
+detect_port() {
+  local p
+  p="$(ss -ltnp 2>/dev/null | grep -iE 'rim|8888|8889|7891|8080' | grep -oE ':[0-9]{2,5}\b' | head -1 | tr -d ':')"
+  [ -n "$p" ] && { echo "$p"; return 0; }
+  p="$(ss -ltn 2>/dev/null | grep -E ':8888|:8889|:7891' | grep -oE ':[0-9]{4,5}\b' | head -1 | tr -d ':')"
+  echo "${p:-8888}"
+}
+PORT="${LPTV_PORT:-$(detect_port)}"
+echo "rim 探测端口：$PORT（可用 LPTV_PORT=<port> 覆盖）"
 
 if [ ! -d /lzcapp ]; then
   echo "错误：当前不在懒猫 LPTV 容器内（/lzcapp 不存在）。" >&2
@@ -25,6 +34,9 @@ for path in "rlptv/update-needed" "rlptv/state" "rlptv/install/status"; do
   echo "  GET /${path} -> HTTP ${code}"
   [ "$code" != "000" ] && head -c 200 /tmp/diag_body && echo
 done
+echo
+echo "==== 2b. rim 监听端口（ss 实测，确认真实端口/是否监听）===="
+ss -ltnp 2>/dev/null | grep -iE 'rim|cde-supervisor' || ss -ltn 2>/dev/null | grep -E ':8888|:8889|:7891' || echo "  （未见 rim 监听端口）"
 echo
 echo "==== 3. 安装目录关键文件与权限（exec 位必须是 -rwxr-xr-x 即 755）===="
 ls -l /lzcapp/pkg/content/rim /lzcapp/pkg/content/cde-supervisor \
