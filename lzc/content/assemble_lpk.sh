@@ -56,6 +56,43 @@ mkdir -p "$STAGE/content"
 # 默认骨架：项目内持久保存的 lzc/skeleton/（由本脚本的「保存骨架」步骤生成）。
 # 没有它才回退到外部 CHROME_LPK / LZC_SKELETON / 纯内容模式。
 DEFAULT_SKELETON="$LPTV_LZC/skeleton"
+# 零参数也能构建：在 LZC_SKELETON / lzc/skeleton 都不可用的情况下，
+# 自动采用项目根目录的 chrome 骨架 lpk 作为 base。
+if [ -z "${LZC_SKELETON:-}" ] && [ -z "$CHROME_LPK" ] \
+   && [ ! -f "$DEFAULT_SKELETON/cde-supervisor" ]; then
+  if [ -f "$LPTV_ROOT/cloud.lazycat.catlink.chrome.lpk" ]; then
+    CHROME_LPK="$LPTV_ROOT/cloud.lazycat.catlink.chrome.lpk"
+    echo "    提示：未指定 CHROME_LPK，自动采用骨架 $CHROME_LPK"
+  fi
+fi
+
+# ---- 可选：rim 源码比预编译二进制新时，自动重编译（避免沿用过期二进制）----
+# 适用场景：回到 Linux x86_64 上改了 lzc-cde/lpk/rim 源码后重新出包。
+# 条件：本机有 go，且能找到 rim 源码（默认 ../lzc-cde/lpk/rim，可用 RIM_SRC 覆盖）。
+# 产物：lzc/content/rim + lzc/content/cde-supervisor（linux/amd64 静态）。
+# 任何失败都回退到 lzc/content 下已有的预编译二进制，不影响出包。
+rebuild_rlptv_binaries() {
+  local rim_src="${RIM_SRC:-$LPTV_LZC/../lzc-cde/lpk/rim}"
+  if [ ! -f "$rim_src/go.mod" ] || ! command -v go >/dev/null 2>&1; then
+    return 0
+  fi
+  if [ -x "$HERE/rim" ] && ! find "$rim_src" -name '*.go' -newer "$HERE/rim" 2>/dev/null | grep -q .; then
+    return 0   # 预编译二进制已是最新，跳过
+  fi
+  echo "==> [0/4] 检测到 rim 源码更新，重新编译 linux/amd64 静态二进制"
+  # 必须在 rim 源码目录内编译（go 需模块上下文，传绝对路径会从 cwd 找模块而失败）
+  if ( cd "$rim_src" && \
+       CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o "$HERE/rim" . ) 2>/dev/null \
+     && ( cd "$rim_src" && \
+       CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" \
+         -o "$HERE/cde-supervisor" ./cmd/cde-supervisor ) 2>/dev/null; then
+    chmod +x "$HERE/rim" "$HERE/cde-supervisor"
+    echo "    已更新：$HERE/rim, $HERE/cde-supervisor"
+  else
+    echo "    警告：rim 重编译失败，将沿用 lzc/content 下的预编译二进制" >&2
+  fi
+}
+rebuild_rlptv_binaries
 if [ -n "${LZC_SKELETON:-}" ]; then
   echo "    骨架来源：LZC_SKELETON=$LZC_SKELETON"
   cp -a "$LZC_SKELETON/." "$STAGE/content/"
@@ -78,6 +115,7 @@ fi
 # - 微信/WPS 的启动脚本对本包无用，删掉。
 echo "    精简骨架：仅 LPTV（Electron），移除残留 Chrome/微信/WPS 资产"
 rm -f "$STAGE/content/appimage/"*.AppImage \
+      "$STAGE/content/launch_chrome.sh" \
       "$STAGE/content/launch_wechat.sh" "$STAGE/content/launch_wps.sh" \
       "$STAGE/content/setup_wechat_lan.sh" "$STAGE/content/start_default_app.sh"
 
@@ -88,7 +126,6 @@ cp "$LPTV_LZC/manifest.yml"  "$STAGE/manifest.yml"
 cp "$LPTV_LZC/package.yml"   "$STAGE/package.yml"
 cp "$HERE/run.sh"            "$STAGE/content/run.sh"
 cp "$HERE/launch_lptv.sh"    "$STAGE/content/launch_lptv.sh"
-cp "$HERE/launch_chrome.sh"  "$STAGE/content/launch_chrome.sh"
 cp "$HERE/90_lzc.conf"       "$STAGE/content/90_lzc.conf"
 # rlptv 任务栏图标（hicolor 各尺寸），run.sh 安装到 /usr/share/icons/hicolor/*/apps/
 if [ -d "$HERE/icons" ]; then
@@ -99,7 +136,20 @@ fi
 if [ -d "$HERE/web" ]; then
   echo "    叠加自定义 web/（覆盖骨架 SPA）：$HERE/web"
   cp -a "$HERE/web/." "$STAGE/content/web/"
+  # 清理骨架 SPA 残留的 chrome/rwx/rwps 资产（我们的 index.html 不引用，纯冗余）
+  rm -f "$STAGE/content/web/assets/chrome-CS-wuLhD.png" \
+        "$STAGE/content/web/assets/index-Bq9TiW7R.js" \
+        "$STAGE/content/web/assets/wechat-remote-logo@4x-4RPD-0qC.png" \
+        "$STAGE/content/web/assets/wps-BA1xOMU5.png"
 fi
+# 覆盖骨架自带的 rim / cde-supervisor：必须用我们重新编译的、认得 rlptv 的版本，
+# 否则官方 rim 遇到 CATLINK_APP_ID=rlptv 会直接退出或路由 404，SPA 永远 not ready。
+for bin in rim cde-supervisor; do
+  if [ -f "$HERE/$bin" ]; then
+    echo "    覆盖二进制：$bin（rlptv-aware）"
+    cp "$HERE/$bin" "$STAGE/content/$bin"
+  fi
+done
 # LPTV 以固定名 LPTV.AppImage 进包：rim rlptv 安装器（lptv_install.go）按
 # /lzcapp/pkg/content/appimage/LPTV.AppImage 读取并安装，无 chrome 符号链接。
 # launch_lptv.sh 按 LPTV*.AppImage 前缀匹配，固定名也能命中。
@@ -107,7 +157,7 @@ LPTV_APPIMAGE_NAME="LPTV.AppImage"
 mkdir -p "$STAGE/content/appimage"
 cp "$APP"                    "$STAGE/content/appimage/$LPTV_APPIMAGE_NAME"
 chmod +x "$STAGE/content/run.sh" "$STAGE/content/launch_lptv.sh" \
-         "$STAGE/content/launch_chrome.sh" \
+         "$STAGE/content/rim" "$STAGE/content/cde-supervisor" \
          "$STAGE/content/appimage/$LPTV_APPIMAGE_NAME"
 if [ -f "$ICON_SRC" ]; then
   cp "$ICON_SRC" "$STAGE/icon.png"
@@ -116,7 +166,10 @@ else
 fi
 
 echo "==> [3/4] 打包 content.tar"
-( cd "$STAGE/content" && tar -cf "$STAGE/content.tar" . )
+# 注意：Windows NTFS 不认 Unix 可执行位，`chmod +x` 在打包前可能不生效，
+# 因此这里用 tar --mode=0755 强制把容器内文件设为可执行（rim/cde-supervisor/
+# run.sh 等必须可执行，否则盒子端 rim 无法启动）。data 文件 755 无害。
+( cd "$STAGE/content" && tar --mode=0755 -cf "$STAGE/content.tar" . )
 
 echo "==> [4/4] 打包外层 LPK"
 ( cd "$STAGE" && tar -cf "$OUT" content.tar icon.png manifest.yml package.yml )
