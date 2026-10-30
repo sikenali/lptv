@@ -9,11 +9,10 @@
 #     ├── icon.png          应用图标
 #     └── content.tar       容器内文件（run.sh / 90_lzc.conf / appimage/ …）
 #
-# 三种输入模式（按优先级）：
-#   1) LZC_SKELETON=/path/to/extracted/content   直接用已解包的会话骨架目录
-#   2) CHROME_LPK=/path/to/...chrome.lpk         解出骨架后叠加 LPTV 文件
-#   3) 都没有                                     纯 LPTV 内容打包（浏览器侧 catlink
-#                                                  SPA/rim 需另行叠加，见下方提示）
+# 内容来源（按优先级）：
+#   1) LZC_SKELETON=/path/to/extracted/content   显式指定已解包的骨架目录（外部覆盖）
+#   2) CHROME_LPK=/path/to/...chrome.lpk         从 chrome lpk 解出骨架再叠加 LPTV 文件
+#   3) 默认：lzc/content/ 自身已是完整内容源（CDE 骨架已并入本目录，无独立 skeleton 目录）
 #
 # 用法：
 #   CHROME_LPK=/path/to/cloud.lazycat.catlink.chrome.lpk \
@@ -51,20 +50,11 @@ find_app() {
   return 1
 }
 
-echo "==> [1/4] 准备 content 骨架"
+echo "==> [1/4] 准备 content"
 mkdir -p "$STAGE/content"
-# 默认骨架：项目内持久保存的 lzc/skeleton/（由本脚本的「保存骨架」步骤生成）。
-# 没有它才回退到外部 CHROME_LPK / LZC_SKELETON / 纯内容模式。
-DEFAULT_SKELETON="$LPTV_LZC/skeleton"
-# 零参数也能构建：在 LZC_SKELETON / lzc/skeleton 都不可用的情况下，
-# 自动采用项目根目录的 chrome 骨架 lpk 作为 base。
-if [ -z "${LZC_SKELETON:-}" ] && [ -z "$CHROME_LPK" ] \
-   && [ ! -f "$DEFAULT_SKELETON/cde-supervisor" ]; then
-  if [ -f "$LPTV_ROOT/cloud.lazycat.catlink.chrome.lpk" ]; then
-    CHROME_LPK="$LPTV_ROOT/cloud.lazycat.catlink.chrome.lpk"
-    echo "    提示：未指定 CHROME_LPK，自动采用骨架 $CHROME_LPK"
-  fi
-fi
+# 内容来源（按优先级）：LZC_SKELETON 外部骨架 > CHROME_LPK 解包 > 默认 lzc/content 自身。
+# lzc/content 已并入完整 CDE 骨架（rim/cde-supervisor/drop/dummyscreen/gtk-bookmark/
+# qt-bookmark.ini 等），不再依赖独立的 lzc/skeleton 目录。
 
 # ---- 可选：rim 源码比预编译二进制新时，自动重编译（避免沿用过期二进制）----
 # 适用场景：回到 Linux x86_64 上改了 lzc-cde/lpk/rim 源码后重新出包。
@@ -94,18 +84,17 @@ rebuild_rlptv_binaries() {
 }
 rebuild_rlptv_binaries
 if [ -n "${LZC_SKELETON:-}" ]; then
-  echo "    骨架来源：LZC_SKELETON=$LZC_SKELETON"
+  echo "    内容来源：LZC_SKELETON=$LZC_SKELETON"
   cp -a "$LZC_SKELETON/." "$STAGE/content/"
 elif [ -n "$CHROME_LPK" ] && [ -f "$CHROME_LPK" ]; then
-  echo "    骨架来源：$CHROME_LPK"
+  echo "    内容来源：$CHROME_LPK"
   tar -xf "$CHROME_LPK" -C "$STAGE" content.tar
   tar -xf "$STAGE/content.tar" -C "$STAGE/content"
-elif [ -f "$DEFAULT_SKELETON/cde-supervisor" ] && [ -f "$DEFAULT_SKELETON/rim" ]; then
-  echo "    骨架来源：项目内 lzc/skeleton/"
-  cp -a "$DEFAULT_SKELETON/." "$STAGE/content/"
 else
-  echo "    警告：未提供 CHROME_LPK / LZC_SKELETON，且 lzc/skeleton/ 不存在，按纯 LPTV 内容打包。" >&2
-  echo "    （浏览器侧 catlink SPA/rim 层缺失时远程画面不可见，见 README。）" >&2
+  echo "    内容来源：lzc/content/（CDE 骨架已并入，无独立 skeleton 目录）"
+  cp -a "$HERE/." "$STAGE/content/"
+  # 构建脚本/中间产物不入包
+  rm -f "$STAGE/content/assemble_lpk.sh" "$STAGE/content/content.tar"
 fi
 
 # 骨架里 chrome 专用资产处理：

@@ -8,7 +8,7 @@
 #   macOS  → LPTV-mac-{arm64,x64}-*.dmg
 #
 # 流程：
-#   linux-build   : AppImage + LPK（需要下载骨架 ~32MB）
+#   linux-build   : AppImage + LPK（lzc/content 含完整 CDE 骨架，无需下载骨架 release）
 #   android-build : 构建 APK（无需骨架）
 #   windows-build : 构建 portable exe（原生 Windows）
 #   macos-build   : 构建 arm64 + x64 dmg
@@ -37,8 +37,6 @@ env:
   NODE_VERSION: '20'
   JDK_VERSION:  '17'
   ANDROID_SDK_VERSION: 'commandlinetools-linux-11076708_latest'
-  SKELETON_RELEASE_TAG: 'skeleton-v1'
-  SKELETON_ASSET: 'lzc-skeleton.tar.gz'
 
 # GITHUB_TOKEN 需写权限创建 GitHub Release（softprops/action-gh-release）
 permissions:
@@ -100,27 +98,9 @@ jobs:
           echo "path=$(pwd)/$FILE" >> $GITHUB_OUTPUT
           echo "AppImage: $(basename "$FILE") ($(du -h "$FILE" | cut -f1))"
 
-      # ---- 下载骨架 ----
-      - name: Download skeleton
-        id: skeleton
-        run: |
-          SKELETON_DIR="$(pwd)/lzc/skeleton"
-          TARBALL="/tmp/lzc-skeleton.tar.gz"
-          TAG="${{ env.SKELETON_RELEASE_TAG }}"
-          if gh release view "$TAG" --json assets \
-              -q '.assets[] | select(.name=="${{ env.SKELETON_ASSET }}")' 2>/dev/null \
-              | grep -q .; then
-            gh release download "$TAG" -D /tmp -A '${{ env.SKELETON_ASSET }}'
-            mkdir -p "$SKELETON_DIR"
-            tar -xzf "$TARBALL" -C "$SKELETON_DIR"
-            echo "found=true" >> $GITHUB_OUTPUT
-          else
-            echo "found=false" >> $GITHUB_OUTPUT
-            echo "警告：未找到骨架 Release $TAG，LPK 将降级为纯内容模式" >&2
-          fi
-
-      # ---- LPK（lzc/content/ 与 lzc/skeleton/ 不入库，本地打包或 release 下载提供）----
-      - name: Assemble LPK (需要 lzc/content/, 本地打包或 release 下载提供)
+      # ---- LPK（lzc/content/ 已含完整 CDE 骨架：rim/cde-supervisor/drop/dummyscreen 等，
+      #      不再下载骨架 release，直接用 content 脚本出包）----
+      - name: Assemble LPK
         id: assemble-lpk
         run: |
           set -euo pipefail
@@ -131,13 +111,6 @@ jobs:
           VERSION="${{ steps.version.outputs.v }}"
           APP="${{ steps.verify-appimage.outputs.path }}"
           [ -f "$APP" ] || { echo "AppImage 缺失" >&2; exit 1; }
-
-          SKELETON_DIR="$(pwd)/lzc/skeleton"
-          if [ "${{ steps.skeleton.outputs.found }}" = "true" ] \
-             && [ -f "$SKELETON_DIR/cde-supervisor" ] && [ -f "$SKELETON_DIR/rim" ]; then
-            export LZC_SKELETON="$SKELETON_DIR"
-            echo "使用本地骨架"
-          fi
           export APP
           bash lzc/content/assemble_lpk.sh
 

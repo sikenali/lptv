@@ -14,7 +14,6 @@ android/node_modules/
 android/package-lock.json
 # lzc 骨架（rim 等大二进制，本地生成或 release 单独下载）不入库不推远端；
 # lzc/content（web/run.sh/launch/assemble 脚本与图标）与轻量配置（manifest/package/icon）仍需入库
-lzc/skeleton/
 
 # 部署配置（非核心，按需参考）
 deploy/
