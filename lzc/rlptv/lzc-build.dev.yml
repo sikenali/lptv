@@ -1,0 +1,13 @@
+package_override:
+    package: dev.lptv
+    name: lptv(开发版)
+    locales:
+      zh:
+        name: 懒猫微视（开发版）
+        description: LPTV
+        entries.open.title: 打开
+        entries.setting.title: 设置
+buildscript: true
+contentdir:
+envs:
+  - DEV_MODE=1

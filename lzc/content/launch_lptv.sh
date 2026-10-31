@@ -72,7 +72,7 @@ launch_rim_copy() {
         # AppDir，传 --no-sandbox 时 $1=--no-sandbox 探测失败 → BIN 解析成 /lptv
         # 直接报 "No such file"。导出 APPDIR 后 AppRun 跳过探测。
         export APPDIR="$RIM_APPS"
-        exec "$RIM_APPS/AppRun" --no-sandbox
+        exec "$RIM_APPS/AppRun" --no-sandbox --disable-dev-shm-usage
     fi
     return 1
 }
@@ -115,7 +115,7 @@ fi
 launch_self_extract() {
     if do_extract; then
         export APPDIR="$SELF_EXTRACT"
-        exec "$SELF_EXTRACT/AppRun" --no-sandbox
+        exec "$SELF_EXTRACT/AppRun" --no-sandbox --disable-dev-shm-usage
     fi
     return 1
 }
