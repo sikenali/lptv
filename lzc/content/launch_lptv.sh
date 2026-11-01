@@ -65,24 +65,15 @@ fi
 printf '%s\n' "$$" > "$PID_FILE"
 
 # ---- 渲染/性能参数 -----------------------------------------------------------
-# 容器内默认没有 GL 驱动（xpra 用 xserver-xorg-video-dummy），Chromium/Electron
-# 会退回软件合成，频道切换/窗口拖动这类高频重绘场景就会卡顿。镜像 rchrome 的
-# 硬件加速开关：开启后走 Vulkan/ANGLE 合成，用上宿主的 GPU。
-# 宿主无 Vulkan 时 Chromium 会自动回退软件渲染，不会更糟。
+# 容器内 Electron 主进程强制 disable-gpu（软件合成，main.js 打包内固定），
+# 任何 --use-angle=vulkan / --enable-features=Vulkan,... 注入都会被 disable-gpu
+# 覆盖成无效参数（纯误导，曾实测盒子 GPU 进程 Vulkan/EGL 初始化即崩，1.0.1
+# 硬加速路径启动失败）。因此这里只保留基础参数，不再注入硬加速开关。
+# 注意：run.sh 仍可能置 CATLINK_CHROME_HARDWARE_ACCELERATION=1（rlptv 默认），
+# 但当前 main.js 软渲染下该开关无效果，仅作占位；若未来盒子 GPU 修复且 main.js
+# 同步改回硬加速，需在此恢复 --use-angle=vulkan 等参数。
 build_lptv_args() {
     LPTV_ARGS=(--no-sandbox --disable-dev-shm-usage)
-    if [ "${CATLINK_CHROME_HARDWARE_ACCELERATION:-0}" = "1" ]; then
-        LPTV_ARGS+=(
-            --use-angle=vulkan
-            --enable-features=Vulkan,CanvasOopRasterization,VaapiVideoDecoder,VaapiVideoDecodeLinuxGL
-            --enable-gpu-rasterization
-            --enable-zero-copy
-            --enable-native-gpu-memory-buffers
-            --enable-accelerated-video-decode
-            --ignore-gpu-blocklist
-            --disable-vulkan-surface
-        )
-    fi
 }
 
 launch_rim_copy() {
