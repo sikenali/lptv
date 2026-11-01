@@ -102,11 +102,14 @@ fi
 #   自带 H.264 编解码器，YSP直接能播，无需外部 Chrome）。清掉骨架里任何残留
 #   AppImage，稍后仅以 LPTV.AppImage 名提供 LPTV 二进制，供 rim rlptv 安装。
 # - 微信/WPS 的启动脚本对本包无用，删掉。
+# - 注意：start_default_app.sh 不能删！90_lzc.conf 的 start-child-after-connect
+#   指向它，xpra 连接会话后靠它 exec 默认应用（rlptv 经 AppRun.wrapper=launch_lptv.sh
+#   拉起 LPTV）。删了会断启动链路 → LPTV 永不启动 → 无画面（lzc-cde 保留它有画面）。
 echo "    精简骨架：仅 LPTV（Electron），移除残留 Chrome/微信/WPS 资产"
 rm -f "$STAGE/content/appimage/"*.AppImage \
       "$STAGE/content/launch_chrome.sh" \
       "$STAGE/content/launch_wechat.sh" "$STAGE/content/launch_wps.sh" \
-      "$STAGE/content/setup_wechat_lan.sh" "$STAGE/content/start_default_app.sh"
+      "$STAGE/content/setup_wechat_lan.sh"
 
 echo "==> [2/4] 叠加 LPTV 专属文件"
 APP="$(find_app || { echo "缺少 LPTV AppImage：先跑 bash build/build_electron.sh" >&2; exit 1; })"

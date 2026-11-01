@@ -213,6 +213,8 @@ install -D /lzcapp/pkg/content/dummyscreen.sh /usr/bin/spectacle
 #    gstreamer 初始化失败会按 init_modules 自动跳过回退 x264/vpx，不崩不劣化。
 # 2) quality=100（近无损）对软件编码器极贵，降到 80 并设下限 50：视频区域走快速
 #    有损编码，帧率/流畅度大幅提升，静态 UI 仍清晰。
+# 注意：此覆盖为 lzc-cde 既有优化，缺失会导致 xpra 用默认 video-encoders=all +
+# quality=100 选到不工作编码器 → 有画面/流畅度问题。必须保留（对齐 lzc-cde）。
 if [ "$CATLINK_APP_ID" = "rlptv" ]; then
     {
         echo "video-encoders = gstreamer,x264,vpx"
