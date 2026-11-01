@@ -62,8 +62,18 @@ mkdir -p "$STAGE/content"
 # 产物：lzc/content/rim + lzc/content/cde-supervisor（linux/amd64 静态）。
 # 任何失败都回退到 lzc/content 下已有的预编译二进制，不影响出包。
 rebuild_rlptv_binaries() {
-  local rim_src="${RIM_SRC:-$LPTV_LZC/../lzc-cde/lpk/rim}"
-  if [ ! -f "$rim_src/go.mod" ] || ! command -v go >/dev/null 2>&1; then
+  # 默认 RIM_SRC：多候选探测（lptv 与 lzc-cde 可能是兄弟目录或任意位置），
+  # 取第一个含 go.mod 的；都不存在则跳过重编译（沿用预编译二进制）。
+  # 修复：原 $LPTV_LZC/../lzc-cde 假设 lzc-cde 是 lptv/lzc 的子目录，实际二者
+  # 常为兄弟（opc/lptv 与 opc/lzc-cde），导致 RIM_SRC 不可达、静默用旧 rim。
+  local rim_src="" cand
+  for cand in "${RIM_SRC:-}" \
+              "$LPTV_LZC/../../lzc-cde/lpk/rim" \
+              "$LPTV_ROOT/lzc-cde/lpk/rim" \
+              "$LPTV_ROOT/../lzc-cde/lpk/rim"; do
+    [ -n "$cand" ] && [ -f "$cand/go.mod" ] && { rim_src="$cand"; break; }
+  done
+  if [ -z "$rim_src" ] || ! command -v go >/dev/null 2>&1; then
     return 0
   fi
   if [ -x "$HERE/rim" ] && ! find "$rim_src" -name '*.go' -newer "$HERE/rim" 2>/dev/null | grep -q .; then

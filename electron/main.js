@@ -30,14 +30,7 @@ app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 // 硬件视频解码 (VAAPI)：盒子无 GPU/驱动不支持时 Chromium 自动回退软解，无副作用。
 // YSP 720p H.264 软解在弱核 CPU 上是掉帧主因，打开后可显著提升流畅度。
 app.commandLine.appendSwitch('enable-accelerated-video-decode');
-// 仅当启动脚本未注入 --enable-features 时才补默认 VAAPI 特性。launch_lptv.sh 在
-// CATLINK_CHROME_HARDWARE_ACCELERATION=1 时注入
-// --enable-features=Vulkan,CanvasOopRasterization,VaapiVideoDecoder,VaapiVideoDecodeLinuxGL
-// （已在命令行里），此时若再 appendSwitch 会覆盖并丢掉 Vulkan/CanvasOopRasterization，
-// 硬加速形同虚设。保留启动脚本注入的完整列表，避免互相覆盖。
-if (!process.argv.some((a) => a.startsWith('--enable-features='))) {
-  app.commandLine.appendSwitch('enable-features', 'VaapiVideoDecoder,VaapiVideoDecodeLinuxGL');
-}
+app.commandLine.appendSwitch('enable-features', 'VaapiVideoDecoder,VaapiVideoDecodeLinuxGL');
 // 视频流畅度：禁止渲染器/后台定时器节流（配合 webPreferences.backgroundThrottling=false）。
 // 窗口被判定"被遮挡/隐藏"或系统判定后台时，Chromium 默认降渲染至 ~1fps 甚至暂停视频，
 // xpra/浮窗模式下遮挡判定不可靠极易误触发 → 本可流畅却被节流的假卡顿。双保险。
@@ -145,22 +138,9 @@ if (fs.existsSync(GPU_BROKEN_MARKER)) {
 // initialization"），渲染进程被连带销毁 → 首次启动即白屏。容器内直接强制软件合成，
 // 不依赖崩溃检测/标记持久/自动回退，保证第一次启动就能渲染。宁可软合成(可能略卡)
 // 不可白屏。本地桌面(独立 AppImage, GPU 正常)不受影响，保持硬件加速。
-//
-// 例外：run.sh 给 rlptv 默认置 CATLINK_CHROME_HARDWARE_ACCELERATION=1，launch_lptv.sh
-// 已注入 --use-angle=vulkan + --enable-features=Vulkan,...。此时**不能**再 disable-gpu，
-// 否则 --disable-gpu 会覆盖 --use-angle=vulkan，硬加速开关形同虚设（Electron 客户端
-// 一直软渲染 → 卡顿）。GPU 若真崩，由上方 gpu.broken 自愈标记兜底：本次崩溃写标记，
-// 下次启动走 disable-gpu 软合成，不白屏。EGL 崩 ≠ Vulkan 崩，Vulkan/ANGLE 路径值得试。
-const CATLINK_HW_ACCEL = process.env.CATLINK_CHROME_HARDWARE_ACCELERATION === '1';
-if (IS_CONTAINER && CATLINK_HW_ACCEL && DRI_RENDER) {
-  // 硬件加速已 opt-in 且容器透传了 DRI 渲染节点：保留 launch_lptv.sh 注入的
-  // Vulkan/ANGLE 参数，不 disable-gpu；若 Vulkan 仍崩，由 gpu.broken 兜底回软渲染。
-  console.log('[LPTV] 容器硬件加速已开启 + DRI 节点 ' + DRI_RENDER + ' → 走 Vulkan/ANGLE，gpu.broken 兜底');
-} else if (IS_CONTAINER) {
-  // 容器无 DRI 透传（或未 opt-in）：即使 opt-in 但无 GPU 也走软渲染，
-  // 避免每次启动 Vulkan 初始化崩 + gpu.broken 被页面成功加载清掉 → 崩溃-自愈死循环。
+if (IS_CONTAINER) {
   app.commandLine.appendSwitch('disable-gpu');
-  console.log('[LPTV] cde/catlink 容器' + (CATLINK_HW_ACCEL ? '(无 DRI 节点，硬件加速不可用)' : '') + ' → 强制软件合成(防 GPU 崩溃白屏)');
+  console.log('[LPTV] cde/catlink 容器 → 强制软件合成(防 GPU 崩溃白屏)');
 } else if (DRI_RENDER) {
   // 本地桌面有 DRI 节点 → 保持硬件加速（含 VAAPI 硬解视频）
   console.log('[LPTV] 检测到 DRI 节点 ' + DRI_RENDER + ' → 硬件加速保持启用');
@@ -261,32 +241,11 @@ function workAreaBounds() {
 }
 
 // setPos: 目标位置用 getBounds 坐标（win_pos 返回值），内部换算回 setBounds 请求。
-// xpra seamless 的 corral 偏移 winOrigin 是固定值（窗口初始位置），setBounds 是绝对
-// 定位：外部（lpk/平台）拖动窗口不会改变 winOrigin，后续 setBounds(P - winOrigin)
-// 仍精确落回 P，无需重校准。这里只做坐标合法性与可视区钳制，防止拖出屏外/NaN
-// 把窗口"弄丢"（lpk 侧常见故障：窗口被拖到负坐标或离屏后无法找回）。
 function setPos(x, y, w, h) {
   if (!win) return;
   calibrateOrigin();
-  const W = Math.max(Math.round(w), 1);
-  const H = Math.max(Math.round(h), 1);
-  let tx = Math.round(x), ty = Math.round(y);
-  if (!Number.isFinite(tx) || !Number.isFinite(ty)) return;
-  // 仅当窗口整体被拖出可视区（标题带都看不见）时才拉回，避免"窗口丢失"；
-  // 正常部分离屏/贴边/多显示器不做限制，不干扰最大化、浮窗、副屏拖拽。
-  // 标题带高度按 30px 估算：拉回后顶部仍露出 30px，用户可抓回拖动。
-  try {
-    const wa = workAreaBounds();
-    const TITLE = 30;
-    const fullyOutX = tx + W <= wa.x || tx >= wa.x + wa.w;
-    const fullyOutY = ty + H <= wa.y || ty >= wa.y + wa.h;
-    if (fullyOutX || fullyOutY) {
-      tx = Math.min(Math.max(tx, wa.x - W + TITLE), wa.x + wa.w - TITLE);
-      ty = Math.min(Math.max(ty, wa.y - H + TITLE), wa.y + wa.h - TITLE);
-    }
-  } catch (e) {}
-  win.setBounds({ x: tx - winOrigin.x, y: ty - winOrigin.y,
-                  width: W, height: H });
+  win.setBounds({ x: Math.round(x - winOrigin.x), y: Math.round(y - winOrigin.y),
+                  width: Math.max(Math.round(w), 1), height: Math.max(Math.round(h), 1) });
 }
 
 function stateLoad() {
