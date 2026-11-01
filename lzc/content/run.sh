@@ -19,22 +19,25 @@ esac
 # 预建注册目录，保证 rim 启动时不报 unsupported CATLINK_APP_ID。
 if [ "$CATLINK_APP_ID" = "rlptv" ] || [ "$CATLINK_APP_ID" = "rchrome" ]; then
     mkdir -p "/lzcapp/var/apps/$CATLINK_APP_ID"
-    # 装 LPTV 图标到 hicolor 主题：任务栏按 <appid>/WM_CLASS 查图标，
-    # 可能命中 rchrome/chrome/rlptv/lptv 任一名字，全部铺一遍（内容同一 LPTV 图标）。
-    if [ -d /lzcapp/pkg/content/icons ]; then
-        for px in 16 24 32 48 64 128 256 512; do
-            [ -f "/lzcapp/pkg/content/icons/rlptv-${px}.png" ] || continue
-            mkdir -p "/usr/share/icons/hicolor/${px}x${px}/apps"
-            for n in rchrome chrome rlptv; do
-                cp -f "/lzcapp/pkg/content/icons/rlptv-${px}.png" "/usr/share/icons/hicolor/${px}x${px}/apps/$n.png"
-            done
+    # 装 LPTV 图标到 hicolor 主题：任务栏按 <appid>/WM_CLASS 查图标。
+    # LPTV 窗口 WM_CLASS 候选名（Electron name:'LPTV' → WM_CLASS lptv/LPTV；
+    # xpra 抓不到时可能落 default）：小写全部覆盖，每个尺寸都铺，不漏 16/32/64/512。
+    LPTV_ICON_NAMES="rchrome chrome rlptv lptv default"
+    for px in 16 24 32 48 64 128 256 512; do
+        [ -f "/lzcapp/pkg/content/icons/rlptv-${px}.png" ] || continue
+        mkdir -p "/usr/share/icons/hicolor/${px}x${px}/apps"
+        for n in $LPTV_ICON_NAMES; do
+            cp -f "/lzcapp/pkg/content/icons/rlptv-${px}.png" "/usr/share/icons/hicolor/${px}x${px}/apps/$n.png"
         done
-        command -v gtk-update-icon-cache >/dev/null 2>&1 && gtk-update-icon-cache -f /usr/share/icons/hicolor 2>/dev/null || true
-        for px in 24 48 256; do
-            [ -f "/usr/share/icons/hicolor/${px}x${px}/apps/rlptv.png" ] && cp -f "/usr/share/icons/hicolor/${px}x${px}/apps/rlptv.png" "/usr/share/icons/hicolor/${px}x${px}/apps/lptv.png"
-        done
-        echo "已安装 LPTV 图标 (rchrome/chrome/rlptv/lptv) 到 hicolor 主题" >&2
-    fi
+    done
+    # 清 hicolor 里所有尺寸的微信残留图标（骨架 CDE 自带 wechat 图标会盖住 LPTV）
+    for px in 16 24 32 48 64 128 256 512; do
+        rm -f "/usr/share/icons/hicolor/${px}x${px}/apps/wechat.png" \
+              "/usr/share/icons/hicolor/${px}x${px}/apps/WeChat.png" \
+              "/usr/share/icons/hicolor/${px}x${px}/apps/weixin.png" 2>/dev/null || true
+    done
+    command -v gtk-update-icon-cache >/dev/null 2>&1 && gtk-update-icon-cache -f /usr/share/icons/hicolor 2>/dev/null || true
+    echo "已安装 LPTV 图标 (rchrome/chrome/rlptv/lptv/default, 全尺寸) 到 hicolor 主题" >&2
 fi
 
 WECHAT_OLD_ROOT=/lzcapp/var/wechat
@@ -101,7 +104,7 @@ if [ "$CATLINK_APP_ID" = "rwps" ] || [ "$CATLINK_APP_ID" = "rchrome" ] || [ "$CA
 fi
 if [ "$CATLINK_APP_ID" = "rchrome" ] || [ "$CATLINK_APP_ID" = "rlptv" ]; then
     export CATLINK_VIDEO_ALPHA_FIX="$(read_rim_bool disable_partial_transparency_for_performance 1)"
-    export CATLINK_CHROME_HARDWARE_ACCELERATION="$(read_rim_bool chrome_hardware_acceleration_opt_in 0)"
+    export CATLINK_CHROME_HARDWARE_ACCELERATION="$(read_rim_bool chrome_hardware_acceleration_opt_in $([ "$CATLINK_APP_ID" = "rlptv" ] && echo 1 || echo 0))"
 fi
 
 current_user="${USER:-${LOGNAME:-$(id -un 2>/dev/null || true)}}"
@@ -202,12 +205,35 @@ export CATLINK_RESTORE_ACTIVE_TRANSIENT_ON_UNMAP="${CATLINK_RESTORE_ACTIVE_TRANS
 install -D /lzcapp/pkg/content/90_lzc.conf /tmp/catlink/xpra.conf
 install -D /lzcapp/pkg/content/dummyscreen.sh /usr/bin/spectacle
 
+# rlptv 性能（仅覆盖本 app，不写回 90_lzc.conf，避免影响 rwx/rwps/rchrome）：
+# 1) xpra 默认 PREFERRED_ENCODER_ORDER 把 gstreamer(VA-API 硬编) 排最后、优先 x264
+#    (软件编码)。宿主机 Intel Iris Xe 经 /dev/dri 透传 + 镜像含 intel-media-va-driver，
+#    vaapih264enc 实测 1080p 硬编 ~127fps，软编 x264 ~54fps（快 2.3~3 倍且释放 CPU）。
+#    故把 video-encoders 改为 gstreamer 优先：视频区域走硬件 H.264 编码；
+#    gstreamer 初始化失败会按 init_modules 自动跳过回退 x264/vpx，不崩不劣化。
+# 2) quality=100（近无损）对软件编码器极贵，降到 80 并设下限 50：视频区域走快速
+#    有损编码，帧率/流畅度大幅提升，静态 UI 仍清晰。
+if [ "$CATLINK_APP_ID" = "rlptv" ]; then
+    {
+        echo "video-encoders = gstreamer,x264,vpx"
+        echo "quality=80"
+        echo "min-quality=50"
+    } >> /tmp/catlink/xpra.conf
+fi
+
 # 预热解包 LPTV AppImage（后台）：客户端连接后启动零等待，首帧画面更快。
 # 不阻塞主流程，失败也不影响正常启动。
 # LPTV 二进制带版本号（LPTV-linux-x86_64-<version>.AppImage），用 glob 匹配不写死。
 if [ "$CATLINK_APP_ID" = "rlptv" ] && [ -x /lzcapp/pkg/content/launch_lptv.sh ] \
    && compgen -G "/lzcapp/pkg/content/appimage/LPTV*.AppImage" >/dev/null; then
     LPTV_PREWARM=1 nohup /lzcapp/pkg/content/launch_lptv.sh >/dev/null 2>&1 &
+fi
+
+# 卡顿诊断：容器启动 60s 后后台采集 GPU/VA-API/GL/Vulkan/xpra编码 信息，
+# 写到 /tmp/catlink/diag.txt，经 /d/diag.txt 在浏览器直接读取（无需进容器）。
+# 只对 rlptv 生效，失败不影响正常启动。
+if [ "$CATLINK_APP_ID" = "rlptv" ] && [ -x /lzcapp/pkg/content/diag_lptv.sh ]; then
+    ( sleep 60; /lzcapp/pkg/content/diag_lptv.sh > /tmp/catlink/diag.txt 2>&1 || true ) &
 fi
 
 exec /lzcapp/pkg/content/cde-supervisor \

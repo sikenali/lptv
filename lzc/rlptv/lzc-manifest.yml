@@ -146,7 +146,7 @@ application:
 services:
   cde:
     image: registry.lazycat.cloud/snyh/lzc-cde:0.2.9
-#    shm_size: 2g
+    shm_size: 2g
     command: /lzcapp/pkg/content/run.sh
     environment:
       - HOME=/lzcapp/var/

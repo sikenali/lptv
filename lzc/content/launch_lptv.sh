@@ -64,6 +64,27 @@ if [ -f "$PID_FILE" ]; then
 fi
 printf '%s\n' "$$" > "$PID_FILE"
 
+# ---- 渲染/性能参数 -----------------------------------------------------------
+# 容器内默认没有 GL 驱动（xpra 用 xserver-xorg-video-dummy），Chromium/Electron
+# 会退回软件合成，频道切换/窗口拖动这类高频重绘场景就会卡顿。镜像 rchrome 的
+# 硬件加速开关：开启后走 Vulkan/ANGLE 合成，用上宿主的 GPU。
+# 宿主无 Vulkan 时 Chromium 会自动回退软件渲染，不会更糟。
+build_lptv_args() {
+    LPTV_ARGS=(--no-sandbox --disable-dev-shm-usage)
+    if [ "${CATLINK_CHROME_HARDWARE_ACCELERATION:-0}" = "1" ]; then
+        LPTV_ARGS+=(
+            --use-angle=vulkan
+            --enable-features=Vulkan,CanvasOopRasterization,VaapiVideoDecoder,VaapiVideoDecodeLinuxGL
+            --enable-gpu-rasterization
+            --enable-zero-copy
+            --enable-native-gpu-memory-buffers
+            --enable-accelerated-video-decode
+            --ignore-gpu-blocklist
+            --disable-vulkan-surface
+        )
+    fi
+}
+
 launch_rim_copy() {
     # rim 把 AppImage 解到 /lzcapp/var/apps/lptv/；用哨兵确认确实是 LPTV。
     if [ -x "$RIM_APPS/AppRun" ] && [ -f "$RIM_APPS/$SENTINEL" ]; then
@@ -72,7 +93,8 @@ launch_rim_copy() {
         # AppDir，传 --no-sandbox 时 $1=--no-sandbox 探测失败 → BIN 解析成 /lptv
         # 直接报 "No such file"。导出 APPDIR 后 AppRun 跳过探测。
         export APPDIR="$RIM_APPS"
-        exec "$RIM_APPS/AppRun" --no-sandbox --disable-dev-shm-usage
+        build_lptv_args
+        exec "$RIM_APPS/AppRun" "${LPTV_ARGS[@]}"
     fi
     return 1
 }
@@ -115,7 +137,8 @@ fi
 launch_self_extract() {
     if do_extract; then
         export APPDIR="$SELF_EXTRACT"
-        exec "$SELF_EXTRACT/AppRun" --no-sandbox --disable-dev-shm-usage
+        build_lptv_args
+        exec "$SELF_EXTRACT/AppRun" "${LPTV_ARGS[@]}"
     fi
     return 1
 }
