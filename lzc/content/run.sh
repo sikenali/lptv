@@ -216,6 +216,7 @@ install -D /lzcapp/pkg/content/dummyscreen.sh /usr/bin/spectacle
 if [ "$CATLINK_APP_ID" = "rlptv" ]; then
     {
         echo "video-encoders = gstreamer,x264,vpx"
+        echo "encodings = h264"
         echo "quality=80"
         echo "min-quality=50"
     } >> /tmp/catlink/xpra.conf
