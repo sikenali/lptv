@@ -205,6 +205,20 @@ export CATLINK_RESTORE_ACTIVE_TRANSIENT_ON_UNMAP="${CATLINK_RESTORE_ACTIVE_TRANS
 install -D /lzcapp/pkg/content/90_lzc.conf /tmp/catlink/xpra.conf
 install -D /lzcapp/pkg/content/dummyscreen.sh /usr/bin/spectacle
 
+# ---- VA-API 用户态栈（B2/B3 硬编硬解）--------------------------------------
+# 盒子 Intel Iris Xe 透传 renderD128，但容器缺 libva/intel-media-va-driver
+# （Chromium VAAPI 视频解码与 xpra gstreamer-vaapi 硬编都依赖）。LPK 携带这套
+# 用户态栈到 content/va/（libva.so.2 + libva-drm.so.2 + iHD_drv_video.so），
+# 启动时注入环境供 Chromium(VAAPI 解码)/xpra(gst-vaapi 硬编) 加载。
+# 缺失则跳过（软编解，仅可能卡顿，不崩）。
+if [ -d /lzcapp/pkg/content/va/lib ] && [ -d /lzcapp/pkg/content/va/drivers ]; then
+    export LD_LIBRARY_PATH="/lzcapp/pkg/content/va/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+    export LIBVA_DRIVERS_PATH="/lzcapp/pkg/content/va/drivers${LIBVA_DRIVERS_PATH:+:$LIBVA_DRIVERS_PATH}"
+    echo "[lzc] VA-API 栈注入: libva+libva-drm+iHD → LIBVA_DRIVERS_PATH=$LIBVA_DRIVERS_PATH"
+else
+    echo "[lzc] VA-API 栈缺失(content/va)，xpra/Chromium 走软编解" >&2
+fi
+
 # rlptv 性能（仅覆盖本 app，不写回 90_lzc.conf，避免影响 rwx/rwps/rchrome）：
 # 1) xpra 默认 PREFERRED_ENCODER_ORDER 把 gstreamer(VA-API 硬编) 排最后、优先 x264
 #    (软件编码)。宿主机 Intel Iris Xe 经 /dev/dri 透传 + 镜像含 intel-media-va-driver，
