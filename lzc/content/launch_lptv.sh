@@ -65,22 +65,23 @@ fi
 printf '%s\n' "$$" > "$PID_FILE"
 
 # ---- 渲染/性能参数 -----------------------------------------------------------
-# 容器内默认没有 GL 驱动（xpra 用 xserver-xorg-video-dummy），Chromium/Electron
-# 会退回软件合成，频道切换/窗口拖动这类高频重绘场景就会卡顿。镜像 rchrome 的
-# 硬件加速开关：开启后走 Vulkan/ANGLE 合成，用上宿主的 GPU。
-# 宿主无 Vulkan 时 Chromium 会自动回退软件渲染，不会更糟。
+# 容器有 Mesa EGL/GL（libEGL_mesa） + VA-API（iHD 硬解/硬编），但**无 Vulkan 驱动**
+# （vulkaninfo 未安装、无 libvulkan）。用 --use-angle=vulkan 会让 Chromium 回退
+# swiftshader-webgl 软渲染 + 央视频 H.264 软解（占 CPU、可能不稳定）。
+# 故改用 --use-angle=gl-egl（ANGLE 走 Mesa EGL，用上宿主 GPU）+ VaapiVideoDecoder
+# （VA-API 硬解央视频）。镜像 rchrome 的硬件加速开关，开启后走 GPU 合成。
+# EGL 初始化失败时 Chromium 会自动回退软件渲染，不会更糟。
 build_lptv_args() {
     LPTV_ARGS=(--no-sandbox --disable-dev-shm-usage)
     if [ "${CATLINK_CHROME_HARDWARE_ACCELERATION:-0}" = "1" ]; then
         LPTV_ARGS+=(
-            --use-angle=vulkan
-            --enable-features=Vulkan,CanvasOopRasterization,VaapiVideoDecoder,VaapiVideoDecodeLinuxGL
+            --use-angle=gl-egl
+            --enable-features=VaapiVideoDecoder,VaapiVideoDecodeLinuxGL,CanvasOopRasterization
             --enable-gpu-rasterization
             --enable-zero-copy
             --enable-native-gpu-memory-buffers
             --enable-accelerated-video-decode
             --ignore-gpu-blocklist
-            --disable-vulkan-surface
         )
     fi
 }
