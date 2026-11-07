@@ -219,13 +219,12 @@ install -D /lzcapp/pkg/content/dummyscreen.sh /usr/bin/spectacle
 # 4) quality 重复键：90_lzc.conf 已有 quality=100，若再追加 quality=80 会成
 #    ['100','80'] → int() 解析失败 → quality 完全无效。用 sed 改已有的 100→80。
 # 5) 文档建议 speed/min-speed 偏向速度（70-90）：视频区域编码更快，低延迟。
-# 6) compressors：90_lzc.conf 有 lz4,none，但 H.264 视频区已用 stream 编码不重压，
-#    lz4 只压缩非视频 packet（窗口元数据/PNG 静态区），改 none 省 lz4 CPU。
+# 6) compressors：保持 90_lzc.conf 的 lz4,none。实测 compressors=none 会触发
+#    "no matching compressor found"（SPA 客户端不认 none）→ 投射失败。
+#    视频区已用 stream 编码不重压 H.264，lz4 只压非视频 packet，保持 lz4,none。
 if [ "$CATLINK_APP_ID" = "rlptv" ]; then
     # quality 去重：把 90_lzc.conf 的 quality=100 改为 80（不再追加导致重复键）
     sed -i 's/^quality=100$/quality=80/' /tmp/catlink/xpra.conf
-    # compressors 去重：lz4,none → none（视频区已 stream 编码，不重压 H.264）
-    sed -i 's/^compressors = lz4,none$/compressors = none/' /tmp/catlink/xpra.conf
     {
         echo "start-child-after-connect=/lzcapp/pkg/content/launch_lptv.sh"
         echo "video-encoders = gstreamer,x264,vpx"
