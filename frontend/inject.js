@@ -31,6 +31,7 @@
     currentPid: "",
     channels: [],
     logoCache: {},           // pid -> data URI (懒加载, 首次渲染时按需获取)
+    aboutCache: {},          // 关于面板图片名(icon.png/lptv.png) -> data URI (启动即预加载, 打开即用)
     video: null,             // 官方 video 元素 (我们复用的画面源)
     currentHls: null,        // 官方 Hls 实例 (画质控制用)
     darkCount: 0,
@@ -448,6 +449,25 @@
     var ch = lptv.channels.find(function (c) { return c.pid === pid; });
     return ch ? ch.name : (pid ? "频道 " + pid : "");
   }
+  /* 关于面板图片(icon.png 猫+电视图标 / lptv.png 品牌 logo): 启动即异步预加载并
+     缓存 data URI 到 lptv.aboutCache。LPK 下 get_asset_image 走桥往返 + 大图
+     base64 较慢, 提前拉取后打开「关于」页即取缓存, 不再现拉现等。幂等: 缓存命中跳过 */
+  function preloadAboutImgs() {
+    var a = window.lptv ? window.lptv : null;
+    if (!a || !a.get_asset_image) return;
+    ["icon.png", "lptv.png"].forEach(function (name) {
+      if (lptv.aboutCache[name]) return;
+      a.get_asset_image(name).then(function (r) {
+        if (r && r.ok && r.src) {
+          lptv.aboutCache[name] = r.src;
+          // 若「关于」已打开, 即时回填对应 img, 无需等下次切换
+          var img = document.getElementById(name === "icon.png" ? "lptv-about-icon-img" : "lptv-about-logo-img");
+          if (img) img.src = r.src;
+        }
+      }).catch(function () {});
+    });
+  }
+
   function chNumLabel() {
     var idx = lptv.channels.findIndex(function (c) { return c.pid === lptv.currentPid; });
     return idx >= 0 ? String(idx + 1).padStart(2, "0") : "--";
@@ -1195,11 +1215,9 @@
                 '</div></div>' +
               '<div class="lptv-set-dir" data-kind="rec">' +
                 '<div class="lptv-set-dir-l"><span>录制</span><div class="lptv-set-url" id="lptv-s-recdir-val" title="">--</div></div>' +
-                '<div class="lptv-set-dir-btns"><span class="lptv-link" id="lptv-s-recdir-pick">更改</span><span class="lptv-link" id="lptv-s-recdir-open">打开</span></div>' +
               '</div>' +
               '<div class="lptv-set-dir" data-kind="shot">' +
                 '<div class="lptv-set-dir-l"><span>截图</span><div class="lptv-set-url" id="lptv-s-shotdir-val" title="">--</div></div>' +
-                '<div class="lptv-set-dir-btns"><span class="lptv-link" id="lptv-s-shotdir-pick">更改</span><span class="lptv-link" id="lptv-s-shotdir-open">打开</span></div>' +
               '</div>' +
             '</div>' +
           '</div>' +
@@ -2540,70 +2558,8 @@
         dragging = false;
       });
     })();
-    // 全屏长按拖动窗口: 除已有拖动面(topbar)/交互控件/悬浮面板外, 任意处按住
-    // ~400ms 进入拖动模式, 移动即 move_win。短按(<400ms)仍走正常点击, 不干扰。
-    // 唯一的长按拖动实现(播放器区不再重复绑定, 避免双 move_win 争抢导致漂移)。
-    // 用 pointer 事件(window capture)而非 mousedown: 官方播放页可能在 window
-    // capture 拦 mousedown 并 stopPropagation(其自身交互), 会掐断 document 级
-    // 长按; pointer 是独立事件流, 不受其 mousedown 拦截影响, 且天然覆盖鼠标/
-    // 触摸/触控笔。
-    (function () {
-      var LP = 400, timer = null, dragging = false, started = false;
-      var sx = 0, sy = 0, wx = 0, wy = 0, posReady = false, moved = false;
-      var lastX = 0, lastY = 0;  // 最近光标: 长按触发时重基线, 首帧不跳
-      var raf = null, pend = null;  // rAF 合帧: 每帧至多一次 move_win, 不刷爆 IPC
-      var SKIP = "#lptv-topbar,#lptv-tb-btns,.lptv-tb-btn,#lptv-controls,#lptv-panel," +
-        "#lptv-epg,#lptv-settings,#lptv-win-grip,#lptv-vol,#lptv-osd,#lptv-nextch," +
-        "#lptv-digit,#lptv-toast,#lptv-hint,#lptv-rec-badge,input,select,button,a," +
-        ".lptv-btn,.lptv-link,.lptv-ch,.lptv-epg-tab";
-      function flush() {
-        raf = null;
-        if (!posReady || !pend) return;
-        var api = wvApi();
-        if (api && api.move_win) api.move_win(pend[0], pend[1]);
-        pend = null;
-      }
-      function endDrag() {
-        clearTimeout(timer); timer = null; started = false;
-        if (raf) { cancelAnimationFrame(raf); raf = null; }
-        if (pend) { flush(); }  // 松开前落定最后一步, 避免窗口停在半路
-        pend = null; dragging = false;
-        // 拖过的释放置 _longDrag, 由 click 处理器消费: 避免拖完的 click 被
-        // 误判成"双击第二击"触发全屏
-        if (moved) {
-          lptv._longDrag = true;
-          setTimeout(function () { lptv._longDrag = false; }, 500);
-        }
-        moved = false;
-      }
-      window.addEventListener("pointerdown", function (e) {
-        if (e.button !== 0) return;
-        if (e.target.closest && e.target.closest(SKIP)) return;
-        sx = lastX = e.screenX; sy = lastY = e.screenY;
-        started = false; dragging = false; posReady = false; moved = false;
-        clearTimeout(timer);
-        timer = setTimeout(function () {
-          started = true; dragging = true;
-          // 以按住期间最后光标为基线: 抵消保持中的手部漂移, 进拖动不跳变
-          sx = lastX; sy = lastY;
-          var api = wvApi();
-          if (api && api.win_pos) {
-            api.win_pos().then(function (r) { if (r && r.ok) { wx = r.x; wy = r.y; } posReady = true; });
-          } else { posReady = true; }
-          wake();
-        }, LP);
-      }, true);
-      window.addEventListener("pointermove", function (e) {
-        lastX = e.screenX; lastY = e.screenY;
-        if (!started) return;  // 不因移动取消: 按住够时长必进拖动, 更可靠
-        if (!dragging || !posReady) return;
-        if (Math.abs(e.screenX - sx) + Math.abs(e.screenY - sy) > 3) moved = true;
-        pend = [wx + (e.screenX - sx), wy + (e.screenY - sy)];
-        if (!raf) raf = requestAnimationFrame(flush);
-      }, true);
-      window.addEventListener("pointerup", endDrag, true);
-      window.addEventListener("pointercancel", endDrag, true);
-    })();
+    // 窗口拖动只保留顶栏(见上方 #lptv-topbar 拖动)。播放区域不再绑定长按拖动:
+    // LPK 下全屏长按会与播放器/点击手势争抢, 且用户只希望从顶栏拖动窗口。
     if (a && a.is_maximized) {
       setInterval(function () { a.is_maximized().then(function (r) { setMaxIcon(r && r.maximized); }); }, 2000);
     }
@@ -3111,40 +3067,28 @@
         lptv.ui.settings.classList.remove("open");
         return;
       }
-      var id = e.target.id, kind = "";
-      if (id === "lptv-s-recdir-pick" || id === "lptv-s-shotdir-pick") kind = id.indexOf("recdir") > 0 ? "rec" : "shot";
-      else if (id === "lptv-s-recdir-open" || id === "lptv-s-shotdir-open") {
-        kind = id.indexOf("recdir") > 0 ? "rec" : "shot";
-        var a1 = window.lptv ? window.lptv : null;
-        if (a1 && a1.open_save_dir) a1.open_save_dir(kind);
-        return;
-      } else return;
-      var a2 = window.lptv ? window.lptv : null;
-      if (!a2 || !a2.pick_save_dir) { toast("桥不可用"); return; }
-      a2.pick_save_dir(kind).then(function (r) {
-        if (r && r.ok) { dirShow(kind, r.dir); toast("保存位置已更改: " + r.dir); }
-      });
     });
     setInterval(dirRefresh, 5000);
 
-    /* 关于面板: 切换到时经桥异步填 logo 与版本号 */
+    /* 关于面板: 切换到时经桥异步填 logo 与版本号 (logo 已由启动预加载缓存, 打开即用) */
     function loadAbout() {
       var a = window.lptv ? window.lptv : null;
       if (a && a.get_version) a.get_version().then(function (v) {
         var t = document.getElementById("lptv-about-ver");
         if (t && v) t.textContent = "版本 v" + v;
       }).catch(function () {});
-      if (a && a.get_asset_image) {
-        // 猫+电视图标(icon.png) 在上, 品牌 logo(lptv.png) 下方换行
-        a.get_asset_image("icon.png").then(function (r) {
-          var img = document.getElementById("lptv-about-icon-img");
-          if (img && r && r.ok) img.src = r.src;
-        }).catch(function () {});
-        a.get_asset_image("lptv.png").then(function (r) {
-          var img = document.getElementById("lptv-about-logo-img");
-          if (img && r && r.ok) img.src = r.src;
-        }).catch(function () {});
+      // 预加载缓存优先; 首次极早打开未就绪时, preloadAboutImgs 继续异步拉取并回填
+      var icon = lptv.aboutCache["icon.png"];
+      if (icon) {
+        var i1 = document.getElementById("lptv-about-icon-img");
+        if (i1) i1.src = icon;
       }
+      var logo = lptv.aboutCache["lptv.png"];
+      if (logo) {
+        var l1 = document.getElementById("lptv-about-logo-img");
+        if (l1) l1.src = logo;
+      }
+      preloadAboutImgs();
     }
 
     function isTyping() {
@@ -3397,6 +3341,7 @@
     installHlsHooks();
     installDragGuard();
     buildUI();
+    preloadAboutImgs();  // 关于页 logo 预加载: 打开「关于」时直接取缓存, 不再现拉现等
     applyFsScale();
     setQuality();
     syncFit();
