@@ -213,12 +213,22 @@ install -D /lzcapp/pkg/content/dummyscreen.sh /usr/bin/spectacle
 #    gstreamer 初始化失败会按 init_modules 自动跳过回退 x264/vpx，不崩不劣化。
 # 2) quality=100（近无损）对软件编码器极贵，降到 80 并设下限 50：视频区域走快速
 #    有损编码，帧率/流畅度大幅提升，静态 UI 仍清晰。
+# 3) 6.9.x 修复：start-child-after-connect 指向被 assemble_lpk.sh 误删的
+#    start_default_app.sh → 客户端连接后 LPTV 永不启动（[Errno 2] No such file）。
+#    rlptv 正确入口是 launch_lptv.sh（启动 Electron AppImage），在此覆盖。
+# 4) quality 重复键：90_lzc.conf 已有 quality=100，若再追加 quality=80 会成
+#    ['100','80'] → int() 解析失败 → quality 完全无效。用 sed 改已有的 100→80。
+# 5) 文档建议 speed/min-speed 偏向速度（70-90）：视频区域编码更快，低延迟。
 if [ "$CATLINK_APP_ID" = "rlptv" ]; then
+    # quality 去重：把 90_lzc.conf 的 quality=100 改为 80（不再追加导致重复键）
+    sed -i 's/^quality=100$/quality=80/' /tmp/catlink/xpra.conf
     {
+        echo "start-child-after-connect=/lzcapp/pkg/content/launch_lptv.sh"
         echo "video-encoders = gstreamer,x264,vpx"
         echo "encodings = h264"
-        echo "quality=80"
         echo "min-quality=50"
+        echo "speed=90"
+        echo "min-speed=70"
     } >> /tmp/catlink/xpra.conf
 fi
 
