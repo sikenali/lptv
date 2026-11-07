@@ -1,7 +1,7 @@
 {
   "name": "lptv",
   "productName": "LPTV",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "LPTV 远程电视客户端 (Electron)",
   "main": "main.js",
   "author": "LPTV",

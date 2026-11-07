@@ -9,7 +9,7 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
-        versionName "1.0.0"
+        versionName "1.0.1"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         // ABI 过滤: 通过 ANDROID_ABI 环境变量控制
         // 默认 all (全架构), 也可设为 arm64-v8a / armeabi-v7a / x86_64
@@ -54,7 +54,7 @@ android {
     applicationVariants.all { variant ->
         variant.outputs.each { output ->
             def abi = System.getenv('ANDROID_ABI') ?: 'all'
-            def ver = variant.versionName ?: '1.0.0'
+            def ver = variant.versionName ?: '1.0.1'
             def buildType = variant.buildType.name
             output.outputFileName = "LPTV-${abi}-${ver}-${buildType}.apk"
 
