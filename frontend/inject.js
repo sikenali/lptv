@@ -2527,9 +2527,21 @@
       var tb = document.querySelector("#lptv-topbar");
       var dragging = false, sx = 0, sy = 0, wx = 0, wy = 0, posReady = false;
       var raf = null, pend = null;  // rAF 合帧: 顶栏拖动同样不刷爆 IPC
-      function flush() {
+      // 拖动节流：xpra seamless 移动窗口需重捕获/重编码整个窗口面。60fps 连续
+      // setBounds 会不断触发 xpra 重编码，跟不上的帧被丢弃 → 拖动黑屏/闪烁。
+      // 限 ~20fps(50ms)：给 xpra 每帧位置留出重编码时间；仍保留最新 pend 不丢
+      // 位置，拖动手感不掉帧（远程/电视场景粒度略粗可接受）。
+      var lastFlush = 0, DRAG_MIN_MS = 50;
+      function flush(force) {
         raf = null;
         if (!posReady || !pend) return;
+        var now = Date.now();
+        if (!force && now - lastFlush < DRAG_MIN_MS) {
+          // 未到节流窗口：下帧再发（pend 已更新为最新位置，不丢）
+          raf = requestAnimationFrame(flush);
+          return;
+        }
+        lastFlush = now;
         var api = wvApi();
         if (api && api.move_win) api.move_win(pend[0], pend[1]);
         pend = null;
@@ -2554,7 +2566,7 @@
       });
       window.addEventListener("mouseup", function () {
         if (raf) { cancelAnimationFrame(raf); raf = null; }
-        if (pend) { flush(); pend = null; }
+        if (pend) { flush(true); pend = null; }  // 松手强制落位（不受节流限制）
         dragging = false;
       });
     })();

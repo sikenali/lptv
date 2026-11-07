@@ -292,6 +292,26 @@ function injectUi() {
 }
 
 // ---- 窗口控制 -------------------------------------------------------------
+// 设置窗口图标(_NET_WM_ICON)。容器(xpra seamless/无 WM)下构造 icon 选项不写
+// _NET_WM_ICON(实测为空)，显式 setIcon 才写；但窗口未映射时 setIcon 也可能不落。
+// 在 构造后/ready-to-show/did-finish-load 多时机重设，映射完成后最可靠。
+// 打日志：createFromPath 是否加载成功(isEmpty) + 图标路径，便于容器排查。
+function applyWindowIcon() {
+  try {
+    if (!win || win.isDestroyed()) return;
+    const p = assetFile('icon.png');
+    const ico = nativeImage.createFromPath(p);
+    if (!ico.isEmpty() && typeof win.setIcon === 'function') {
+      win.setIcon(ico);
+      console.log('[LPTV] window icon set ok: ' + p + ' size=' + JSON.stringify(ico.getSize()));
+    } else {
+      console.log('[LPTV] window icon load EMPTY: ' + p + ' isEmpty=' + ico.isEmpty());
+    }
+  } catch (e) {
+    console.log('[LPTV] window icon error: ' + (e && e.message));
+  }
+}
+
 function createWindow() {
   // 窗口上限 = 屏幕可用区：1920x1080 是期望值，但容器/小屏会被裁剪，
   // 一旦窗口大于可见屏幕，底部/右缘的 hover 触发带（CTRL_ZONE/EPG_EDGE）落到
@@ -339,10 +359,10 @@ function createWindow() {
   win.setMenuBarVisibility(false);
   // 显式设窗口图标：构造 icon 选项在无 WM 容器里不写 _NET_WM_ICON（实测为空），
   // 显式 setIcon 才落到 _NET_WM_ICON，任务栏/窗口才会显示 LPTV 图标而非 Chrome。
-  try {
-    const ico = nativeImage.createFromPath(assetFile('icon.png'));
-    if (!ico.isEmpty() && typeof win.setIcon === 'function') win.setIcon(ico);
-  } catch (e) {}
+  // 实测容器(xpra seamless/无 WM)下即使 setIcon 也偶发 _NET_WM_ICON 为空——窗口
+  // 未映射时图标属性不落。故做成 applyWindowIcon() 在 构造后 / ready-to-show /
+  // did-finish-load 三个时机重复设，映射完成后再设最可靠；并打日志定位加载失败。
+  applyWindowIcon();
 
   win.webContents.setUserAgent(CHROME_UA);
 
@@ -358,7 +378,7 @@ function createWindow() {
       if (/^https?:\/\//.test(win.webContents.getURL())) injectUi();
     } catch (e) {}
   });
-  win.webContents.on('did-finish-load', () => { pageLoad.finish = Date.now(); clearGpuBrokenMarker(); });
+  win.webContents.on('did-finish-load', () => { pageLoad.finish = Date.now(); clearGpuBrokenMarker(); applyWindowIcon(); });
   win.webContents.on('did-fail-load', (e, code, desc, url) => {
     pageLoad.fail = { code, desc: String(desc || ''), url: String(url || ''), t: Date.now() };
   });
@@ -389,6 +409,9 @@ function createWindow() {
       else if (winOrigin === null) winOrigin = { x: 0, y: 0 };
     } catch (e) {}
     try { if (!win.isDestroyed()) win.show(); } catch (e) {}
+    // 窗口已映射：此时 setIcon 才最可能真正落到 _NET_WM_ICON（构造后的那次
+    // 可能因未映射而丢失）。重复设一次，任务栏图标更可靠。
+    applyWindowIcon();
   });
   // 本地桌面兜底：ready-to-show 迟迟不触发（极少数首帧异常）也要显示窗口，
   // 避免窗口永不出现（比白闪更糟）。
