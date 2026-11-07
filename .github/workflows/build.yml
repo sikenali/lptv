@@ -188,7 +188,7 @@ jobs:
   # ==================================================================
   macos-build:
     name: macOS (arm64 + x64)
-    runs-on: macos-14
+    runs-on: macos-15
     outputs:
       mac_path:  ${{ steps.verify-mac.outputs.path }}
       version:   ${{ steps.version.outputs.v }}
