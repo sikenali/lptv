@@ -8,6 +8,12 @@ ext_config:
   enable_clientfs_access: true
   enable_document_access: true
   enable_media_access: true
+  # 容器 CAP_SYS_ADMIN 权限（懒猫 developer.tools 官方同样用法）。此前为让 Xorg
+  # 拿 DRM master（modesetting 真实 GPU）加此权限，但实测宿主 Xorg 已占 DRM master
+  # （drmSetMaster: Device or resource busy），容器 X 服务器无法 modesetting，只能
+  # Xdummy 软渲染。权限保留备用（若未来 GPU 方案需要），无害。
+  permissions:
+    - PERM_DOCKER_CAP_SYS_ADMIN
 
 application:
   multi_instance: true
