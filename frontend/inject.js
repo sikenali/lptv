@@ -2558,8 +2558,70 @@
         dragging = false;
       });
     })();
-    // 窗口拖动只保留顶栏(见上方 #lptv-topbar 拖动)。播放区域不再绑定长按拖动:
-    // LPK 下全屏长按会与播放器/点击手势争抢, 且用户只希望从顶栏拖动窗口。
+    // 全屏长按拖动窗口: 除已有拖动面(topbar)/交互控件/悬浮面板外, 任意处按住
+    // ~400ms 进入拖动模式, 移动即 move_win。短按(<400ms)仍走正常点击, 不干扰。
+    // 唯一的长按拖动实现(播放器区不再重复绑定, 避免双 move_win 争抢导致漂移)。
+    // 用 pointer 事件(window capture)而非 mousedown: 官方播放页可能在 window
+    // capture 拦 mousedown 并 stopPropagation(其自身交互), 会掐断 document 级
+    // 长按; pointer 是独立事件流, 不受其 mousedown 拦截影响, 且天然覆盖鼠标/
+    // 触摸/触控笔。
+    (function () {
+      var LP = 400, timer = null, dragging = false, started = false;
+      var sx = 0, sy = 0, wx = 0, wy = 0, posReady = false, moved = false;
+      var lastX = 0, lastY = 0;  // 最近光标: 长按触发时重基线, 首帧不跳
+      var raf = null, pend = null;  // rAF 合帧: 每帧至多一次 move_win, 不刷爆 IPC
+      var SKIP = "#lptv-topbar,#lptv-tb-btns,.lptv-tb-btn,#lptv-controls,#lptv-panel," +
+        "#lptv-epg,#lptv-settings,#lptv-win-grip,#lptv-vol,#lptv-osd,#lptv-nextch," +
+        "#lptv-digit,#lptv-toast,#lptv-hint,#lptv-rec-badge,input,select,button,a," +
+        ".lptv-btn,.lptv-link,.lptv-ch,.lptv-epg-tab";
+      function flush() {
+        raf = null;
+        if (!posReady || !pend) return;
+        var api = wvApi();
+        if (api && api.move_win) api.move_win(pend[0], pend[1]);
+        pend = null;
+      }
+      function endDrag() {
+        clearTimeout(timer); timer = null; started = false;
+        if (raf) { cancelAnimationFrame(raf); raf = null; }
+        if (pend) { flush(); }  // 松开前落定最后一步, 避免窗口停在半路
+        pend = null; dragging = false;
+        // 拖过的释放置 _longDrag, 由 click 处理器消费: 避免拖完的 click 被
+        // 误判成"双击第二击"触发全屏
+        if (moved) {
+          lptv._longDrag = true;
+          setTimeout(function () { lptv._longDrag = false; }, 500);
+        }
+        moved = false;
+      }
+      window.addEventListener("pointerdown", function (e) {
+        if (e.button !== 0) return;
+        if (e.target.closest && e.target.closest(SKIP)) return;
+        sx = lastX = e.screenX; sy = lastY = e.screenY;
+        started = false; dragging = false; posReady = false; moved = false;
+        clearTimeout(timer);
+        timer = setTimeout(function () {
+          started = true; dragging = true;
+          // 以按住期间最后光标为基线: 抵消保持中的手部漂移, 进拖动不跳变
+          sx = lastX; sy = lastY;
+          var api = wvApi();
+          if (api && api.win_pos) {
+            api.win_pos().then(function (r) { if (r && r.ok) { wx = r.x; wy = r.y; } posReady = true; });
+          } else { posReady = true; }
+          wake();
+        }, LP);
+      }, true);
+      window.addEventListener("pointermove", function (e) {
+        lastX = e.screenX; lastY = e.screenY;
+        if (!started) return;  // 不因移动取消: 按住够时长必进拖动, 更可靠
+        if (!dragging || !posReady) return;
+        if (Math.abs(e.screenX - sx) + Math.abs(e.screenY - sy) > 3) moved = true;
+        pend = [wx + (e.screenX - sx), wy + (e.screenY - sy)];
+        if (!raf) raf = requestAnimationFrame(flush);
+      }, true);
+      window.addEventListener("pointerup", endDrag, true);
+      window.addEventListener("pointercancel", endDrag, true);
+    })();
     if (a && a.is_maximized) {
       setInterval(function () { a.is_maximized().then(function (r) { setMaxIcon(r && r.maximized); }); }, 2000);
     }
