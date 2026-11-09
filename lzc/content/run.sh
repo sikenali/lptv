@@ -233,6 +233,18 @@ if [ "$CATLINK_APP_ID" = "rlptv" ]; then
         echo "speed=90"
         echo "min-speed=70"
     } >> /tmp/catlink/xpra.conf
+    # 问题3：任务栏图标伪装。Electron setIcon 在 xpra 无 WM 下不落 _NET_WM_ICON
+    # → 窗口图标属性空 → 客户端任务栏回退显示微信默认图标。用服务端强制图标兜底：
+    # 1) 覆盖镜像 windowicon.py（加 CATLINK_FORCE_WINDOW_ICON 强制逻辑，见 xpra_patch/）
+    # 2) 设置强制图标 = LPTV 图标（icons/rlptv-64.png）
+    XPRA_WINDOWICON_MOD=/usr/lib/python3/dist-packages/xpra/server/window/windowicon.py
+    if [ -f /lzcapp/pkg/content/xpra_patch/windowicon.py ] && [ -w "$XPRA_WINDOWICON_MOD" ]; then
+        install -m 0644 /lzcapp/pkg/content/xpra_patch/windowicon.py "$XPRA_WINDOWICON_MOD"
+        export CATLINK_FORCE_WINDOW_ICON=/lzcapp/pkg/content/icons/rlptv-64.png
+        echo "[run.sh] LPTV 任务栏图标伪装：windowicon.py 已补丁，CATLINK_FORCE_WINDOW_ICON=$CATLINK_FORCE_WINDOW_ICON" >&2
+    else
+        echo "[run.sh] LPTV 任务栏图标伪装跳过：windowicon.py 补丁不可用" >&2
+    fi
 fi
 
 # 预热解包 LPTV AppImage（后台）：客户端连接后启动零等待，首帧画面更快。
