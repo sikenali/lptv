@@ -31,6 +31,7 @@
     currentPid: "",
     channels: [],
     logoCache: {},           // pid -> data URI (懒加载, 首次渲染时按需获取)
+    aboutCache: {},          // 关于面板图片名(icon.png/lptv.png) -> data URI (启动即预加载, 打开即用)
     video: null,             // 官方 video 元素 (我们复用的画面源)
     currentHls: null,        // 官方 Hls 实例 (画质控制用)
     darkCount: 0,
@@ -448,6 +449,25 @@
     var ch = lptv.channels.find(function (c) { return c.pid === pid; });
     return ch ? ch.name : (pid ? "频道 " + pid : "");
   }
+  /* 关于面板图片(icon.png 猫+电视图标 / lptv.png 品牌 logo): 启动即异步预加载并
+     缓存 data URI 到 lptv.aboutCache。LPK 下 get_asset_image 走桥往返 + 大图
+     base64 较慢, 提前拉取后打开「关于」页即取缓存, 不再现拉现等。幂等: 缓存命中跳过 */
+  function preloadAboutImgs() {
+    var a = window.lptv ? window.lptv : null;
+    if (!a || !a.get_asset_image) return;
+    ["icon.png", "lptv.png"].forEach(function (name) {
+      if (lptv.aboutCache[name]) return;
+      a.get_asset_image(name).then(function (r) {
+        if (r && r.ok && r.src) {
+          lptv.aboutCache[name] = r.src;
+          // 若「关于」已打开, 即时回填对应 img, 无需等下次切换
+          var img = document.getElementById(name === "icon.png" ? "lptv-about-icon-img" : "lptv-about-logo-img");
+          if (img) img.src = r.src;
+        }
+      }).catch(function () {});
+    });
+  }
+
   function chNumLabel() {
     var idx = lptv.channels.findIndex(function (c) { return c.pid === lptv.currentPid; });
     return idx >= 0 ? String(idx + 1).padStart(2, "0") : "--";
@@ -1255,11 +1275,9 @@
                 '</div></div>' +
               '<div class="lptv-set-dir" data-kind="rec">' +
                 '<div class="lptv-set-dir-l"><span>录制</span><div class="lptv-set-url" id="lptv-s-recdir-val" title="">--</div></div>' +
-                '<div class="lptv-set-dir-btns"><span class="lptv-link" id="lptv-s-recdir-pick">更改</span><span class="lptv-link" id="lptv-s-recdir-open">打开</span></div>' +
               '</div>' +
               '<div class="lptv-set-dir" data-kind="shot">' +
                 '<div class="lptv-set-dir-l"><span>截图</span><div class="lptv-set-url" id="lptv-s-shotdir-val" title="">--</div></div>' +
-                '<div class="lptv-set-dir-btns"><span class="lptv-link" id="lptv-s-shotdir-pick">更改</span><span class="lptv-link" id="lptv-s-shotdir-open">打开</span></div>' +
               '</div>' +
             '</div>' +
           '</div>' +
@@ -3171,40 +3189,28 @@
         lptv.ui.settings.classList.remove("open");
         return;
       }
-      var id = e.target.id, kind = "";
-      if (id === "lptv-s-recdir-pick" || id === "lptv-s-shotdir-pick") kind = id.indexOf("recdir") > 0 ? "rec" : "shot";
-      else if (id === "lptv-s-recdir-open" || id === "lptv-s-shotdir-open") {
-        kind = id.indexOf("recdir") > 0 ? "rec" : "shot";
-        var a1 = window.lptv ? window.lptv : null;
-        if (a1 && a1.open_save_dir) a1.open_save_dir(kind);
-        return;
-      } else return;
-      var a2 = window.lptv ? window.lptv : null;
-      if (!a2 || !a2.pick_save_dir) { toast("桥不可用"); return; }
-      a2.pick_save_dir(kind).then(function (r) {
-        if (r && r.ok) { dirShow(kind, r.dir); toast("保存位置已更改: " + r.dir); }
-      });
     });
     setInterval(dirRefresh, 5000);
 
-    /* 关于面板: 切换到时经桥异步填 logo 与版本号 */
+    /* 关于面板: 切换到时经桥异步填 logo 与版本号 (logo 已由启动预加载缓存, 打开即用) */
     function loadAbout() {
       var a = window.lptv ? window.lptv : null;
       if (a && a.get_version) a.get_version().then(function (v) {
         var t = document.getElementById("lptv-about-ver");
         if (t && v) t.textContent = "版本 v" + v;
       }).catch(function () {});
-      if (a && a.get_asset_image) {
-        // 猫+电视图标(icon.png) 在上, 品牌 logo(lptv.png) 下方换行
-        a.get_asset_image("icon.png").then(function (r) {
-          var img = document.getElementById("lptv-about-icon-img");
-          if (img && r && r.ok) img.src = r.src;
-        }).catch(function () {});
-        a.get_asset_image("lptv.png").then(function (r) {
-          var img = document.getElementById("lptv-about-logo-img");
-          if (img && r && r.ok) img.src = r.src;
-        }).catch(function () {});
+      // 预加载缓存优先; 首次极早打开未就绪时, preloadAboutImgs 继续异步拉取并回填
+      var icon = lptv.aboutCache["icon.png"];
+      if (icon) {
+        var i1 = document.getElementById("lptv-about-icon-img");
+        if (i1) i1.src = icon;
       }
+      var logo = lptv.aboutCache["lptv.png"];
+      if (logo) {
+        var l1 = document.getElementById("lptv-about-logo-img");
+        if (l1) l1.src = logo;
+      }
+      preloadAboutImgs();
     }
 
     function isTyping() {
@@ -3457,6 +3463,7 @@
     installHlsHooks();
     installDragGuard();
     buildUI();
+    preloadAboutImgs();  // 关于页 logo 预加载: 打开「关于」时直接取缓存, 不再现拉现等
     applyFsScale();
     setQuality();
     syncFit();
