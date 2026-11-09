@@ -286,7 +286,12 @@
       hideHint();
     });
     v.addEventListener("pause", function () { dbg("vpause t=" + Math.floor(v.currentTime)); handleExternalPause(); });
-    v.addEventListener("error", function () { dbg("verror " + (v.error && v.error.code)); });
+    v.addEventListener("error", function () {
+      dbg("verror " + (v.error && v.error.code));
+      // 播放出错时收起注水动画, 否则永转遮挡切台 UI
+      showSpin(false);
+      toast("该频道播放出错，请切换其他频道");
+    });
   }
 
   var _resumeT = null;
@@ -633,16 +638,19 @@
 
   #lptv-spin{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:none;z-index:3;
     pointer-events:none}
-  /* 频道切换注水动画: 与启动画面(splash)一致 —— 四字母图标(L/P/T/V)从左到右水波浪跳动,
-     图标下方对应颜色横线随字母同步跳动 */
-  .lptv-spin-wave{display:flex;align-items:flex-end;gap:9px}
-  .lptv-spin-col{display:flex;flex-direction:column;align-items:center;gap:6px;
-    --amp:7px;animation:lptvspinwave 1.15s ease-in-out infinite}
-  .lptv-spin-ico{width:24px;height:24px;object-fit:contain;
-    filter:drop-shadow(0 0 8px rgba(120,160,255,.3))}
-  .lptv-spin-line{width:24px;height:2.5px;border-radius:2px;background:currentColor;
-    box-shadow:0 0 6px currentColor}
-  @keyframes lptvspinwave{0%,100%{transform:translateY(0)}50%{transform:translateY(calc(var(--amp,7px) * -1))}}
+  /* 频道切换注水动画: 与启动画面(splash)完全一致 —— 四字母图标(L/P/T/V)在上方
+     从左到右水波浪跳动, 下方一条连续渐变横线(朱红→金→jade绿→云蓝)贯穿连接为整体 */
+  .lptv-wave{display:flex;flex-direction:column;align-items:center;gap:clamp(9px,2.4vw,15px)}
+  .lptv-wave-letters{display:flex;align-items:flex-end;gap:clamp(14px,4.5vw,28px)}
+  .lptv-wave-col{display:flex;flex-direction:column;align-items:center;
+    --amp:clamp(10px,3.2vw,20px);animation:lxWave 1.15s ease-in-out infinite}
+  .lptv-wave-ico{width:clamp(46px,13vw,76px);height:clamp(46px,13vw,76px);object-fit:contain;
+    filter:drop-shadow(0 0 16px rgba(120,160,255,.22))}
+  .lptv-wave-bar{align-self:stretch;height:4px;border-radius:2px;
+    background:linear-gradient(90deg,#FF4D42,#F7C948,#2AD489,#4FA8FF);
+    box-shadow:0 0 12px rgba(120,160,255,.35)}
+  @keyframes lxWave{0%,100%{transform:translateY(0)}50%{transform:translateY(calc(var(--amp,16px) * -1))}}
+  @media (prefers-reduced-motion:reduce){.lptv-wave-col{animation:none}}
 
   /* 切台信息: 右上角 (原左下), 靠右对齐; 避开顶栏(42px)/频道数字输入区/音量 */
   #lptv-osd{position:absolute;right:38px;top:80px;pointer-events:none;opacity:0;z-index:10;
@@ -1115,7 +1123,6 @@
   }
 
   /* ===== 频道切换注水动画 (与启动画面 splash 同一套字母图标+配色) ===== */
-  var SPIN_LET_COLORS = ['#FF4D42', '#F7C948', '#2AD489', '#4FA8FF']; // 朱红 / 金 / jade绿 / 云蓝
   /* 优先读 splash 已写入共享 DOM 的图标 data URI (#lptv-letter-assets):
      跨隔离世界(electron)与 Android 均可同步取到 */
   function spinLettersSync() {
@@ -1131,18 +1138,20 @@
   function renderSpinWave(root, letters) {
     root.innerHTML = '';
     if (letters && letters.length >= 4) {
-      var wave = el('div', { class: 'lptv-spin-wave' });
+      // 与启动画面 splash 同一结构: 字母在上方水波浪跳动, 下方连续渐变横线连接为整体
+      var wave = el('div', { class: 'lptv-wave' });
+      var lettersRow = el('div', { class: 'lptv-wave-letters' });
       letters.slice(0, 4).forEach(function (l, i) {
-        var col = el('div', { class: 'lptv-spin-col' });
-        col.style.color = SPIN_LET_COLORS[i] || '';
+        var col = el('div', { class: 'lptv-wave-col' });
         col.style.animationDelay = (i * 0.12) + 's';   // 错相 → 波峰从左传向右
-        var img = el('img', { class: 'lptv-spin-ico', src: l.src || '', alt: l.letter || '' });
+        var img = el('img', { class: 'lptv-wave-ico', src: l.src || '', alt: l.letter || '' });
         img.draggable = false;
-        var line = el('div', { class: 'lptv-spin-line' });
         col.appendChild(img);
-        col.appendChild(line);
-        wave.appendChild(col);
+        lettersRow.appendChild(col);
       });
+      wave.appendChild(lettersRow);
+      var bar = el('div', { class: 'lptv-wave-bar' });
+      wave.appendChild(bar);
       root.appendChild(wave);
     } else {
       // 兜底: 静态 LPTV 字标
@@ -1597,8 +1606,20 @@
     if (!sticky) o._t = setTimeout(function () { o.classList.remove("show"); }, 3000);
   }
 
+  var _spinWatchdog = null;
   function showSpin(on) {
+    clearTimeout(_spinWatchdog);
     if (lptv.ui.spin) lptv.ui.spin.style.display = on ? "block" : "none";
+    if (on) {
+      // 看门狗: 视频卡缓冲/出错导致 loadeddata/playing 不再触发时,
+      // 也强制收起注水动画, 防止永转遮挡切台 UI
+      _spinWatchdog = setTimeout(function () {
+        if (lptv.ui.spin && lptv.ui.spin.style.display === "block") {
+          lptv.ui.spin.style.display = "none";
+          toast("频道加载超时，请切换其他频道");
+        }
+      }, 12000);
+    }
   }
 
   var hintTimer = null;

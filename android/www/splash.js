@@ -78,16 +78,17 @@
       '#lptv-splash.lptv-out{opacity:0;pointer-events:none}',
       '#lptv-splash::before{content:"";position:absolute;inset:-24%;pointer-events:none;',
       '  background:radial-gradient(48% 36% at 50% 46%, rgba(28,86,196,.22), rgba(0,0,0,0) 72%)}',
-      /* 主视觉: 四个字母图标(L/P/T/V)组合, 从左到右水波浪跳动。
-         每个图标下方一条对应颜色(朱红/金/jade绿/云蓝)横线(适中粗细), 随字母同步跳动:
-         图标+横线同属一列, 整列竖直错相起伏 → 波峰从左传向右。 */
-      '.lptv-wave{display:flex;align-items:flex-end;gap:clamp(14px,4.5vw,28px)}',
-      '.lptv-wave-col{display:flex;flex-direction:column;align-items:center;gap:clamp(9px,2.4vw,15px);',
+      /* 主视觉: 四个字母图标(L/P/T/V)在上方从左到右水波浪跳动,
+         下方一条连续渐变横线(朱红→金→jade绿→云蓝)贯穿连接为整体。 */
+      '.lptv-wave{display:flex;flex-direction:column;align-items:center;gap:clamp(9px,2.4vw,15px)}',
+      '.lptv-wave-letters{display:flex;align-items:flex-end;gap:clamp(14px,4.5vw,28px)}',
+      '.lptv-wave-col{display:flex;flex-direction:column;align-items:center;',
       '  --amp:clamp(10px,3.2vw,20px);animation:lxWave 1.15s ease-in-out infinite}',
       '.lptv-wave-ico{width:clamp(46px,13vw,76px);height:clamp(46px,13vw,76px);object-fit:contain;',
       '  filter:drop-shadow(0 0 16px rgba(120,160,255,.22))}',
-      '.lptv-wave-line{width:clamp(46px,13vw,76px);height:4px;border-radius:2px;background:currentColor;',
-      '  box-shadow:0 0 10px currentColor}',
+      '.lptv-wave-bar{align-self:stretch;height:4px;border-radius:2px;',
+      '  background:linear-gradient(90deg,#FF4D42,#F7C948,#2AD489,#4FA8FF);',
+      '  box-shadow:0 0 12px rgba(120,160,255,.35)}',
       /* 回退(无字母图标时): 静态 LPTV 字标, 不转圈 */
       '.lptv-ring-label{font-family:sans-serif;font-weight:700;',
       '  font-size:clamp(26px,6vw,54px);line-height:1;letter-spacing:-0.04em;color:#eaf2ff;',
@@ -96,6 +97,7 @@
          图标描边发虚（原 translateY+scale 已实测）。opacity 不触发重栅格化，logo 全程清晰 */
       '@keyframes lxWave{0%,100%{transform:translateY(0)}50%{transform:translateY(calc(var(--amp,16px) * -1))}}',
       '@keyframes lxIn{from{opacity:0}to{opacity:1}}',
+      '@media (prefers-reduced-motion:reduce){.lptv-wave-col{animation:none}}',
       ''
     ].join('\n');
     (document.head || document.documentElement).appendChild(st);
@@ -103,30 +105,32 @@
     var mask = document.createElement('div');
     mask.id = 'lptv-splash';
 
-    /* 主视觉: 四个字母图标(L/P/T/V)组合, 从左到右水波浪跳动; 无字母时回退静态字标 */
+    /* 主视觉: 四个字母图标(L/P/T/V)在上方水波浪跳动, 下方一条连续渐变横线连接为整体;
+       无字母时回退静态字标 */
     var letters = (CFG.letters || []).slice(0, 4);
     if (letters.length === 4) {
       var wave = document.createElement('div');
       wave.className = 'lptv-wave';
       wave.setAttribute('role', 'img');
       wave.setAttribute('aria-label', TITLE);
-      var LET_COLORS = ['#FF4D42', '#F7C948', '#2AD489', '#4FA8FF']; // 朱红 / 金 / jade绿 / 云蓝
+      var lettersRow = document.createElement('div');
+      lettersRow.className = 'lptv-wave-letters';
       for (var i = 0; i < letters.length; i++) {
         var col = document.createElement('div');
         col.className = 'lptv-wave-col';
-        col.style.color = LET_COLORS[i] || '';
         col.style.animationDelay = (i * 0.12) + 's';   // 错相 → 波峰从左传向右
         var img = document.createElement('img');
         img.className = 'lptv-wave-ico';
         img.src = letters[i].src || '';
         img.alt = letters[i].letter || '';
         img.draggable = false;
-        var line = document.createElement('div');
-        line.className = 'lptv-wave-line';
         col.appendChild(img);
-        col.appendChild(line);
-        wave.appendChild(col);
+        lettersRow.appendChild(col);
       }
+      wave.appendChild(lettersRow);
+      var bar = document.createElement('div');
+      bar.className = 'lptv-wave-bar';
+      wave.appendChild(bar);
       mask.appendChild(wave);
       /* 共享给 inject.js 频道切换动画复用(同一套字母图标+配色):
          写入共享 DOM, 跨隔离世界读该节点即可取到 data URI。 */
