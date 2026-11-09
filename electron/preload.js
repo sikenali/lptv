@@ -78,11 +78,21 @@ function showSplash() {
       return path.join(__dirname, '..', 'frontend');
     })();
     const icon = fs.readFileSync(path.join(dir, 'icon.png')).toString('base64');
+    // 四字母图标(L/P/T/V): 注水波浪动画用, data URI 内嵌避免任何网络/相对路径问题。
+    // 缺任一图标时降级为空数组 → splash 回退静态 LPTV 字标, 仍能显示启动画面。
+    let letters = [];
+    try {
+      letters = ['L', 'P', 'T', 'V'].map((L) => ({
+        letter: L,
+        src: 'data:image/png;base64,' + fs.readFileSync(path.join(dir, L + '_48x48.png')).toString('base64'),
+      }));
+    } catch (e) { letters = []; }
     const js = fs.readFileSync(path.join(dir, 'splash.js'), 'utf8');
     if (!js) return;
     window.__LPTV_SPLASH_CFG = {
       icon: 'data:image/png;base64,' + icon,
       title: 'LPTV',
+      letters,
     };
     (0, eval)(js);   // 在隔离世界全局作用域执行 splash.js（其自身为 IIFE）
   } catch (e) {}

@@ -632,20 +632,21 @@
   #lptv-root.dev-hidden{display:none}
 
   #lptv-spin{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:none;z-index:3;
-    width:68px;height:68px;pointer-events:none}
-  /* 频道切换转圈: 与启动画面(splash)一致 —— 四色渐变环 + 居中 LPTV 字标 */
-  #lptv-spin::before{content:"";position:absolute;inset:0;border-radius:50%;
-    background:conic-gradient(#1a6fe8 0%,#0fae92 34%,#f07d18 67%,#e8318f 100%,#1a6fe8 100%);
-    -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 5px),#000 calc(100% - 4px));
-    mask:radial-gradient(farthest-side,transparent calc(100% - 5px),#000 calc(100% - 4px));
-    animation:lptvspin .8s linear infinite}
-  #lptv-spin::after{content:"LPTV";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-    font-weight:700;font-size:14px;letter-spacing:-0.02em;color:#eaf2ff;
-    text-shadow:0 2px 10px rgba(60,130,255,.4)}
-  @keyframes lptvspin{to{transform:rotate(360deg)}}
+    pointer-events:none}
+  /* 频道切换注水动画: 与启动画面(splash)一致 —— 四字母图标(L/P/T/V)从左到右水波浪跳动,
+     图标下方对应颜色横线随字母同步跳动 */
+  .lptv-spin-wave{display:flex;align-items:flex-end;gap:9px}
+  .lptv-spin-col{display:flex;flex-direction:column;align-items:center;gap:6px;
+    --amp:7px;animation:lptvspinwave 1.15s ease-in-out infinite}
+  .lptv-spin-ico{width:24px;height:24px;object-fit:contain;
+    filter:drop-shadow(0 0 8px rgba(120,160,255,.3))}
+  .lptv-spin-line{width:24px;height:2.5px;border-radius:2px;background:currentColor;
+    box-shadow:0 0 6px currentColor}
+  @keyframes lptvspinwave{0%,100%{transform:translateY(0)}50%{transform:translateY(calc(var(--amp,7px) * -1))}}
 
-  #lptv-osd{position:absolute;left:16px;bottom:64px;pointer-events:none;opacity:0;z-index:10;
-    transition:opacity .35s;max-width:70vw;text-shadow:0 2px 12px rgba(0,0,0,.9)}
+  /* 切台信息: 右上角 (原左下), 靠右对齐; 避开顶栏(42px)/频道数字输入区/音量 */
+  #lptv-osd{position:absolute;right:38px;top:80px;pointer-events:none;opacity:0;z-index:10;
+    text-align:right;transition:opacity .35s;max-width:70vw;text-shadow:0 2px 12px rgba(0,0,0,.9)}
   #lptv-osd.show{opacity:1}
   .lptv-osd-num{font-size:calc(34.0px * var(--fs-scale));font-weight:700;line-height:1}
   .lptv-osd-num b{color:var(--acc)}
@@ -1113,6 +1114,64 @@
     return e;
   }
 
+  /* ===== 频道切换注水动画 (与启动画面 splash 同一套字母图标+配色) ===== */
+  var SPIN_LET_COLORS = ['#FF4D42', '#F7C948', '#2AD489', '#4FA8FF']; // 朱红 / 金 / jade绿 / 云蓝
+  /* 优先读 splash 已写入共享 DOM 的图标 data URI (#lptv-letter-assets):
+     跨隔离世界(electron)与 Android 均可同步取到 */
+  function spinLettersSync() {
+    try {
+      var h = document.getElementById('lptv-letter-assets');
+      if (h) {
+        var a = JSON.parse(h.getAttribute('data-letters') || '[]');
+        if (a && a.length) return a;
+      }
+    } catch (e) {}
+    return null;
+  }
+  function renderSpinWave(root, letters) {
+    root.innerHTML = '';
+    if (letters && letters.length >= 4) {
+      var wave = el('div', { class: 'lptv-spin-wave' });
+      letters.slice(0, 4).forEach(function (l, i) {
+        var col = el('div', { class: 'lptv-spin-col' });
+        col.style.color = SPIN_LET_COLORS[i] || '';
+        col.style.animationDelay = (i * 0.12) + 's';   // 错相 → 波峰从左传向右
+        var img = el('img', { class: 'lptv-spin-ico', src: l.src || '', alt: l.letter || '' });
+        img.draggable = false;
+        var line = el('div', { class: 'lptv-spin-line' });
+        col.appendChild(img);
+        col.appendChild(line);
+        wave.appendChild(col);
+      });
+      root.appendChild(wave);
+    } else {
+      // 兜底: 静态 LPTV 字标
+      var lb = el('div', { text: 'LPTV' });
+      lb.style.cssText = 'font:700 14px sans-serif;color:#eaf2ff;text-shadow:0 2px 10px rgba(60,130,255,.4)';
+      root.appendChild(lb);
+    }
+  }
+  function buildSpinWave(root) {
+    var letters = spinLettersSync();
+    if (letters && letters.length >= 4) { renderSpinWave(root, letters); return; }
+    // 整页再导航后 splash 未重跑 → 共享 DOM 无图标, 经桥异步拉取 (仅 electron)
+    var api = window.lptv || null;
+    if (api && api.get_asset_image) {
+      var names = ['L', 'P', 'T', 'V'], out = [], done = 0;
+      names.forEach(function (L, i) {
+        api.get_asset_image(L + '_48x48.png').then(function (r) {
+          out[i] = { letter: L, src: (r && r.ok) ? r.src : '' };
+          if (++done === names.length) renderSpinWave(root, out);
+        }).catch(function () {
+          out[i] = { letter: L, src: '' };
+          if (++done === names.length) renderSpinWave(root, out);
+        });
+      });
+    } else {
+      renderSpinWave(root, []);
+    }
+  }
+
   function buildUI() {
     var style = el("style", { id: "lptv-style" });
     style.textContent = CSS;
@@ -1126,6 +1185,7 @@
     var digit = el("div", { id: "lptv-digit" });
 
     var spinRoot = el("div", { id: "lptv-spin" });
+    buildSpinWave(spinRoot);
 
     var vol = el("div", { id: "lptv-vol", html:
       '<div class="lptv-vol-label">音量 <span id="lptv-vol-num">100</span>%</div>' });

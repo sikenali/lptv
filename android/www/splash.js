@@ -1,5 +1,5 @@
 /* ---------------------------------------------------------------------------
- * LPTV 启动动画 —— 文字字标 "LPTV" + 加载条 (全覆盖不露YSP)
+ * LPTV 启动动画 —— 四字母图标 (L/P/T/V) 组合, 从左到右水波浪跳动 (全覆盖不露YSP)
  *
  * 由 electron/preload.js 在页面 document-start 同步执行（隔离世界共享 DOM），
  * 直接建 #lptv-splash 遮罩，早于YSP自己的 HTML / JS 解析与首帧绘制。
@@ -10,7 +10,9 @@
  *
  * 配置（由 main.js 在本文件之前注入）：
  *   window.__LPTV_SPLASH_CFG = { icon: 'data:image/png;base64,...',  // 窗口图标
- *                                title: 'LPTV' }
+ *                                title: 'LPTV',
+ *                                letters: [{letter:'L', src:'data:image/png;base64,...'}, ...] }
+ *   letters: 四个字母图标 data URI (或相对 URL), 用于注水波浪动画。
  * --------------------------------------------------------------------------- */
 (function () {
   'use strict';
@@ -76,23 +78,23 @@
       '#lptv-splash.lptv-out{opacity:0;pointer-events:none}',
       '#lptv-splash::before{content:"";position:absolute;inset:-24%;pointer-events:none;',
       '  background:radial-gradient(48% 36% at 50% 46%, rgba(28,86,196,.22), rgba(0,0,0,0) 72%)}',
-      /* 圆圈加载: 四色渐变环(保留原进度条配色) + 居中 LPTV 字标。
-         环用 conic-gradient 铺四色 + radial mask 掏空成环, 旋转环体实现转圈;
-         LPTV 为独立非旋转子元素, 居中不跟着转。 */
-      '.lptv-ring-wrap{position:relative;width:min(42vw,210px);height:min(42vw,210px);',
-      '  display:flex;align-items:center;justify-content:center}',
-      '.lptv-ring{position:absolute;inset:0;border-radius:50%;',
-      '  background:conic-gradient(#1a6fe8 0%,#0fae92 34%,#f07d18 67%,#e8318f 100%,#1a6fe8 100%);',
-      '  -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 13px),#000 calc(100% - 12px));',
-      '  mask:radial-gradient(farthest-side,transparent calc(100% - 13px),#000 calc(100% - 12px));',
-      '  animation:lxRing 1.1s linear infinite;',
-      '  filter:drop-shadow(0 0 20px rgba(80,170,255,.35))}',
+      /* 主视觉: 四个字母图标(L/P/T/V)组合, 从左到右水波浪跳动。
+         每个图标下方一条对应颜色(朱红/金/jade绿/云蓝)横线(适中粗细), 随字母同步跳动:
+         图标+横线同属一列, 整列竖直错相起伏 → 波峰从左传向右。 */
+      '.lptv-wave{display:flex;align-items:flex-end;gap:clamp(14px,4.5vw,28px)}',
+      '.lptv-wave-col{display:flex;flex-direction:column;align-items:center;gap:clamp(9px,2.4vw,15px);',
+      '  --amp:clamp(10px,3.2vw,20px);animation:lxWave 1.15s ease-in-out infinite}',
+      '.lptv-wave-ico{width:clamp(46px,13vw,76px);height:clamp(46px,13vw,76px);object-fit:contain;',
+      '  filter:drop-shadow(0 0 16px rgba(120,160,255,.22))}',
+      '.lptv-wave-line{width:clamp(46px,13vw,76px);height:4px;border-radius:2px;background:currentColor;',
+      '  box-shadow:0 0 10px currentColor}',
+      /* 回退(无字母图标时): 静态 LPTV 字标, 不转圈 */
       '.lptv-ring-label{font-family:sans-serif;font-weight:700;',
       '  font-size:clamp(26px,6vw,54px);line-height:1;letter-spacing:-0.04em;color:#eaf2ff;',
       '  user-select:none;text-shadow:0 10px 36px rgba(60,130,255,.4);animation:lxIn .9s ease backwards}',
       /* 纯 opacity 淡入：transform 动画会把元素提升到合成层，图片按层尺寸栅格化，
-         字母描边发虚（原 translateY+scale 已实测）。opacity 不触发重栅格化，logo 全程清晰 */
-      '@keyframes lxRing{to{transform:rotate(360deg)}}',
+         图标描边发虚（原 translateY+scale 已实测）。opacity 不触发重栅格化，logo 全程清晰 */
+      '@keyframes lxWave{0%,100%{transform:translateY(0)}50%{transform:translateY(calc(var(--amp,16px) * -1))}}',
       '@keyframes lxIn{from{opacity:0}to{opacity:1}}',
       ''
     ].join('\n');
@@ -101,19 +103,48 @@
     var mask = document.createElement('div');
     mask.id = 'lptv-splash';
 
-    /* 主视觉: 四色渐变圆环(转) + 居中 LPTV 字标(不转)。文字直渲, 清晰无毛边 */
-    var wrap = document.createElement('div');
-    wrap.className = 'lptv-ring-wrap';
-    var ring = document.createElement('div');
-    ring.className = 'lptv-ring';
-    var label = document.createElement('div');
-    label.className = 'lptv-ring-label';
-    label.textContent = 'LPTV';
-    label.setAttribute('aria-label', TITLE);
-    label.setAttribute('role', 'img');
-    wrap.appendChild(ring);
-    wrap.appendChild(label);
-    mask.appendChild(wrap);
+    /* 主视觉: 四个字母图标(L/P/T/V)组合, 从左到右水波浪跳动; 无字母时回退静态字标 */
+    var letters = (CFG.letters || []).slice(0, 4);
+    if (letters.length === 4) {
+      var wave = document.createElement('div');
+      wave.className = 'lptv-wave';
+      wave.setAttribute('role', 'img');
+      wave.setAttribute('aria-label', TITLE);
+      var LET_COLORS = ['#FF4D42', '#F7C948', '#2AD489', '#4FA8FF']; // 朱红 / 金 / jade绿 / 云蓝
+      for (var i = 0; i < letters.length; i++) {
+        var col = document.createElement('div');
+        col.className = 'lptv-wave-col';
+        col.style.color = LET_COLORS[i] || '';
+        col.style.animationDelay = (i * 0.12) + 's';   // 错相 → 波峰从左传向右
+        var img = document.createElement('img');
+        img.className = 'lptv-wave-ico';
+        img.src = letters[i].src || '';
+        img.alt = letters[i].letter || '';
+        img.draggable = false;
+        var line = document.createElement('div');
+        line.className = 'lptv-wave-line';
+        col.appendChild(img);
+        col.appendChild(line);
+        wave.appendChild(col);
+      }
+      mask.appendChild(wave);
+      /* 共享给 inject.js 频道切换动画复用(同一套字母图标+配色):
+         写入共享 DOM, 跨隔离世界读该节点即可取到 data URI。 */
+      try {
+        var holder = document.createElement('div');
+        holder.id = 'lptv-letter-assets';
+        holder.style.display = 'none';
+        holder.setAttribute('data-letters', JSON.stringify(letters));
+        (document.head || document.documentElement).appendChild(holder);
+      } catch (e) {}
+    } else {
+      var label = document.createElement('div');
+      label.className = 'lptv-ring-label';
+      label.textContent = 'LPTV';
+      label.setAttribute('aria-label', TITLE);
+      label.setAttribute('role', 'img');
+      mask.appendChild(label);
+    }
 
     /* 锁定页面背景/滚动 (全覆盖), 并挂到 <html> 最稳 */
     var dEl = document.documentElement;
