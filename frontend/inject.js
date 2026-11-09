@@ -639,18 +639,24 @@
   #lptv-spin{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:none;z-index:3;
     pointer-events:none}
   /* 频道切换注水动画: 与启动画面(splash)完全一致 —— 四字母图标(L/P/T/V)在上方
-     从左到右水波浪跳动, 下方一条连续渐变横线(朱红→金→jade绿→云蓝)贯穿连接为整体 */
+     相邻排列(不重叠)静止, 下方一条连续渐变横线(朱红→金→jade绿→云蓝)为加载轨道,
+     其上高亮段左右往来滑动 → 加载动画 */
   .lptv-wave{display:flex;flex-direction:column;align-items:center;gap:clamp(9px,2.4vw,15px)}
-  .lptv-wave-letters{display:flex;align-items:flex-end;gap:clamp(14px,4.5vw,28px)}
-  .lptv-wave-col{display:flex;flex-direction:column;align-items:center;
-    --amp:clamp(10px,3.2vw,20px);animation:lxWave 1.15s ease-in-out infinite}
+  .lptv-wave-letters{display:flex;align-items:flex-end;gap:clamp(6px,1vw,10px)}
+  .lptv-wave-col{display:flex;flex-direction:column;align-items:center}
   .lptv-wave-ico{width:clamp(46px,13vw,76px);height:clamp(46px,13vw,76px);object-fit:contain;
     filter:drop-shadow(0 0 16px rgba(120,160,255,.22))}
-  .lptv-wave-bar{align-self:stretch;height:4px;border-radius:2px;
+  .lptv-wave-bar{align-self:stretch;height:4px;border-radius:2px;position:relative;
+    overflow:hidden;
+    background:linear-gradient(90deg,rgba(255,77,66,.4),rgba(247,201,72,.4),rgba(42,212,137,.4),rgba(79,168,255,.4));
+    box-shadow:0 0 12px rgba(120,160,255,.2)}
+  .lptv-wave-bar::after{content:"";position:absolute;top:0;left:0;height:100%;width:42%;
+    border-radius:2px;
     background:linear-gradient(90deg,#FF4D42,#F7C948,#2AD489,#4FA8FF);
-    box-shadow:0 0 12px rgba(120,160,255,.35)}
-  @keyframes lxWave{0%,100%{transform:translateY(0)}50%{transform:translateY(calc(var(--amp,16px) * -1))}}
-  @media (prefers-reduced-motion:reduce){.lptv-wave-col{animation:none}}
+    box-shadow:0 0 14px rgba(160,190,255,.6);
+    animation:lxSlide 1.4s ease-in-out infinite}
+  @keyframes lxSlide{0%{transform:translateX(0)}50%{transform:translateX(138%)}100%{transform:translateX(0)}}
+  @media (prefers-reduced-motion:reduce){.lptv-wave-bar::after{animation:none}}
 
   /* 切台信息: 右上角 (原左下), 靠右对齐; 避开顶栏(42px)/频道数字输入区/音量 */
   #lptv-osd{position:absolute;right:38px;top:80px;pointer-events:none;opacity:0;z-index:10;
@@ -1138,12 +1144,12 @@
   function renderSpinWave(root, letters) {
     root.innerHTML = '';
     if (letters && letters.length >= 4) {
-      // 与启动画面 splash 同一结构: 字母在上方水波浪跳动, 下方连续渐变横线连接为整体
+      // 与启动画面 splash 同一结构: 字母在上方相邻排列(不重叠)静止, 下方渐变横线
+      // 加载轨道 + 高亮段左右往来
       var wave = el('div', { class: 'lptv-wave' });
       var lettersRow = el('div', { class: 'lptv-wave-letters' });
       letters.slice(0, 4).forEach(function (l, i) {
         var col = el('div', { class: 'lptv-wave-col' });
-        col.style.animationDelay = (i * 0.12) + 's';   // 错相 → 波峰从左传向右
         var img = el('img', { class: 'lptv-wave-ico', src: l.src || '', alt: l.letter || '' });
         img.draggable = false;
         col.appendChild(img);
