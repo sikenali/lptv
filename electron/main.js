@@ -133,14 +133,18 @@ if (fs.existsSync(GPU_BROKEN_MARKER)) {
   app.commandLine.appendSwitch('disable-gpu');
   console.log('[LPTV] 检测到 gpu.broken 标记 → 本次禁用 GPU(软件合成)');
 }
-// cde/catlink 容器实测 EGL 初始化即崩（即使 /dev/dri/renderD* 存在），GPU 进程反复
-// 退出（exit_code 133/15, viz_main_impl "Exiting GPU process due to errors during
-// initialization"），渲染进程被连带销毁 → 首次启动即白屏。容器内直接强制软件合成，
-// 不依赖崩溃检测/标记持久/自动回退，保证第一次启动就能渲染。宁可软合成(可能略卡)
-// 不可白屏。本地桌面(独立 AppImage, GPU 正常)不受影响，保持硬件加速。
+// cde/catlink 容器：不再强制 disable-gpu。2026-11-07 实测 EGL 初始化成功
+// (ver 1.5, 50 config)，去掉 disable-gpu 后 video_decode=enabled（VA-API 硬解
+// 独立于合成启用），GPU 进程不崩（合成因 EGL_BAD_CONFIG 自动回退软件）。
+// 容器分支保留 GPU 进程让视频硬解生效：CPU 只做合成/抓帧，拖动时不再黑屏。
+// 本地桌面(独立 AppImage, GPU 正常)不受影响。
 if (IS_CONTAINER) {
-  app.commandLine.appendSwitch('disable-gpu');
-  console.log('[LPTV] cde/catlink 容器 → 强制软件合成(防 GPU 崩溃白屏)');
+  // 实测（2026-11-07，容器 Xdummy）：EGL 初始化成功(ver 1.5, 50 config)，但
+  // Mesa swrast 在 Xdummy(无 DRI3) 上报 RENDERABLE_TYPE=0 → Chromium 找不到匹配
+  // config(EGL_BAD_CONFIG) → 合成自动回退软件(不白屏, GPU 进程不崩)。
+  // 关键：去掉 disable-gpu 后 video_decode=enabled（VA-API 硬解独立于合成启用），
+  // 视频解码从 CPU 移到 GPU video engine → 拖动时 CPU 只做合成/抓帧 → 不再黑屏。
+  console.log('[LPTV] cde/catlink 容器 → 保留 GPU 进程(视频硬解启用, 合成自动回退)');
 } else if (DRI_RENDER) {
   // 本地桌面有 DRI 节点 → 保持硬件加速（含 VAAPI 硬解视频）
   console.log('[LPTV] 检测到 DRI 节点 ' + DRI_RENDER + ' → 硬件加速保持启用');
