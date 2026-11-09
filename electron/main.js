@@ -139,12 +139,12 @@ if (fs.existsSync(GPU_BROKEN_MARKER)) {
 // 容器分支保留 GPU 进程让视频硬解生效：CPU 只做合成/抓帧，拖动时不再黑屏。
 // 本地桌面(独立 AppImage, GPU 正常)不受影响。
 if (IS_CONTAINER) {
-  // 实测（2026-11-07，容器 Xdummy）：EGL 初始化成功(ver 1.5, 50 config)，但
-  // Mesa swrast 在 Xdummy(无 DRI3) 上报 RENDERABLE_TYPE=0 → Chromium 找不到匹配
-  // config(EGL_BAD_CONFIG) → 合成自动回退软件(不白屏, GPU 进程不崩)。
-  // 关键：去掉 disable-gpu 后 video_decode=enabled（VA-API 硬解独立于合成启用），
-  // 视频解码从 CPU 移到 GPU video engine → 拖动时 CPU 只做合成/抓帧 → 不再黑屏。
-  console.log('[LPTV] cde/catlink 容器 → 保留 GPU 进程(视频硬解启用, 合成自动回退)');
+  // 容器强制 use-gl=egl：ANGLE 走 GLES 路径，xpra capture 同步率更高，
+  // damage rect 与 compositor 帧边界对齐，避免拖动时碎片化撕裂。
+  // Xdummy 上 EGL 失败会静默回退 GLX swrast；真实 X server（如 LightOS）EGL 正常工作。
+  app.commandLine.appendSwitch('use-gl', 'egl');
+  app.commandLine.appendSwitch('enable-gpu-rasterization');
+  console.log('[LPTV] cde/catlink 容器 → use-gl=egl + GPU光栅化(视频硬解+硬件合成)');
 } else if (DRI_RENDER) {
   // 本地桌面有 DRI 节点 → 保持硬件加速（含 VAAPI 硬解视频）
   console.log('[LPTV] 检测到 DRI 节点 ' + DRI_RENDER + ' → 硬件加速保持启用');
@@ -432,8 +432,15 @@ async function collectDiag() {
   d.xpraSocket = xpraSocketDisplay();
   try { d.dri = fs.existsSync('/dev/dri') ? fs.readdirSync('/dev/dri') : []; } catch (e) { d.dri = []; }
   d.driRender = DRI_RENDER;
-  if (!DRI_RENDER) d.verdict.push('无可用 DRI render 节点(renderD*) → 未强制 use-gl=egl/GPU光栅化, 走软件合成(能渲染, 仅可能卡顿)');
+  if (!DRI_RENDER && !IS_CONTAINER) d.verdict.push('无可用 DRI render 节点(renderD*) → 本地桌面软件合成(能渲染, 仅可能卡顿)');
   try { d.gpuFeature = app.getGPUFeatureStatus(); } catch (e) { d.gpuFeature = { error: String(e && e.message || e) }; }
+  const gc = d.gpuFeature && d.gpuFeature.gpu_compositing;
+  const vd = d.gpuFeature && d.gpuFeature.video_decode;
+  d.gpuCompositing = gc; d.videoDecode = vd;
+  if (gc === 'disabled_software' || !gc) d.verdict.push('gpu_compositing=' + gc + '→软件合成(拖动时CPU瓶颈风险)');
+  else if (gc !== 'available') d.verdict.push('gpu_compositing=' + gc);
+  if (vd === 'disabled_software' || !vd) d.verdict.push('video_decode=' + vd + '→视频软解(CPU负载↑)');
+  else if (vd !== 'enabled') d.verdict.push('video_decode=' + vd);
   try {
     const gi = await app.getGPUInfo('basic');
     const dev = (gi && (gi.gpuDevice || gi.devices) && (gi.gpuDevice || gi.devices)[0]) || {};
