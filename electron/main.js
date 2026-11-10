@@ -338,8 +338,8 @@ function createWindow() {
   app.setName('LPTV');
   win.setTitle('LPTV');
   win.setMenuBarVisibility(false);
-  // 显式设窗口图标：构造 icon 选项在无 WM 容器里不写 _NET_WM_ICON（实测为空），
-  // 显式 setIcon 才落到 _NET_WM_ICON，任务栏/窗口才会显示 LPTV 图标而非 Chrome。
+  // xpra seamless 模式：Electron setIcon 不写 _NET_WM_ICON（无真实 WM）。
+  // 图标由 xpra windowicon.py 兜底从 hicolor lptv.png 加载（需 CATLINK_FORCE_WINDOW_ICON 或 wmclass 匹配）。
   try {
     const ico = nativeImage.createFromPath(assetFile('icon.png'));
     if (!ico.isEmpty() && typeof win.setIcon === 'function') win.setIcon(ico);
