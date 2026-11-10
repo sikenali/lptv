@@ -135,24 +135,13 @@ if (fs.existsSync(GPU_BROKEN_MARKER)) {
   console.log('[LPTV] 检测到 gpu.broken 标记 → 本次禁用 GPU(软件合成)');
   gpuDisabled = true;
 }
-// cde/catlink 容器：不再强制 disable-gpu。2026-11-07 实测 EGL 初始化成功
-// (ver 1.5, 50 config)，去掉 disable-gpu 后 video_decode=enabled（VA-API 硬解
-// 独立于合成启用），GPU 进程不崩（合成因 EGL_BAD_CONFIG 自动回退软件）。
-// 容器分支保留 GPU 进程让视频硬解生效：CPU 只做合成/抓帧，拖动时不再黑屏。
-// 本地桌面(独立 AppImage, GPU 正常)不受影响。
+// cde/catlink 容器：Xdummy 环境下 use-gl=egl 触发 ANGLE Passthrough FATAL crash，
+// 且 Xdummy 无 DRI/EGL context 可绑定，任何 enable-gpu-rasterization 都会崩。
+// 容器内强制走软件合成（已验证稳定），视频解码由 VA-API 硬解独立于合成路径不受影响。
+// 本地桌面(独立 AppImage, GPU 正常)不受此分支影响。
 if (IS_CONTAINER) {
-  if (gpuDisabled) {
-    // gpu.broken 已触发 disable-gpu，但 use-gl=egl 仍会被追加覆盖 → FATAL crash。
-    // 跳过 EGL 路径，保持纯软件合成（拖动可能稍卡，但不崩溃）。
-    console.log('[LPTV] cde/catlink 容器 → gpu.broken 标记存在，保留 disable-gpu(软件合成)');
-  } else {
-    // 容器强制 use-gl=egl：ANGLE 走 GLES 路径，xpra capture 同步率更高，
-    // damage rect 与 compositor 帧边界对齐，避免拖动时碎片化撕裂。
-    // Xdummy 上 EGL 失败会静默回退 GLX swrast；真实 X server（如 LightOS）EGL 正常工作。
-    app.commandLine.appendSwitch('use-gl', 'egl');
-    app.commandLine.appendSwitch('enable-gpu-rasterization');
-    console.log('[LPTV] cde/catlink 容器 → use-gl=egl + GPU光栅化(视频硬解+硬件合成)');
-  }
+  app.commandLine.appendSwitch('disable-gpu');
+  console.log('[LPTV] cde/catlink 容器 → 禁用GPU(软件合成，Xdummy无EGL支持)');
 } else if (DRI_RENDER) {
   // 本地桌面有 DRI 节点 → 保持硬件加速（含 VAAPI 硬解视频）
   console.log('[LPTV] 检测到 DRI 节点 ' + DRI_RENDER + ' → 硬件加速保持启用');
