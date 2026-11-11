@@ -1,4 +1,0 @@
-pkgout: ./
-icon: ./lptv.png
-buildscript: ./build.sh
-contentdir: ../content/
