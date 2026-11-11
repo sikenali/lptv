@@ -398,6 +398,19 @@ function createWindow() {
 
   win.webContents.setUserAgent(CHROME_UA);
 
+  // ---- 锁定窗口标题为 LPTV ------------------------------------------------
+  // YSP(央视频) SPA 每次路由切换(切台)都会改 document.title(如「央视频 - 有品质
+  // 的视频社交媒体」)。Electron 默认把窗口标题与页面标题同步(page-title-updated)，
+  // 于是切台后远程端标题栏变成央视频而不是 LPTV。preventDefault 阻止页面标题覆盖
+  // 窗口标题，标题栏恒为 LPTV(xpra 客户端显示 "LPTV on <server-domain>")。
+  // splash.js 的 90s 临时定时器由此冗余(仍保留, 无害; 它只护首载 90s, 不护切台)。
+  win.webContents.on('page-title-updated', (e) => {
+    try {
+      e.preventDefault();
+      if (!win.isDestroyed()) win.setTitle('LPTV');
+    } catch (err) {}
+  });
+
   // inject 在 DOM 就绪(dom-ready)后注入——比 did-finish-load 早数秒(YSP 整页资源
   // 仍在加载), 让 LPTV 覆盖层与官方页 DOM 同时出现, 消除"注入慢半拍"。
   // inject.js 自带 DOMContentLoaded 等待 + 视频 acquireOfficial 轮询 + 3s 保活
