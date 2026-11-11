@@ -627,8 +627,8 @@
   /* ================= UI ================= */
 
   var CSS = `
-  #lptv-root{--glass:rgba(18,20,28,.74);--glass-2:rgba(28,31,42,.90);--line:rgba(255,255,255,.09);
-    --tx:#eef1f8;--tx2:#9aa6c0;--tx3:#6b7fae;--acc:#3d9bff;--acc2:#4fd1c5;
+  #lptv-root{--glass:rgba(18,20,28,.80);--glass-2:rgba(24,27,38,.96);--line:rgba(255,255,255,.09);
+    --tx:#eef1f8;--tx2:#a5b1ca;--tx3:#8499c0;--acc:#3d9bff;--acc2:#4fd1c5;
     --red:#ff4d4d;--ok:#35c46b;
     position:fixed;inset:0;z-index:2147483002;background:transparent;
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
@@ -636,7 +636,7 @@
     overflow:hidden;user-select:none}
   #lptv-root.dev-hidden{display:none}
 
-  #lptv-spin{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:none;z-index:3;
+  #lptv-spin{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);opacity:0;visibility:hidden;z-index:3;
     pointer-events:none}
   /* 频道切换注水动画: 与启动画面(splash)完全一致 —— 单图标(icon.png)上方上下跳动,
      下方一条连续渐变横线(朱红→金→jade绿→云蓝)为加载轨道,
@@ -860,11 +860,11 @@
     background-repeat:no-repeat;opacity:1;box-shadow:0 1px 3px rgba(0,0,0,.4)}
   .lptv-ch .lptv-ch-logo.lptv-ch-logo--loading{opacity:.4}
   .lptv-ch .lptv-ch-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .lptv-ch .live-dot{width:5px;height:5px;border-radius:50%;background:#5b6884;flex-shrink:0}
+  .lptv-ch .live-dot{width:5px;height:5px;border-radius:50%;background:#7e8ca8;flex-shrink:0}
   .lptv-ch.active .live-dot{background:var(--acc2);box-shadow:0 0 6px var(--acc2)}
   /* 收藏星标 */
   .lptv-ch .lptv-ch-fav{flex-shrink:0;width:22px;height:22px;display:flex;align-items:center;justify-content:center;
-    color:#5b6884;cursor:pointer;border-radius:6px;transition:all .12s}
+    color:#7e8ca8;cursor:pointer;border-radius:6px;transition:all .12s}
   .lptv-ch .lptv-ch-fav:hover{color:#ff8fb3;background:rgba(255,107,157,.14)}
   .lptv-ch .lptv-ch-fav.on{color:#ff6b9d}
   .lptv-ch .lptv-ch-fav svg{width:14px;height:14px}
@@ -947,7 +947,7 @@
 
   /* 设置 / 关于: 统一居中弹窗 (左右布局, 左侧设置/关于两个标签) */
   #lptv-settings{position:fixed;inset:0;z-index:2147483005;display:none;align-items:center;justify-content:center;
-    background:rgba(6,8,13,.62);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+    background:rgba(6,8,13,.74);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
   #lptv-settings.open{display:flex}
   /* 足够大以容纳所有设置内容, 超出部分在 pane 内滚动 */
   .lptv-modal-card{position:relative;display:flex;width:720px;max-width:95vw;height:min(640px,92vh);overflow:hidden;
@@ -1611,13 +1611,20 @@
   var _spinWatchdog = null;
   function showSpin(on) {
     clearTimeout(_spinWatchdog);
-    if (lptv.ui.spin) lptv.ui.spin.style.display = on ? "block" : "none";
+    // 切台注水动画显示: 不用 display:none —— Xdummy 软合成下 display:none→block 的
+    // CSS 动画不重新启动(盒子 cde 里图标不跳)。改用 opacity/visibility: 动画从
+    // buildUI 起持续运行(visibility 不暂停 animation), 切台显示时已在跳动。
+    if (lptv.ui.spin) {
+      lptv.ui.spin.style.visibility = on ? "visible" : "hidden";
+      lptv.ui.spin.style.opacity = on ? "1" : "0";
+    }
     if (on) {
       // 看门狗: 视频卡缓冲/出错导致 loadeddata/playing 不再触发时,
       // 也强制收起注水动画, 防止永转遮挡切台 UI
       _spinWatchdog = setTimeout(function () {
-        if (lptv.ui.spin && lptv.ui.spin.style.display === "block") {
-          lptv.ui.spin.style.display = "none";
+        if (lptv.ui.spin && lptv.ui.spin.style.visibility === "visible") {
+          lptv.ui.spin.style.visibility = "hidden";
+          lptv.ui.spin.style.opacity = "0";
           toast("频道加载超时，请切换其他频道");
         }
       }, 12000);
