@@ -642,15 +642,14 @@
 
   #lptv-spin{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:none;z-index:3;
     pointer-events:none}
-  /* 频道切换注水动画: 与启动画面(splash)完全一致 —— 四字母图标(L/P/T/V)在上方
-     相邻排列(不重叠)静止, 下方一条连续渐变横线(朱红→金→jade绿→云蓝)为加载轨道,
+  /* 频道切换注水动画: 与启动画面(splash)完全一致 —— 单图标(icon.png)上方上下跳动,
+     下方一条连续渐变横线(朱红→金→jade绿→云蓝)为加载轨道,
      其上高亮段左右往来滑动 → 加载动画 */
-  .lptv-wave{display:flex;flex-direction:column;align-items:center;gap:clamp(9px,2.4vw,15px)}
-  .lptv-wave-letters{display:flex;align-items:flex-end;gap:clamp(6px,1vw,10px)}
-  .lptv-wave-col{display:flex;flex-direction:column;align-items:center}
-  .lptv-wave-ico{width:clamp(46px,13vw,76px);height:clamp(46px,13vw,76px);object-fit:contain;
-    filter:drop-shadow(0 0 16px rgba(120,160,255,.22))}
-  .lptv-wave-bar{align-self:stretch;height:4px;border-radius:2px;position:relative;
+  .lptv-wave{display:flex;flex-direction:column;align-items:center;gap:clamp(12px,2.6vw,20px)}
+  .lptv-wave-ico{width:clamp(84px,20vw,132px);height:clamp(84px,20vw,132px);object-fit:contain;
+    filter:drop-shadow(0 0 24px rgba(120,160,255,.28));
+    animation:lxBounce 1.6s ease-in-out infinite}
+  .lptv-wave-bar{width:min(340px,64vw);height:4px;border-radius:2px;position:relative;
     overflow:hidden;
     background:linear-gradient(90deg,rgba(255,77,66,.4),rgba(247,201,72,.4),rgba(42,212,137,.4),rgba(79,168,255,.4));
     box-shadow:0 0 12px rgba(120,160,255,.2)}
@@ -659,8 +658,14 @@
     background:linear-gradient(90deg,#FF4D42,#F7C948,#2AD489,#4FA8FF);
     box-shadow:0 0 14px rgba(160,190,255,.6);
     animation:lxSlide 1.4s ease-in-out infinite}
+  /* 图标上下跳动: 跳起→回落→小弹→静止(百分比相对图标自身高度)。纯 transform
+     不触发重栅格化, 图标全程清晰; 横线高亮段左右往来(lxSlide)不变 */
+  @keyframes lxBounce{0%,100%{transform:translateY(0)}16%{transform:translateY(-16%)}
+    30%{transform:translateY(0)}44%{transform:translateY(-7%)}58%{transform:translateY(0)}}
   @keyframes lxSlide{0%{transform:translateX(0)}50%{transform:translateX(138%)}100%{transform:translateX(0)}}
-  @media (prefers-reduced-motion:reduce){.lptv-wave-bar::after{animation:none}}
+  @media (prefers-reduced-motion:reduce){
+    .lptv-wave-ico{animation:none}
+    .lptv-wave-bar::after{animation:none}}
 
   /* 切台信息: 右上角 (原左下), 靠右对齐; 避开顶栏(42px)/频道数字输入区/音量 */
   #lptv-osd{position:absolute;right:38px;top:80px;pointer-events:none;opacity:0;z-index:10;
@@ -1135,34 +1140,27 @@
     return e;
   }
 
-  /* ===== 频道切换注水动画 (与启动画面 splash 同一套字母图标+配色) ===== */
-  /* 优先读 splash 已写入共享 DOM 的图标 data URI (#lptv-letter-assets):
+  /* ===== 频道切换注水动画 (与启动画面 splash 同一套图标+配色) ===== */
+  /* 优先读 splash 已写入共享 DOM 的图标 data URI (#lptv-icon-assets):
      跨隔离世界(electron)与 Android 均可同步取到 */
-  function spinLettersSync() {
+  function spinIconSync() {
     try {
-      var h = document.getElementById('lptv-letter-assets');
+      var h = document.getElementById('lptv-icon-assets');
       if (h) {
-        var a = JSON.parse(h.getAttribute('data-letters') || '[]');
-        if (a && a.length) return a;
+        var src = h.getAttribute('data-icon') || '';
+        if (src) return src;
       }
     } catch (e) {}
     return null;
   }
-  function renderSpinWave(root, letters) {
+  function renderSpinWave(root, icon) {
     root.innerHTML = '';
-    if (letters && letters.length >= 4) {
-      // 与启动画面 splash 同一结构: 字母在上方相邻排列(不重叠)静止, 下方渐变横线
-      // 加载轨道 + 高亮段左右往来
+    if (icon) {
+      // 与启动画面 splash 同一结构: 图标上方上下跳动, 下方渐变横线加载轨道 + 高亮段左右往来
       var wave = el('div', { class: 'lptv-wave' });
-      var lettersRow = el('div', { class: 'lptv-wave-letters' });
-      letters.slice(0, 4).forEach(function (l, i) {
-        var col = el('div', { class: 'lptv-wave-col' });
-        var img = el('img', { class: 'lptv-wave-ico', src: l.src || '', alt: l.letter || '' });
-        img.draggable = false;
-        col.appendChild(img);
-        lettersRow.appendChild(col);
-      });
-      wave.appendChild(lettersRow);
+      var img = el('img', { class: 'lptv-wave-ico', src: icon, alt: '' });
+      img.draggable = false;
+      wave.appendChild(img);
       var bar = el('div', { class: 'lptv-wave-bar' });
       wave.appendChild(bar);
       root.appendChild(wave);
@@ -1174,23 +1172,18 @@
     }
   }
   function buildSpinWave(root) {
-    var letters = spinLettersSync();
-    if (letters && letters.length >= 4) { renderSpinWave(root, letters); return; }
+    var icon = spinIconSync();
+    if (icon) { renderSpinWave(root, icon); return; }
     // 整页再导航后 splash 未重跑 → 共享 DOM 无图标, 经桥异步拉取 (仅 electron)
     var api = window.lptv || null;
     if (api && api.get_asset_image) {
-      var names = ['L', 'P', 'T', 'V'], out = [], done = 0;
-      names.forEach(function (L, i) {
-        api.get_asset_image(L + '_48x48.png').then(function (r) {
-          out[i] = { letter: L, src: (r && r.ok) ? r.src : '' };
-          if (++done === names.length) renderSpinWave(root, out);
-        }).catch(function () {
-          out[i] = { letter: L, src: '' };
-          if (++done === names.length) renderSpinWave(root, out);
-        });
+      api.get_asset_image('icon.png').then(function (r) {
+        renderSpinWave(root, (r && r.ok) ? r.src : '');
+      }).catch(function () {
+        renderSpinWave(root, '');
       });
     } else {
-      renderSpinWave(root, []);
+      renderSpinWave(root, '');
     }
   }
 

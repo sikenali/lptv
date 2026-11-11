@@ -705,7 +705,7 @@ function registerIpc() {
     if (prefix === 'logos') {
       p = path.join(path.dirname(assetFile('icon.png')), '..', 'logos', name);
     } else {
-      const allowed = ['icon.png', 'lptv.png', 'L_48x48.png', 'P_48x48.png', 'T_48x48.png', 'V_48x48.png'];
+      const allowed = ['icon.png', 'lptv.png'];
       if (allowed.indexOf(name) < 0) return { ok: false, error: 'asset not allowed', src: '' };
       p = assetFile(name);
     }
