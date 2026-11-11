@@ -95,14 +95,12 @@
       '.lptv-ring-label{font-family:sans-serif;font-weight:700;',
       '  font-size:clamp(26px,6vw,54px);line-height:1;letter-spacing:-0.04em;color:#eaf2ff;',
       '  user-select:none;text-shadow:0 10px 36px rgba(60,130,255,.4);animation:lxIn .9s ease backwards}',
-      /* 连续上下跳动(无停顿), 分段重力 easing: 上升快起慢顶(ease-out), 下降慢顶快落
-         (ease-in), 顶点/触地速度均为0平滑反转 → 丝滑无顿挫; 幅度-14%细腻不过冲。
-         百分比相对图标自身高度, 纯 transform 不触发重栅格化, 图标全程清晰;
-         横线高亮段左右往来动画(lxSlide)保持不变。 */
+      /* 上下跳动(单次/周期): 上升快起慢顶(ease-out), 下降慢顶快落(ease-in),
+         顶点/触地速度均为0平滑反转 → 丝滑无顿挫; 每周期只跳一次(单程=周期/2),
+         从容不急促。幅度-14%细腻不过冲。百分比相对图标自身高度, 纯 transform
+         不触发重栅格化, 图标全程清晰; 横线高亮段左右往来(lxSlide)不变。 */
       '@keyframes lxBounce{0%{transform:translateY(0);animation-timing-function:cubic-bezier(.33,0,.66,.33)}',
-      '  25%{transform:translateY(-14%);animation-timing-function:cubic-bezier(.33,.66,.66,1)}',
-      '  50%{transform:translateY(0);animation-timing-function:cubic-bezier(.33,0,.66,.33)}',
-      '  75%{transform:translateY(-14%);animation-timing-function:cubic-bezier(.33,.66,.66,1)}',
+      '  50%{transform:translateY(-14%);animation-timing-function:cubic-bezier(.33,.66,.66,1)}',
       '  100%{transform:translateY(0)}}',
       '@keyframes lxSlide{0%{transform:translateX(0)}50%{transform:translateX(138%)}100%{transform:translateX(0)}}',
       '@keyframes lxIn{from{opacity:0}to{opacity:1}}',
