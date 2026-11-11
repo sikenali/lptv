@@ -130,18 +130,33 @@ const DATA_DIR = xdgDataDir();
 // 恢复硬件加速。避免历史崩溃标记永久阻塞硬件加速（如 EGL 修复后仍被软解限速）。
 const GPU_BROKEN_MARKER = path.join(DATA_DIR, 'gpu.broken');
 let gpuDisabled = false;
-if (fs.existsSync(GPU_BROKEN_MARKER)) {
+// 容器内改用 SwiftShader（软件 GL，GPU 进程存活），不再适用 disable-gpu 回退——
+// 否则 disable-gpu 与 use-angle=swiftshader 冲突，disable-gpu 会胜出 → 又回到
+// 软件 rasterizer（拖动撕裂）。故容器忽略 gpu.broken 标记，只对本地桌面生效。
+if (fs.existsSync(GPU_BROKEN_MARKER) && !IS_CONTAINER) {
   app.commandLine.appendSwitch('disable-gpu');
   console.log('[LPTV] 检测到 gpu.broken 标记 → 本次禁用 GPU(软件合成)');
   gpuDisabled = true;
 }
-// cde/catlink 容器：Xdummy 环境下 use-gl=egl 触发 ANGLE Passthrough FATAL crash，
-// 且 Xdummy 无 DRI/EGL context 可绑定，任何 enable-gpu-rasterization 都会崩。
-// 容器内强制走软件合成（已验证稳定），视频解码由 VA-API 硬解独立于合成路径不受影响。
+// cde/catlink 容器：渲染后端由 launch_lptv.sh 的 CATLINK_CHROME_HARDWARE_ACCELERATION
+// 决定（run.sh 对 rlptv 默认 1）。=1 走 vulkan+zero-copy 硬件 present（Intel ANV 经
+// renderD128，不需 DRM master）；=0 回退 swiftshader 软件合成（Xdummy 无 EGL context
+// 时避免 ANGLE FATAL crash）。主进程只做日志与兜底开关，不覆盖 launch 参数。
 // 本地桌面(独立 AppImage, GPU 正常)不受此分支影响。
 if (IS_CONTAINER) {
-  app.commandLine.appendSwitch('disable-gpu');
-  console.log('[LPTV] cde/catlink 容器 → 禁用GPU(软件合成，Xdummy无EGL支持)');
+  // 容器渲染后端由 launch_lptv.sh 经 CATLINK_CHROME_HARDWARE_ACCELERATION 决定：
+  //   =1 → launch_lptv.sh 注入 --use-angle=vulkan + zero-copy + native-gpu-memory-buffers
+  //        （lzc-cde 框架 launch_chrome.sh 硬件路径，Intel ANV 经 renderD128 present，
+  //        不需 DRM master）。主进程不得再覆盖 use-angle / disable-threaded-compositing，
+  //        否则与启动参数冲突（重复开关后者胜出）。
+  //   =0 → 软件合成（swiftshader），Xdummy 无 EGL context 时避免 ANGLE FATAL crash。
+  if (process.env.CATLINK_CHROME_HARDWARE_ACCELERATION === '1') {
+    console.log('[LPTV] cde/catlink 容器 → 硬件加速(vulkan+zero-copy, 由 launch_lptv.sh 注入)');
+  } else {
+    app.commandLine.appendSwitch('use-angle', 'swiftshader');
+    app.commandLine.appendSwitch('disable-features', 'VaapiVideoDecoder,VaapiVideoDecodeLinuxGL');
+    console.log('[LPTV] cde/catlink 容器 → 软件合成(swiftshader)');
+  }
 } else if (DRI_RENDER) {
   // 本地桌面有 DRI 节点 → 保持硬件加速（含 VAAPI 硬解视频）
   console.log('[LPTV] 检测到 DRI 节点 ' + DRI_RENDER + ' → 硬件加速保持启用');
@@ -211,6 +226,8 @@ let winOrigin = null;
 // 页面加载诊断：did-fail-load / did-finish-load 记录，供 collectDiag 判断白屏是
 // 页面没加载(网络/域名)还是渲染问题。
 const pageLoad = { fail: null, finish: null };
+// 渲染进程 console 错误/警告缓冲（全屏黑屏诊断），collectDiag 时落盘。
+const diagConsole = [];
 function calibrateOrigin() {
   if (winOrigin !== null) return;
   try {
@@ -247,6 +264,29 @@ function setPos(x, y, w, h) {
   calibrateOrigin();
   win.setBounds({ x: Math.round(x - winOrigin.x), y: Math.round(y - winOrigin.y),
                   width: Math.max(Math.round(w), 1), height: Math.max(Math.round(h), 1) });
+}
+
+// 全屏/最大化/浮窗 resize 后强制重绘 + 采集视频状态（全屏黑屏诊断）。
+// 容器 Xdummy/软合成下窗口 setBounds 后 compositor 可能不重画（整窗黑、声音正常）。
+// webContents.invalidate() 触发整窗重绘；再延迟读 video 状态落盘，若仍黑则 diag
+// 里能看到 video 的 readyState/videoWidth/error，区分是"视频没渲染"还是"合成没刷新"。
+function afterWindowResize(tag) {
+  if (!IS_CONTAINER || !win || win.isDestroyed()) return;
+  try { if (win.webContents && !win.webContents.isDestroyed()) win.webContents.invalidate(); } catch (e) {}
+  setTimeout(() => {
+    try {
+      collectDiag().then((d) => {
+        d.snap = 'resize:' + tag;
+        console.log('[LPTV-diag] ' + JSON.stringify(d));
+        try {
+          fs.mkdirSync(DATA_DIR, { recursive: true });
+          fs.writeFileSync(path.join(DATA_DIR, 'lptv.diag.json'), JSON.stringify(d, null, 2));
+        } catch (e) {}
+        // 同时写浏览器可读的 /d/diag.txt（diag_lptv.sh 同路径），不用进容器就能拿到
+        try { fs.writeFileSync('/tmp/catlink/diag.txt', JSON.stringify(d, null, 2)); } catch (e) {}
+      }).catch(() => {});
+    } catch (e) {}
+  }, 400);
 }
 
 function stateLoad() {
@@ -311,7 +351,18 @@ function createWindow() {
     y: disp.workArea ? Math.round(disp.workArea.y + (disp.workArea.height - H) / 2) : undefined,
     minWidth: 360,
     minHeight: 220,
-    frame: false,
+    // 窗口边框（frame）按运行环境区分：
+    //   * 懒猫容器（lpk/xpra，IS_CONTAINER=true）→ frame:true（带框）。客户端按 xpra
+    //     `decorations` 元数据显示原生标题栏+最小化/最大化/关闭按钮（frame:false 时
+    //     Electron 写 _MOTIF_WM_HINTS decorations=0 → xpra 传 decorations=0 → 客户端
+    //     set_decorated(False) 无框无按钮，远程端无法关窗/最小化）。带框后与 rchrome
+    //     相同：标题栏显示 "LPTV on <server-domain>"，可拖动/缩放/最小化/最大化/关闭。
+    //   * 本机桌面（AppImage/exe/dmg，IS_CONTAINER=false）→ frame:false（无原生标题栏）。
+    //     界面更沉浸（电视客户端）；窗口拖动/最小化/最大化/关闭由前端自绘顶栏接管
+    //     （inject.js topbar：-webkit-app-region drag + 自绘按钮 + move_win 拖动），
+    //     无需原生 chrome。
+    // 注：YSP 播放器自带的 min/max/close IPC 仍生效（双控件冗余，后续可再隐藏）。
+    frame: IS_CONTAINER,
     // 与 splash.js 底色一致（#04070d），窗口建立到 splash 注入之间不闪黑
     backgroundColor: '#04070d',
     // 容器：立即显示（xpra 在首次绘制前也要看到窗口映射，否则远程端"已投射"却
@@ -362,6 +413,16 @@ function createWindow() {
   win.webContents.on('did-finish-load', () => { pageLoad.finish = Date.now(); clearGpuBrokenMarker(); });
   win.webContents.on('did-fail-load', (e, code, desc, url) => {
     pageLoad.fail = { code, desc: String(desc || ''), url: String(url || ''), t: Date.now() };
+  });
+  // 渲染进程 console 错误捕获（全屏黑屏诊断）：把 renderer 的 console.error/warn
+  // 记到全局 diagConsole，随 collectDiag 落盘。全屏黑屏(声音正常)常伴随 renderer
+  // 的 compositor/video 报错，这条日志能直接给出根因，不必再猜。
+  win.webContents.on('console-message', (_e, _level, message, line, sourceId) => {
+    try {
+      if (diagConsole.length < 40) {
+        diagConsole.push({ t: Date.now(), msg: String(message || '').slice(0, 300), line, src: String(sourceId || '').slice(0, 120) });
+      }
+    } catch (e) {}
   });
 
   // 环境诊断：启动 ~3s(GPU 进程已初始化)与 ~15s(页面是否真正加载完成)各打一次
@@ -461,6 +522,18 @@ async function collectDiag() {
       if (pageLoad.fail) d.verdict.push('did-fail-load: code=' + pageLoad.fail.code + ' ' + pageLoad.fail.desc + ' url=' + pageLoad.fail.url);
     }
   } catch (e) {}
+  // 视频元素状态（全屏黑屏/声音正常诊断）：区分"视频没渲染" vs "合成没刷新"。
+  // readyState>=2 且有视频尺寸说明视频流在解码；若此时仍黑屏则是 compositor 未重绘。
+  try {
+    if (win && win.webContents && !win.webContents.isDestroyed()) {
+      d.video = win.webContents.executeJavaScript(
+        '(()=>{try{const v=window.lptv&&window.lptv.video;if(!v)return null;' +
+        'return {readyState:v.readyState,videoWidth:v.videoWidth,videoHeight:v.videoHeight,' +
+        'paused:v.paused,ended:v.ended,error:v.error?String(v.error.code):null,' +
+        'currentTime:Math.floor(v.currentTime),src:String(v.currentSrc||"").slice(0,80)};}catch(e){return {err:String(e)}}})()'
+      ).catch(() => null);
+    }
+  } catch (e) {}
   try {
     d.xpraConf = fs.existsSync('/tmp/catlink/xpra.conf') ? fs.readFileSync('/tmp/catlink/xpra.conf', 'utf8') : '';
   } catch (e) { d.xpraConf = ''; }
@@ -471,6 +544,7 @@ async function collectDiag() {
     d.verdict.push('xpra.conf 缺失(/tmp/catlink/xpra.conf) → 90_lzc.conf 未安装');
   }
   if (!d.verdict.length) d.verdict.push('未发现明显异常');
+  d.console = diagConsole.slice();
   return d;
 }
 
@@ -492,6 +566,13 @@ function registerIpc() {
     const first = !splashShown && isReal;
     if (first) splashShown = true;
     e.returnValue = { first };
+  });
+
+  // 环境标记（同步，主进程判定结果）：渲染进程据此区分「懒猫容器/xpra」与「本机桌面」。
+  // 用途：容器内隐藏自绘顶栏与「启动时显示顶栏」设置项（原生标题栏已提供窗口控制），
+  // 本机桌面（无原生标题栏）则保留顶栏作为唯一控制面。
+  ipcMain.on('lptv:env', (e) => {
+    e.returnValue = { isContainer: IS_CONTAINER };
   });
 
   // ---- 窗口 ----------------------------------------------------------------
@@ -533,6 +614,7 @@ function registerIpc() {
       if (st.pin) win.setAlwaysOnTop(true);
       st.fs = true;
     }
+    afterWindowResize('fullscreen:' + (st.fs ? 'on' : 'off'));
     return { ok: true, fullscreen: st.fs };
   });
 
@@ -644,6 +726,13 @@ function registerIpc() {
     const s = stateLoad();
     const out = { ok: true };
     for (const k of STATE_WHITELIST) if (k in s) out[k] = s[k];
+    // 设置「启动时显示顶栏」(topbarAlways) 的默认值按运行环境区分（仅在用户从未
+    // 显式设置过时给默认；一旦设置过即尊重用户选择，state 里已有 topbarAlways）：
+    //   * 本机桌面（AppImage/exe/dmg，无原生标题栏 frame:false）→ 默认常显顶栏。
+    //     前端自绘顶栏是唯一的窗口控制面（拖动/最小化/最大化/关闭），必须可见。
+    //   * 懒猫容器/xpra（IS_CONTAINER，原生标题栏 frame:true）→ 默认悬停显示。
+    //     原生标题栏已提供窗口控制，自定义顶栏常显会与其形成双 chrome 冗余。
+    if (!('topbarAlways' in s)) out.topbarAlways = !IS_CONTAINER;
     return out;
   });
 
