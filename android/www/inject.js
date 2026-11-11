@@ -644,7 +644,7 @@
   .lptv-wave{display:flex;flex-direction:column;align-items:center;gap:clamp(12px,2.6vw,20px)}
   .lptv-wave-ico{width:clamp(84px,20vw,132px);height:clamp(84px,20vw,132px);object-fit:contain;
     filter:drop-shadow(0 0 24px rgba(120,160,255,.28));
-    animation:lxBounce 1.2s infinite}
+    animation:lxBounce 1.5s infinite}
   .lptv-wave-bar{width:min(340px,64vw);height:4px;border-radius:2px;position:relative;
     overflow:hidden;
     background:linear-gradient(90deg,rgba(255,77,66,.4),rgba(247,201,72,.4),rgba(42,212,137,.4),rgba(79,168,255,.4));
