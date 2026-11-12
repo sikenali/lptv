@@ -345,6 +345,46 @@ function createWindow() {
     if (!ico.isEmpty() && typeof win.setIcon === 'function') win.setIcon(ico);
   } catch (e) {}
 
+  // ---- 直接写 _NET_WM_ICON（与真 Chrome 行为一致）----------------------
+  // xpra 无 WM 下 setIcon 不落 _NET_WM_ICON → 客户端任务栏回退到自身图标。
+  // 这里用 getNativeWindowHandle() 取 XID，xprop 直写 _NET_WM_ICON（ARGB CARDINAL
+  // 数组），让 xpra windowicon 读窗口属性并作为 window-icon 发给客户端，任务栏
+  // 即显示 LPTV 图标。与 windowicon.py 补丁互为兜底（优先窗口自身属性）。
+  const writeNetWmIcon = (w) => {
+    try {
+      if (!w || w.isDestroyed()) return;
+      const buf = w.getNativeWindowHandle();
+      if (!buf || buf.length < 4) return;
+      // Linux 原生句柄 = XID（32 位），小端下低 4 字节即窗口 id
+      let xid = buf.readUInt32LE(0);
+      if (xid === 0 && buf.length >= 8) xid = buf.readUInt32LE(4);
+      if (!xid) return;
+      const img0 = nativeImage.createFromPath(assetFile('icon.png'));
+      if (img0.isEmpty()) return;
+      // 用 128px 控制 xprop 参数长度（ARG_MAX），任务栏 128 已足够清晰
+      const s0 = img0.getSize();
+      const img = (s0.width > 128) ? img0.resize({ width: 128, height: 128, quality: 'best' }) : img0;
+      const { width, height } = img.getSize();
+      const bmp = img.toBitmap(); // BGRA，每像素 4 字节
+      const words = new Array(width * height + 2);
+      words[0] = width; words[1] = height;
+      for (let i = 0, j = 2; i < bmp.length; i += 4, j++) {
+        const b = bmp[i], g = bmp[i + 1], r = bmp[i + 2], a = bmp[i + 3];
+        words[j] = ((a << 24) | (r << 16) | (g << 8) | b) >>> 0;
+      }
+      const data = words.map((wv) => '0x' + wv.toString(16)).join(',');
+      require('child_process').execFile('xprop',
+        ['-id', '0x' + xid.toString(16), '-f', '_NET_WM_ICON', '32c', '-set', '_NET_WM_ICON', data],
+        (err) => {
+          if (err) console.error('[LPTV] _NET_WM_ICON xprop failed:', err.message);
+          else console.log('[LPTV] _NET_WM_ICON set OK xid=0x' + xid.toString(16) + ' ' + width + 'x' + height);
+        });
+    } catch (e) { console.error('[LPTV] _NET_WM_ICON write error:', e); }
+  };
+  // 窗口 map 后写一次（ready-to-show 后 xpra 已接管），再延迟兜底覆盖迟映射/重建
+  win.once('ready-to-show', () => { try { writeNetWmIcon(win); } catch (e) {} });
+  setTimeout(() => { try { if (win && !win.isDestroyed()) writeNetWmIcon(win); } catch (e) {} }, 3000);
+
   win.webContents.setUserAgent(CHROME_UA);
 
   // ---- 锁定窗口标题为 LPTV ------------------------------------------------
