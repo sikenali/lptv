@@ -85,10 +85,6 @@
   function pyApi() {
     return window.lptv ? window.lptv : null;
   }
-  /* ---- 容器/本机桌面判定（主进程 IS_CONTAINER 同步下发, preload window.lptv.env）----
-   * 懒猫容器/xpra: 隐藏自绘顶栏 + 「启动时显示顶栏」设置项（原生标题栏已提供窗口控制）。
-   * 本机桌面(AppImage/exe/dmg, 无原生标题栏): 顶栏保留为唯一控制面。 */
-  var LPTV_CONTAINER = !!(window.lptv && window.lptv.env && window.lptv.env.isContainer);
   var _statePushT = null, _statePending = null;
   function pyStatePush(patch) {
     _statePending = Object.assign(_statePending || {}, patch);
@@ -1078,9 +1074,6 @@
   #lptv-topbar.show{opacity:1;transform:none;pointer-events:auto}
   /* 设置「启动时显示顶栏」: 顶栏常显 (含 idle/无 hover 时), 不参与隐藏 */
   #lptv-root.tb-always #lptv-topbar{opacity:1!important;transform:none!important;pointer-events:auto!important}
-  /* 容器(lpk/xpra): 顶栏彻底禁用（不显示、不悬停）——原生标题栏已提供窗口控制。
-     display:none 优先于 tb-always 的 opacity/pointer-events, 两者同设也只会隐藏。 */
-  #lptv-root.tb-off #lptv-topbar{display:none!important}
   #lptv-topbar .lptv-tb-title{display:flex;align-items:center;gap:6px;font-size:calc(12.0px * var(--fs-scale));
     letter-spacing:.5px;color:var(--tx2);white-space:nowrap;overflow:hidden}
   #lptv-topbar .lptv-tb-title b{color:var(--tx);font-weight:600;letter-spacing:.5px}
@@ -1196,8 +1189,6 @@
     document.head.appendChild(style);
 
     var root = el("div", { id: "lptv-root" });
-    // 容器(lpk/xpra): 顶栏禁用——加 tb-off, CSS display:none 彻底隐藏（不显示/不悬停）
-    if (LPTV_CONTAINER) root.classList.add("tb-off");
 
     var osd = el("div", { id: "lptv-osd", html:
       '<div class="lptv-osd-num"><b>00</b></div><div class="lptv-osd-name"></div><div class="lptv-osd-sub"></div>' });
@@ -1382,15 +1373,6 @@
     root.appendChild(panel);
     root.appendChild(epg);
     root.appendChild(settings);
-    // 容器(lpk/xpra): 「启动时显示顶栏」设置项无意义（顶栏已禁用 tb-off），从设置界面隐藏。
-    // 设置入口仍在底部控制栏(S键/齿轮按钮), 不受影响。
-    if (LPTV_CONTAINER) {
-      var _tbSetRow = settings.querySelector("#lptv-s-tbalways");
-      if (_tbSetRow && _tbSetRow.closest) {
-        var _row = _tbSetRow.closest(".lptv-set-row");
-        if (_row) _row.remove();
-      }
-    }
     root.appendChild(toastEl);
     root.appendChild(hint);
     root.appendChild(shotFlash);
@@ -1736,7 +1718,6 @@
     }, ms);
   }
   function topbarPointer(e) {
-    if (LPTV_CONTAINER) return;   // 容器(lpk/xpra): 顶栏禁用, 不做悬停显示
     if (lptv.devHidden) return;
     var tb = document.getElementById("lptv-topbar");
     if (!tb) return;

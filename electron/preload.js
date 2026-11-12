@@ -13,13 +13,7 @@ function invoke(name) {
   return (...args) => ipcRenderer.invoke('lptv:' + name, ...args);
 }
 
-// 环境标记（同步，主进程 IS_CONTAINER）：渲染层据此区分「懒猫容器/xpra」与「本机桌面」。
-// inject.js 在容器内隐藏自绘顶栏与「启动时显示顶栏」设置项。
-const _env = ipcRenderer.sendSync('lptv:env');
-
 contextBridge.exposeInMainWorld('lptv', {
-  // 环境标记
-  env: _env,
   // 窗口
   minimize: invoke('minimize'),
   maximize_toggle: invoke('maximize_toggle'),
