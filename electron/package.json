@@ -29,6 +29,10 @@
     ],
     "extraResources": [
       {
+        "from": "write_netwm_icon.py",
+        "to": "write_netwm_icon.py"
+      },
+      {
         "from": "../frontend",
         "to": "frontend",
         "filter": [

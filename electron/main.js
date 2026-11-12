@@ -347,9 +347,11 @@ function createWindow() {
 
   // ---- 直接写 _NET_WM_ICON（与真 Chrome 行为一致）----------------------
   // xpra 无 WM 下 setIcon 不落 _NET_WM_ICON → 客户端任务栏回退到自身图标。
-  // 这里用 getNativeWindowHandle() 取 XID，xprop 直写 _NET_WM_ICON（ARGB CARDINAL
-  // 数组），让 xpra windowicon 读窗口属性并作为 window-icon 发给客户端，任务栏
-  // 即显示 LPTV 图标。与 windowicon.py 补丁互为兜底（优先窗口自身属性）。
+  // 用 getNativeWindowHandle() 取 XID，经 libX11 XChangeProperty 直写完整
+  // ARGB32 数组（写 write_netwm_icon.py，见该文件注释：xprop -set 有 64 元素
+  // 硬上限，128x128 需 16386 个，xprop 会截断 → xpra 报 corrupt），让 xpra
+  // windowicon 读窗口属性并作为 window-icon 发给客户端，任务栏即显示 LPTV 图标。
+  // 与 windowicon.py 补丁互为兜底（优先窗口自身属性）。
   const writeNetWmIcon = (w) => {
     try {
       if (!w || w.isDestroyed()) return;
@@ -361,22 +363,27 @@ function createWindow() {
       if (!xid) return;
       const img0 = nativeImage.createFromPath(assetFile('icon.png'));
       if (img0.isEmpty()) return;
-      // 用 128px 控制 xprop 参数长度（ARG_MAX），任务栏 128 已足够清晰
+      // 128px 已足够任务栏清晰，且控制临时文件大小
       const s0 = img0.getSize();
       const img = (s0.width > 128) ? img0.resize({ width: 128, height: 128, quality: 'best' }) : img0;
       const { width, height } = img.getSize();
       const bmp = img.toBitmap(); // BGRA，每像素 4 字节
-      const words = new Array(width * height + 2);
-      words[0] = width; words[1] = height;
-      for (let i = 0, j = 2; i < bmp.length; i += 4, j++) {
+      // 转 ARGB32 文本（脚本读入直写 X11）：A<<24|R<<16|G<<8|B
+      const argb = [String(width), String(height)];
+      for (let i = 0; i < bmp.length; i += 4) {
         const b = bmp[i], g = bmp[i + 1], r = bmp[i + 2], a = bmp[i + 3];
-        words[j] = ((a << 24) | (r << 16) | (g << 8) | b) >>> 0;
+        argb.push(String(((a << 24) | (r << 16) | (g << 8) | b) >>> 0));
       }
-      const data = words.map((wv) => '0x' + wv.toString(16)).join(',');
-      require('child_process').execFile('xprop',
-        ['-id', '0x' + xid.toString(16), '-f', '_NET_WM_ICON', '32c', '-set', '_NET_WM_ICON', data],
+      const tmp = path.join(os.tmpdir(), 'lptv-argb-' + process.pid + '-' + xid + '.txt');
+      fs.writeFileSync(tmp, argb.join('\n'));
+      const script = app.isPackaged
+        ? path.join(process.resourcesPath, 'write_netwm_icon.py')
+        : path.join(__dirname, 'write_netwm_icon.py');
+      require('child_process').execFile('python3',
+        [script, '0x' + xid.toString(16), tmp],
         (err) => {
-          if (err) console.error('[LPTV] _NET_WM_ICON xprop failed:', err.message);
+          try { fs.unlinkSync(tmp); } catch (e) {}
+          if (err) console.error('[LPTV] _NET_WM_ICON write failed:', err.message);
           else console.log('[LPTV] _NET_WM_ICON set OK xid=0x' + xid.toString(16) + ' ' + width + 'x' + height);
         });
     } catch (e) { console.error('[LPTV] _NET_WM_ICON write error:', e); }
