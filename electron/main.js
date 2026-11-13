@@ -600,21 +600,10 @@ function createWindow() {
     screen.on('display-metrics-changed', () => reapplyGeometry('metrics'));
     screen.on('display-added', () => reapplyGeometry('added'));
     screen.on('display-removed', () => reapplyGeometry('removed'));
-    // ---- 轮询兜底：Electron screen 模块不感知 xpra 虚拟屏 RandR 变化 ----
-    // 即使 screen.on 不触发，每 2s 用 xrandr 直接查询虚拟屏实际尺寸，
-    // 变化时（客户端连接/分辨率切换）若处于全屏/最大化则重新铺满。
-    let lastScreen = null;
-    setInterval(() => {
-      try {
-        if (!win || win.isDestroyed()) return;
-        const s = queryActualScreenSize();
-        if (lastScreen && (s.w !== lastScreen.w || s.h !== lastScreen.h)) {
-          fsDiag('poll_screen_changed', { actual: s, last: lastScreen });
-          reapplyGeometry('poll');
-        }
-        lastScreen = s;
-      } catch (e) {}
-    }, 2000);
+    // 注意：不再加 setInterval 轮询（execSync xrandr 阻塞主进程每 2s 一次，
+    // 与渲染进程的 IPC 轮询(2-3s)叠加 → 规律卡顿）。全屏/最大化的目标尺寸
+    // 由 displayBounds()/workAreaBounds() 按需 queryActualScreenSize() 获取
+    // （用户点全屏时查 xrandr 得实际 1920），无需周期性阻塞查询。
   } catch (e) {}
   // ---- 启动诊断：捕获 Electron 看到的 display vs 实际虚拟屏尺寸 ----
   // 容器模式下 ready-to-show 可能不触发（xpra 无 WM），用定时器兜底，
