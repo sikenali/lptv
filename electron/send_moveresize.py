@@ -33,6 +33,18 @@ MoveResizeMove = 8
 SourceIndicationApplication = 0
 
 
+def _log(line):
+    """写诊断日志到 LPTV_DRAG_LOG（若设置），并同时打到 stderr。"""
+    print(line, file=sys.stderr)
+    logpath = os.environ.get("LPTV_DRAG_LOG", "")
+    if logpath:
+        try:
+            with open(logpath, "a") as f:
+                f.write(line + "\n")
+        except Exception:
+            pass
+
+
 class XClientMessageEvent(Structure):
     _fields_ = [
         ("type", c_int),
@@ -53,29 +65,27 @@ class XEvent(Union):
 
 def main():
     if len(sys.argv) != 5:
-        print("usage: send_moveresize.py <window_xid_hex> <x_root> <y_root> <button>",
-              file=sys.stderr)
+        _log("usage: send_moveresize.py <window_xid_hex> <x_root> <y_root> <button>")
         return 2
     try:
         wid = int(sys.argv[1], 16)
         button = int(sys.argv[4])
     except ValueError as e:
-        print("bad arg: %s" % e, file=sys.stderr)
+        _log("bad arg: %s" % e)
         return 2
 
     x11 = ctypes.CDLL("libX11.so.6")
     x11.XOpenDisplay.restype = c_void_p
     dpy = x11.XOpenDisplay(None)  # 用 DISPLAY 环境变量
     if not dpy:
-        print("cannot open display (DISPLAY=%r)" % os.environ.get("DISPLAY"),
-              file=sys.stderr)
+        _log("cannot open display (DISPLAY=%r)" % os.environ.get("DISPLAY"))
         return 1
     x11.XDefaultRootWindow.restype = c_ulong
     root = x11.XDefaultRootWindow(c_void_p(dpy))
     x11.XInternAtom.restype = c_ulong
     atom = x11.XInternAtom(c_void_p(dpy), b"_NET_WM_MOVERESIZE", 0)
     if not atom:
-        print("_NET_WM_MOVERESIZE atom missing", file=sys.stderr)
+        _log("_NET_WM_MOVERESIZE atom missing")
         x11.XCloseDisplay(c_void_p(dpy))
         return 1
 
@@ -113,8 +123,9 @@ def main():
     res = x11.XSendEvent(c_void_p(dpy), c_ulong(root), c_int(0), c_long(mask),
                          byref(ev))
     x11.XFlush(c_void_p(dpy))
-    print("OK wid=0x%x root=0x%x pos=(%d,%d) button=%d res=%d"
-          % (wid, root, x_root, y_root, button, res), file=sys.stderr)
+    line = "OK wid=0x%x root=0x%x pos=(%d,%d) button=%d res=%d dir=%d" \
+           % (wid, root, x_root, y_root, button, res, MoveResizeMove)
+    _log(line)
     x11.XCloseDisplay(c_void_p(dpy))
     return 0
 

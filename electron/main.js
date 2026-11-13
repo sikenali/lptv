@@ -120,6 +120,29 @@ function videosDir() {
 }
 const DATA_DIR = xdgDataDir();
 
+// ---- python3 定位（send_moveresize.py / write_netwm_icon.py 依赖 ctypes+libX11）----
+// Electron 进程的 PATH 可能与容器不同，python3 未必在 PATH 上；这里依次尝试
+// 常见候选，找到可执行的就用。找到的 python 路径缓存，避免每次拖动都探测。
+let _pythonPath = null;
+function findPython() {
+  if (_pythonPath) return _pythonPath;
+  const cands = ['python3', 'python', '/usr/bin/python3', '/usr/bin/python',
+                 '/usr/local/bin/python3', '/usr/local/bin/python'];
+  for (const c of cands) {
+    try {
+      const r = require('child_process').spawnSync(c, ['-c', 'import ctypes; print("pyok")'],
+        { encoding: 'utf8', timeout: 3000 });
+      if (r.status === 0 && /pyok/.test(r.stdout || '')) { _pythonPath = c; return c; }
+    } catch (e) {}
+  }
+  return 'python3'; // 兜底，让 execFile 报错并走诊断
+}
+// 用找到的 python 跑脚本；cb(err, pythonUsed)。脚本自身输出落 LPTV_DRAG_LOG。
+function runPython(script, args, opts, cb) {
+  const py = findPython();
+  require('child_process').execFile(py, [script].concat(args), opts, (err) => cb(err, py));
+}
+
 // ---- GPU 健康自愈 ------------------------------------------------------
 // 本环境（catlink 显示 / cde 容器）GPU 进程初始化即崩（exit_code 133/15, viz_main_impl
 // "Exiting GPU process due to errors during initialization"），导致页面渲染进程被连带
@@ -690,13 +713,26 @@ function registerIpc() {
       const script = app.isPackaged
         ? path.join(process.resourcesPath, 'send_moveresize.py')
         : path.join(__dirname, 'send_moveresize.py');
-      require('child_process').execFile('python3',
-        [script, '0x' + xid.toString(16),
+      // 诊断：每次拖动调用都落盘，盒子侧 cat DATA_DIR/lptv.drag.log 即可定位
+      // 拖动链路断在哪一环（IPC 是否到达 / XID / python / XSendEvent res）。
+      try {
+        fs.mkdirSync(DATA_DIR, { recursive: true });
+        fs.appendFileSync(path.join(DATA_DIR, 'lptv.drag.log'),
+          `[${new Date().toISOString()}] begin_window_drag x=${x} y=${y} btn=${button} xid=0x${xid.toString(16)} script=${script}\n`);
+      } catch (e) {}
+      runPython(script,
+        ['0x' + xid.toString(16),
          String(parseInt(x, 10) || 0), String(parseInt(y, 10) || 0),
          String(parseInt(button, 10) || 1)],
-        (err) => {
-          if (err) console.error('[LPTV] _NET_WM_MOVERESIZE send failed:', err.message);
-          else console.log('[LPTV] _NET_WM_MOVERESIZE sent xid=0x' + xid.toString(16));
+        { env: Object.assign({}, process.env, { LPTV_DRAG_LOG: path.join(DATA_DIR, 'lptv.drag.log') }) },
+        (err, py) => {
+          if (err) {
+            console.error('[LPTV] _NET_WM_MOVERESIZE send failed:', err.message);
+            try { fs.appendFileSync(path.join(DATA_DIR, 'lptv.drag.log'), `[${new Date().toISOString()}] python FAIL py=${py} err=${err.message}\n`); } catch (e) {}
+          } else {
+            console.log('[LPTV] _NET_WM_MOVERESIZE sent xid=0x' + xid.toString(16));
+            try { fs.appendFileSync(path.join(DATA_DIR, 'lptv.drag.log'), `[${new Date().toISOString()}] python OK py=${py} xid=0x${xid.toString(16)}\n`); } catch (e) {}
+          }
         });
       return { ok: true, xid };
     } catch (e) {
