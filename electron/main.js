@@ -383,8 +383,16 @@ function createWindow() {
         [script, '0x' + xid.toString(16), tmp],
         (err) => {
           try { fs.unlinkSync(tmp); } catch (e) {}
+          const line = err
+            ? 'FAIL ' + new Date().toISOString() + ' ' + err.message
+            : 'OK ' + new Date().toISOString() + ' xid=0x' + xid.toString(16) + ' ' + width + 'x' + height;
           if (err) console.error('[LPTV] _NET_WM_ICON write failed:', err.message);
           else console.log('[LPTV] _NET_WM_ICON set OK xid=0x' + xid.toString(16) + ' ' + width + 'x' + height);
+          // 诊断：写 DATA_DIR/lptv.icon.json（盒子侧可 cat 确认 _NET_WM_ICON 是否真写入）
+          try {
+            fs.mkdirSync(DATA_DIR, { recursive: true });
+            fs.appendFileSync(path.join(DATA_DIR, 'lptv.icon.json'), line + '\n');
+          } catch (e) {}
         });
     } catch (e) { console.error('[LPTV] _NET_WM_ICON write error:', e); }
   };
