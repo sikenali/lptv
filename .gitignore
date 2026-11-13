@@ -12,10 +12,12 @@ electron/dist/
 # 其构建产物由 android/android/.gitignore(Android 模板) 排除
 android/node_modules/
 android/package-lock.json
-# lzc 打包：lzc/content/（lzc/build.sh 从 git 8ba5558^ 提取的 LPTV content + AppImage）
-# 为构建产物，不入库不推远端。轻量配置入库供本地/CI 出包：
-#   lzc/build.sh、lzc-build.yml、lzc-manifest.yml、package.yml、chrome.png。
-lzc/content/
+# lzc 打包已废弃：本地用 lzc-cde/lpk 的 rchrome 脚本构建 LPK（见 lpk/）。
+# lpk/ 为本地打包工具（拷贝自 lzc-cde/lpk，含 rim go 源码/drop.c/ui/rchrome 配置），
+# 不推送（GitHub CI 不构建 LPK，LPK 本地构建后经 gh release 推送）。
+lpk/
+# release.sh 下载 CI 产物（exe/dmg/apk）的临时目录
+release-tmp/
 
 # 部署配置（非核心，按需参考）
 deploy/

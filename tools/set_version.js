@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 统一版本号到 lzc/package.yml、electron/package.json、android/android/app/build.gradle。
+// 统一版本号到 lpk/rchrome/package.yml、electron/package.json、android/android/app/build.gradle。
 // CI 三平台(jobs)共用；用 Node 而非 sed 规避跨平台引号转义问题。
 const fs = require('fs');
 const v = process.argv[2];
@@ -8,7 +8,8 @@ const upd = (file, fn) => {
   try { fs.writeFileSync(file, fn(fs.readFileSync(file, 'utf8'))); }
   catch (e) { console.warn('跳过 ' + file + ': ' + e.message); }
 };
-upd('lzc/package.yml', (s) => s.replace(/^version: .*/m, 'version: ' + v));
+// lzc 已废弃；lpk/rchrome/package.yml 是 lzc-cli 读的版本（LPK 包版本）
+upd('lpk/rchrome/package.yml', (s) => s.replace(/^version: .*/m, 'version: ' + v));
 upd('electron/package.json', (s) => { const j = JSON.parse(s); j.version = v; return JSON.stringify(j, null, 2) + '\n'; });
 upd('android/android/app/build.gradle', (s) => s.replace(/versionName\s*"[^"]*"/, 'versionName "' + v + '"'));
-console.log('已同步版本到 lzc/package.yml, electron/package.json, android/android/app/build.gradle → ' + v);
+console.log('已同步版本到 lpk/rchrome/package.yml, electron/package.json, android/android/app/build.gradle → ' + v);

@@ -1,18 +1,20 @@
 # ---------------------------------------------------------------------------
 # GitHub Actions 流水线
 #
-# 四路产物：
-#   Linux  → LPTV-linux-x64-*.AppImage + cloud.lazycat.catlink.lptv-*.lpk
+# 产物（混合方案：CI 构建非 LPK 产物，LPK 本地构建后经 gh release 推送）：
+#   Linux  → LPTV-linux-x64-*.AppImage
 #   Android→ lptv-*.apk (Capacitor WebView + 官方YSP iframe)
 #   Windows→ LPTV-*-portable.exe
 #   macOS  → LPTV-mac-{arm64,x64}-*.dmg
+#   LPK    → 本地构建（lpk/rchrome + lzc-cli，绕开 lzc-cde 私有仓库依赖），
+#            不产出于 CI，随本地 gh release 推送（见仓库根 release.sh）
 #
 # 流程：
-#   linux-build   : AppImage + LPK（lzc/content 含完整 CDE 骨架，无需下载骨架 release）
+#   linux-build   : AppImage（LPK 本地构建，CI 跳过）
 #   android-build : 构建 APK（无需骨架）
 #   windows-build : 构建 portable exe（原生 Windows）
 #   macos-build   : 构建 arm64 + x64 dmg
-#   release       : 手动触发时合并四路产物创建 GitHub Release
+#   （无 CI release job：GitHub Release 由本地 gh release 创建合并）
 #
 # APK 方案说明：
 #   Capacitor WebView + bridge.js。桥接层读取 bundles/channels.json 和
@@ -38,9 +40,9 @@ env:
   JDK_VERSION:  '17'
   ANDROID_SDK_VERSION: 'commandlinetools-linux-11076708_latest'
 
-# GITHUB_TOKEN 需写权限创建 GitHub Release（softprops/action-gh-release）
+# CI 不再创建 GitHub Release（本地 gh release 接管），无需 GITHUB_TOKEN 写权限。
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   # ==================================================================
@@ -101,22 +103,17 @@ jobs:
           echo "path=$(pwd)/$FILE" >> $GITHUB_OUTPUT
           echo "AppImage: $(basename "$FILE") ($(du -h "$FILE" | cut -f1))"
 
-      # ---- LPK（lzc/build.sh 从 git 8ba5558^ 提取完整 LPTV content（支持 rlptv 的
-      #      rim/launch_lptv.sh/run.sh）+ lzc-cli project build 打包；不依赖外部仓库，
-      #      本地与 CI 行为一致）----
-      - name: Assemble LPK
+      # ---- LPK（本地构建：lpk/rchrome + lzc-cli project build，CHROME_APPIMAGE=本地
+      #      LPTV.AppImage。CI 不构建 LPK——绕开 lzc-cde 私有仓库依赖；LPK 本地构建后
+      #      经本地 gh release 推送（见 release.sh））----
+      - name: Assemble LPK（本地构建，CI 跳过）
         id: assemble-lpk
         run: |
           set -euo pipefail
           VERSION="${{ steps.version.outputs.v }}"
-          npm install -g @lazycatcloud/lzc-cli
-          cd lzc
-          lzc-cli project build -f lzc-build.yml
-
-          OUT="$(pwd)/cloud.lazycat.catlink.lptv-${VERSION}.lpk"
-          [ -f "$OUT" ] || { echo "LPK 未生成" >&2; exit 1; }
-          echo "path=$OUT" >> $GITHUB_OUTPUT
-          ls -lh "$OUT"
+          echo "LPK 本地构建（CI 跳过）：cd lpk/rchrome && CHROME_APPIMAGE=<LPTV.AppImage> lzc-cli project build -f lzc-build.yml"
+          echo "LPK 不产出于 CI（本地构建，经 gh release 推送）。"
+          echo "path=" >> $GITHUB_OUTPUT
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
@@ -124,7 +121,6 @@ jobs:
           name: lptv-linux
           path: |
             ${{ steps.verify-appimage.outputs.path }}
-            lzc/cloud.lazycat.catlink.lptv-*.lpk
           retention-days: 7
 
   # ==================================================================
@@ -322,48 +318,8 @@ jobs:
           path: ${{ steps.assemble-apk.outputs.path }}
           retention-days: 7
 
-  # ==================================================================
-  # Release（仅 workflow_dispatch + 有版本号）
-  # ==================================================================
-  release:
-    name: GitHub Release
-    needs: [linux-build, android-build, windows-build, macos-build]
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.version != ''
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Download Linux artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: lptv-linux
-          path: release-linux
-          merge-multiple: true
-      - name: Download Android artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: lptv-android
-          path: release-android
-          merge-multiple: true
-      - name: Download Windows artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: lptv-windows
-          path: release-windows
-          merge-multiple: true
-      - name: Download macOS artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: lptv-macos
-          path: release-macos
-          merge-multiple: true
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ github.event.inputs.version }}
-          name: LPTV v${{ github.event.inputs.version }}
-          files: |
-            release-linux/**/LPTV-linux-*.AppImage
-            release-linux/**/cloud.lazycat.catlink.lptv-*.lpk
-            release-android/**/LPTV-*-*.apk
-            release-windows/**/LPTV-*-portable.exe
-            release-macos/**/LPTV-mac-*.dmg
-          generate_release_notes: true
+# ==================================================================
+# 说明：GitHub Release 由本地 release.sh 创建（LPK/AppImage 本地构建 +
+#  gh run download 拉 CI 的 exe/dmg/apk + gh release upload 合并推送），
+#  CI 不创建 release——避免与本地 release 冲突，且 CI 不产 LPK。
+# ==================================================================
