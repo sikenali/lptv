@@ -2676,13 +2676,17 @@
     }
   }
   function setFullIcon(full) {
+    full = !!full;
     var b = document.getElementById("lptv-b-full");
     if (b) {
-      b.classList.toggle("on", !!full);
+      b.classList.toggle("on", full);
       setTip(b, full ? "退出全屏 (F11/双击)" : "全屏 (F11/双击)");
     }
     var t = document.getElementById("lptv-tb-fs");
-    if (t) t.classList.toggle("on", !!full);
+    if (t) t.classList.toggle("on", full);
+    // 全屏/浮窗焦点互斥：进入全屏时清掉浮窗高亮，反之亦然（用户反馈：
+    // CDE 下全屏后浮窗按钮仍 active，焦点应互相切换）。
+    if (full) setFloatIcon(false);
   }
   function pollFullState() {
     var a = window.lptv ? window.lptv : null;
@@ -2711,6 +2715,8 @@
     if (b) { b.classList.toggle("on", f); setTip(b, f ? "退出小浮窗" : "小浮窗 (小尺寸并自动置顶)"); }
     var t = document.getElementById("lptv-tb-float");
     if (t) t.classList.toggle("on", f);
+    // 全屏/浮窗焦点互斥：进入浮窗时清掉全屏高亮，反之亦然。
+    if (f) setFullIcon(false);
     var root = lptv.ui && lptv.ui.root;
     if (root) {
       var was = root.classList.contains("float");

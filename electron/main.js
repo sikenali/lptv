@@ -657,15 +657,37 @@ function registerIpc() {
 
   h('is_maximized', () => ({ ok: true, maximized: st.max }));
 
+  // 全屏/浮窗互斥辅助：退出全屏/浮窗并恢复保存的窗口几何。
+  // fullscreen_toggle/float_toggle 进入新模式前先退出旧模式，保证焦点互斥
+  // （全屏时浮窗按钮不 active，反之亦然），且恢复链正确：浮窗→全屏→退出
+  // 全屏回到浮窗前窗口，全屏→浮窗→退出浮窗回到全屏前窗口。
+  function exitFullscreen() {
+    if (!win) return null;
+    const b = st.fsSaved;
+    if (b) setPos(b.x, b.y, b.width, b.height);
+    st.fs = false;
+    return b;
+  }
+  function exitFloat() {
+    if (!win) return;
+    if (st.floatSaved) {
+      const b = st.floatSaved;
+      setPos(b.x, b.y, b.width, b.height);
+      if (!b.wasOnTop) win.setAlwaysOnTop(false);
+      st.floatSaved = null;
+    }
+    st.float = false;
+  }
+
   h('fullscreen_toggle', () => {
     if (!win) return { ok: false, fullscreen: st.fs };
     if (st.fs) {
-      const b = st.fsSaved;
-      if (b) setPos(b.x, b.y, b.width, b.height);
-      st.fs = false;
+      const b = exitFullscreen();
       fsDiag('fullscreen_restore', { saved: b });
     } else {
       // 桌面全屏: 铺满整个桌面(display bounds, 覆盖任务栏区)
+      // 全屏/浮窗互斥: 从浮窗切全屏时先退出浮窗，退出全屏回到浮窗前的窗口。
+      if (st.float) exitFloat();
       st.fsSaved = win.getBounds();
       const d = displayBounds();
       fsDiag('fullscreen_before', { target: d, saved: st.fsSaved });
@@ -682,14 +704,10 @@ function registerIpc() {
   h('float_toggle', () => {
     if (!win) return { ok: false, floating: st.float, float: st.float };
     if (st.float) {
-      if (st.floatSaved) {
-        const b = st.floatSaved;
-        setPos(b.x, b.y, b.width, b.height);
-        if (!b.wasOnTop) win.setAlwaysOnTop(false);
-        st.floatSaved = null;
-      }
-      st.float = false;
+      exitFloat();
     } else {
+      // 全屏/浮窗互斥: 从全屏切浮窗时先退出全屏，退出浮窗回到全屏前的窗口。
+      if (st.fs) exitFullscreen();
       const b = win.getBounds();
       st.floatSaved = { x: b.x, y: b.y, width: b.width, height: b.height, wasOnTop: st.pin };
       const d = workAreaBounds();
