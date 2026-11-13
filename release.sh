@@ -42,7 +42,8 @@ REPO="$(gh repo view --json nameWithOwner --jq '.nameWithOwner' 2>/dev/null || e
 [ -n "$REPO" ] || { echo "错误：无法确定当前 git 仓库（需在 lptv 仓库内）" >&2; exit 1; }
 echo "==> 仓库：$REPO"
 
-# 同步版本号到 lzc/package.yml → lpk/rchrome/package.yml、electron/package.json
+# 同步版本号到 lpk/rchrome/package.yml（lzc-cli 读的版本）、electron/package.json、
+# android/android/app/build.gradle
 # （lpk 的 package.yml 是 lzc-cde 拷贝来的，需与 electron 版本一致）
 node tools/set_version.js "$VERSION"
 

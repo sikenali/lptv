@@ -22,7 +22,9 @@ WWW_DIR="$ANDROID_DIR/www"
 BUILD_TYPE="${ANDROID_BUILD_TYPE:-debug}"
 ABI="${ANDROID_ABI:-all}"
 
-VERSION="$(grep -m1 '^version:' "$ROOT/lzc/package.yml" | awk '{print $2}')"
+# 版本号：electron/package.json（CI 的 Get version 步骤已用 tools/set_version.js 同步；
+# lzc/ 已废弃删除，lpk/ 为 gitignore 不推送（CI 不存在），故不读 lzc/lpk 的 package.yml）
+VERSION="$(grep -m1 '"version"' "$ROOT/electron/package.json" | awk -F'"' '{print $4}')"
 [ -z "$VERSION" ] && VERSION="1.0.0"
 echo "版本: $VERSION  ABI: $ABI  类型: $BUILD_TYPE"
 
