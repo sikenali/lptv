@@ -1070,10 +1070,7 @@
     backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
     border-bottom:1px solid var(--line);
     opacity:0;transform:translateY(-100%);transition:opacity .25s,transform .25s;
-    pointer-events:none;color:var(--tx);user-select:none;
-    /* 原生窗口拖拽区: 按住顶栏拖动 → Electron 发 _NET_WM_MOVERESIZE → xpra 转发给客户端移动窗口。
-       与 rwx(微信/Chromium CSD) 完全同机制。按钮区 #lptv-tb-btns 已是 no-drag。 */
-    -webkit-app-region:drag;app-region:drag}
+    pointer-events:none;color:var(--tx);user-select:none}
   #lptv-topbar.show{opacity:1;transform:none;pointer-events:auto}
   /* 设置「启动时显示顶栏」: 顶栏常显 (含 idle/无 hover 时), 不参与隐藏 */
   #lptv-root.tb-always #lptv-topbar{opacity:1!important;transform:none!important;pointer-events:auto!important}
@@ -2613,12 +2610,27 @@
       if (a && a.close_window) a.close_window();
       else window.close();
     });
-    // 无边框窗口拖动：改由 CSS -webkit-app-region:drag（见 #lptv-topbar 样式）提供原生
-    // 拖拽区 —— 按住顶栏拖动时 Electron 直接发 _NET_WM_MOVERESIZE，xpra 服务端把它转发
-    // 给客户端(Windows)执行 begin_move_drag，与 rwx(微信/Chromium CSD) 同机制，稳且省 IPC。
-    // 旧实现(JS move_win→setBounds)已移除：它依赖 screenX/screenY 与 winOrigin 校准，
-    // 在 xpra 无 WM 下坐标/偏移不可靠导致拖动失灵；且 -webkit-app-region:drag 区域内的
-    // mousedown 不再派发到页面，两者若并存会互相争抢。
+    // 无边框窗口拖动：应用主动发 _NET_WM_MOVERESIZE（与 rwx/微信 CSD 同机制）。
+    // 按住顶栏 mousedown → bridge.begin_window_drag → main 进程 spawn
+    // send_moveresize.py（ctypes+libX11 XSendEvent）发 _NET_WM_MOVERESIZE 给根窗口，
+    // xpra 服务端 (x11/models/base.py) 收到后转发给客户端(Windows)执行 begin_move_drag，
+    // 客户端随后跟踪鼠标完成拖动。不依赖 screenX/screenY（脚本用 XQueryPointer 取真实
+    // 指针），也不受 setBounds/winOrigin 偏移影响。
+    // 注：CSS -webkit-app-region:drag 保留（本地桌面可用），但 xpra 下 Electron 不落
+    // _NET_WM_MOVERESIZE，故以 begin_window_drag 为准；两者互斥由按钮区 no-drag 保障。
+    (function () {
+      var tb = document.querySelector("#lptv-topbar");
+      if (!tb) return;
+      tb.addEventListener("mousedown", function (e) {
+        if (e.button !== 0) return;
+        if (e.target.closest && e.target.closest("#lptv-tb-btns, .lptv-tb-btn")) return;
+        var api = wvApi();
+        if (api && api.begin_window_drag) {
+          api.begin_window_drag(e.screenX, e.screenY, 1);
+        }
+        e.preventDefault();
+      });
+    })();
     // 窗口拖动只保留顶栏(见上方 #lptv-topbar 拖动)。播放区域不再绑定长按拖动:
     // LPK 下全屏长按会与播放器/点击手势争抢, 且用户只希望从顶栏拖动窗口。
     if (a && a.is_maximized) {

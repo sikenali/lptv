@@ -28,6 +28,7 @@ contextBridge.exposeInMainWorld('lptv', {
   resize_win: invoke('resize_win'),
   win_pos: invoke('win_pos'),
   move_win: invoke('move_win'),
+  begin_window_drag: invoke('begin_window_drag'),
   close_window: invoke('close_window'),
   // 数据
   get_channels: invoke('get_channels'),

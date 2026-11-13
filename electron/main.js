@@ -673,6 +673,38 @@ function registerIpc() {
     return { ok: true };
   });
 
+  // ---- 窗口拖动（与 rwx/微信同机制：应用主动发 _NET_WM_MOVERESIZE）------------
+  // xpra 无真实 WM，Electron -webkit-app-region:drag 不落 _NET_WM_MOVERESIZE，
+  // JS setBounds 又受 winOrigin 偏移影响。这里在渲染层按下顶栏时，直接经
+  // send_moveresize.py（ctypes+libX11 XSendEvent）发 _NET_WM_MOVERESIZE 给根窗口，
+  // xpra 服务端 (x11/models/base.py) 收到后转发给客户端(Windows)执行 begin_move_drag，
+  // 客户端随后跟踪鼠标完成拖动 —— 与微信完全一致，且不受坐标/偏移校准影响。
+  h('begin_window_drag', (x, y, button) => {
+    if (!win || win.isDestroyed()) return { ok: false, err: 'no-window' };
+    try {
+      const buf = win.getNativeWindowHandle();
+      if (!buf || buf.length < 4) return { ok: false, err: 'no-native-handle' };
+      let xid = buf.readUInt32LE(0);
+      if (xid === 0 && buf.length >= 8) xid = buf.readUInt32LE(4);
+      if (!xid) return { ok: false, err: 'no-xid' };
+      const script = app.isPackaged
+        ? path.join(process.resourcesPath, 'send_moveresize.py')
+        : path.join(__dirname, 'send_moveresize.py');
+      require('child_process').execFile('python3',
+        [script, '0x' + xid.toString(16),
+         String(parseInt(x, 10) || 0), String(parseInt(y, 10) || 0),
+         String(parseInt(button, 10) || 1)],
+        (err) => {
+          if (err) console.error('[LPTV] _NET_WM_MOVERESIZE send failed:', err.message);
+          else console.log('[LPTV] _NET_WM_MOVERESIZE sent xid=0x' + xid.toString(16));
+        });
+      return { ok: true, xid };
+    } catch (e) {
+      console.error('[LPTV] _NET_WM_MOVERESIZE error:', e);
+      return { ok: false, err: String(e && e.message || e) };
+    }
+  });
+
   h('close_window', () => { if (win) win.destroy(); return { ok: true }; });
 
   // ---- 数据 ----------------------------------------------------------------

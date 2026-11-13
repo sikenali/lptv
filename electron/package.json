@@ -33,6 +33,10 @@
         "to": "write_netwm_icon.py"
       },
       {
+        "from": "send_moveresize.py",
+        "to": "send_moveresize.py"
+      },
+      {
         "from": "../frontend",
         "to": "frontend",
         "filter": [
