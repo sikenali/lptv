@@ -1071,6 +1071,10 @@
     border-bottom:1px solid var(--line);
     opacity:0;transform:translateY(-100%);transition:opacity .25s,transform .25s;
     pointer-events:none;color:var(--tx);user-select:none}
+  /* 本地桌面(有真实 WM, 宿主 KWin): 顶栏启用 Electron 原生拖拽, 最流畅、焦点正确。
+     容器/xpra(无 WM) 不给 #lptv-root 加 .lptv-native-drag, 走 begin_window_drag +
+     send_moveresize.py 主动发 _NET_WM_MOVERESIZE(仅 xpra 可靠)。 */
+  #lptv-root.lptv-native-drag #lptv-topbar{-webkit-app-region:drag;app-region:drag}
   #lptv-topbar.show{opacity:1;transform:none;pointer-events:auto}
   /* 设置「启动时显示顶栏」: 顶栏常显 (含 idle/无 hover 时), 不参与隐藏 */
   #lptv-root.tb-always #lptv-topbar{opacity:1!important;transform:none!important;pointer-events:auto!important}
@@ -1137,7 +1141,7 @@
   }
 
   /* ===== 频道切换注水动画 (与启动画面 splash 同一套图标+配色) ===== */
-  /* 优先读 splash 已写入共享 DOM 的图标 src (#lptv-icon-assets):
+  /* 优先读 splash 已写入共享 DOM 的图标 data URI (#lptv-icon-assets):
      跨隔离世界(electron)与 Android 均可同步取到 */
   function spinIconSync() {
     try {
@@ -1189,6 +1193,9 @@
     document.head.appendChild(style);
 
     var root = el("div", { id: "lptv-root" });
+    // 本地桌面(有真实 WM): 顶栏用 Electron 原生 -webkit-app-region:drag(最流畅)。
+    // 容器/xpra(无 WM) 不加此类, 由 begin_window_drag + send_moveresize.py 主动发事件。
+    if (window.__LPTV_IS_CONTAINER === false) root.classList.add("lptv-native-drag");
 
     var osd = el("div", { id: "lptv-osd", html:
       '<div class="lptv-osd-num"><b>00</b></div><div class="lptv-osd-name"></div><div class="lptv-osd-sub"></div>' });
@@ -2610,108 +2617,33 @@
       if (a && a.close_window) a.close_window();
       else window.close();
     });
-    // 无边框窗口拖动：按住标题区移动鼠标 → bridge.move_win（容器无 WM，
-    // pywebview easy_drag / _NET_WM_MOVERESIZE 都不可用，只能 JS 拖动）。
-    // 拖拽面：整条 topbar（不含按钮），按钮区 no-drag。
+    // 无边框窗口拖动：环境区分。
+    //   本地桌面(有真实 WM, 宿主 KWin)：顶栏 CSS -webkit-app-region:drag（Electron 原生,
+    //     最流畅、焦点正确）——buildUI 已给 #lptv-root 加 .lptv-native-drag，无需主动发。
+    //   容器/xpra(无 WM)：Electron 原生 drag 不落 _NET_WM_MOVERESIZE，改由应用主动发。
+    //     按住顶栏 mousedown → bridge.begin_window_drag → main 进程 spawn
+    //     send_moveresize.py（ctypes+libX11 XSendEvent）发 _NET_WM_MOVERESIZE 给根窗口，
+    //     xpra 服务端 (x11/models/base.py) 收到后转发给客户端(Windows)执行 begin_move_drag，
+    //     客户端随后跟踪鼠标完成拖动。不依赖 screenX/screenY（脚本用 XQueryPointer 取真实
+    //     指针），也不受 setBounds/winOrigin 偏移影响。两者互斥由按钮区 no-drag 保障。
     (function () {
+      // 本地桌面(有真实 WM)：走 Electron 原生 -webkit-app-region:drag，不主动发事件
+      // （send_moveresize.py 在 KWin 上实测不响应，导致拖动失灵/焦点不对）。
+      if (window.__LPTV_IS_CONTAINER === false) return;
       var tb = document.querySelector("#lptv-topbar");
-      var dragging = false, sx = 0, sy = 0, wx = 0, wy = 0, posReady = false;
-      var raf = null, pend = null;  // rAF 合帧: 顶栏拖动同样不刷爆 IPC
-      function flush() {
-        raf = null;
-        if (!posReady || !pend) return;
-        var api = wvApi();
-        if (api && api.move_win) api.move_win(pend[0], pend[1]);
-        pend = null;
-      }
+      if (!tb) return;
       tb.addEventListener("mousedown", function (e) {
         if (e.button !== 0) return;
         if (e.target.closest && e.target.closest("#lptv-tb-btns, .lptv-tb-btn")) return;
-        dragging = true; posReady = false; sx = e.screenX; sy = e.screenY;
         var api = wvApi();
-        if (api && api.win_pos) {
-          api.win_pos().then(function (r) {
-            if (r && r.ok) { wx = r.x; wy = r.y; }
-            posReady = true;
-          });
-        } else { posReady = true; }
+        if (api && api.begin_window_drag) {
+          api.begin_window_drag(e.screenX, e.screenY, 1);
+        }
         e.preventDefault();
       });
-      window.addEventListener("mousemove", function (e) {
-        if (!dragging || !posReady) return;
-        pend = [wx + (e.screenX - sx), wy + (e.screenY - sy)];
-        if (!raf) raf = requestAnimationFrame(flush);
-      });
-      window.addEventListener("mouseup", function () {
-        if (raf) { cancelAnimationFrame(raf); raf = null; }
-        if (pend) { flush(); pend = null; }
-        dragging = false;
-      });
     })();
-    // 全屏长按拖动窗口: 除已有拖动面(topbar)/交互控件/悬浮面板外, 任意处按住
-    // ~400ms 进入拖动模式, 移动即 move_win。短按(<400ms)仍走正常点击, 不干扰。
-    // 唯一的长按拖动实现(播放器区不再重复绑定, 避免双 move_win 争抢导致漂移)。
-    // 用 pointer 事件(window capture)而非 mousedown: 官方播放页可能在 window
-    // capture 拦 mousedown 并 stopPropagation(其自身交互), 会掐断 document 级
-    // 长按; pointer 是独立事件流, 不受其 mousedown 拦截影响, 且天然覆盖鼠标/
-    // 触摸/触控笔。
-    (function () {
-      var LP = 400, timer = null, dragging = false, started = false;
-      var sx = 0, sy = 0, wx = 0, wy = 0, posReady = false, moved = false;
-      var lastX = 0, lastY = 0;  // 最近光标: 长按触发时重基线, 首帧不跳
-      var raf = null, pend = null;  // rAF 合帧: 每帧至多一次 move_win, 不刷爆 IPC
-      var SKIP = "#lptv-topbar,#lptv-tb-btns,.lptv-tb-btn,#lptv-controls,#lptv-panel," +
-        "#lptv-epg,#lptv-settings,#lptv-win-grip,#lptv-vol,#lptv-osd,#lptv-nextch," +
-        "#lptv-digit,#lptv-toast,#lptv-hint,#lptv-rec-badge,input,select,button,a," +
-        ".lptv-btn,.lptv-link,.lptv-ch,.lptv-epg-tab";
-      function flush() {
-        raf = null;
-        if (!posReady || !pend) return;
-        var api = wvApi();
-        if (api && api.move_win) api.move_win(pend[0], pend[1]);
-        pend = null;
-      }
-      function endDrag() {
-        clearTimeout(timer); timer = null; started = false;
-        if (raf) { cancelAnimationFrame(raf); raf = null; }
-        if (pend) { flush(); }  // 松开前落定最后一步, 避免窗口停在半路
-        pend = null; dragging = false;
-        // 拖过的释放置 _longDrag, 由 click 处理器消费: 避免拖完的 click 被
-        // 误判成"双击第二击"触发全屏
-        if (moved) {
-          lptv._longDrag = true;
-          setTimeout(function () { lptv._longDrag = false; }, 500);
-        }
-        moved = false;
-      }
-      window.addEventListener("pointerdown", function (e) {
-        if (e.button !== 0) return;
-        if (e.target.closest && e.target.closest(SKIP)) return;
-        sx = lastX = e.screenX; sy = lastY = e.screenY;
-        started = false; dragging = false; posReady = false; moved = false;
-        clearTimeout(timer);
-        timer = setTimeout(function () {
-          started = true; dragging = true;
-          // 以按住期间最后光标为基线: 抵消保持中的手部漂移, 进拖动不跳变
-          sx = lastX; sy = lastY;
-          var api = wvApi();
-          if (api && api.win_pos) {
-            api.win_pos().then(function (r) { if (r && r.ok) { wx = r.x; wy = r.y; } posReady = true; });
-          } else { posReady = true; }
-          wake();
-        }, LP);
-      }, true);
-      window.addEventListener("pointermove", function (e) {
-        lastX = e.screenX; lastY = e.screenY;
-        if (!started) return;  // 不因移动取消: 按住够时长必进拖动, 更可靠
-        if (!dragging || !posReady) return;
-        if (Math.abs(e.screenX - sx) + Math.abs(e.screenY - sy) > 3) moved = true;
-        pend = [wx + (e.screenX - sx), wy + (e.screenY - sy)];
-        if (!raf) raf = requestAnimationFrame(flush);
-      }, true);
-      window.addEventListener("pointerup", endDrag, true);
-      window.addEventListener("pointercancel", endDrag, true);
-    })();
+    // 窗口拖动只保留顶栏(见上方 #lptv-topbar 拖动)。播放区域不再绑定长按拖动:
+    // LPK 下全屏长按会与播放器/点击手势争抢, 且用户只希望从顶栏拖动窗口。
     if (a && a.is_maximized) {
       setInterval(function () { a.is_maximized().then(function (r) { setMaxIcon(r && r.maximized); }); }, 2000);
     }
@@ -2744,13 +2676,17 @@
     }
   }
   function setFullIcon(full) {
+    full = !!full;
     var b = document.getElementById("lptv-b-full");
     if (b) {
-      b.classList.toggle("on", !!full);
+      b.classList.toggle("on", full);
       setTip(b, full ? "退出全屏 (F11/双击)" : "全屏 (F11/双击)");
     }
     var t = document.getElementById("lptv-tb-fs");
-    if (t) t.classList.toggle("on", !!full);
+    if (t) t.classList.toggle("on", full);
+    // 全屏/浮窗焦点互斥：进入全屏时清掉浮窗高亮，反之亦然（用户反馈：
+    // CDE 下全屏后浮窗按钮仍 active，焦点应互相切换）。
+    if (full) setFloatIcon(false);
   }
   function pollFullState() {
     var a = window.lptv ? window.lptv : null;
@@ -2779,6 +2715,8 @@
     if (b) { b.classList.toggle("on", f); setTip(b, f ? "退出小浮窗" : "小浮窗 (小尺寸并自动置顶)"); }
     var t = document.getElementById("lptv-tb-float");
     if (t) t.classList.toggle("on", f);
+    // 全屏/浮窗焦点互斥：进入浮窗时清掉全屏高亮，反之亦然。
+    if (f) setFullIcon(false);
     var root = lptv.ui && lptv.ui.root;
     if (root) {
       var was = root.classList.contains("float");
@@ -3111,8 +3049,6 @@
     // 双击画面 全屏/窗口 切换; 单击不再触发暂停 (空格键暂停/播放)
     var lastTap = 0;
     root.addEventListener("click", function (e) {
-      // 长按拖拽窗口后的这次 click 属于拖动产物, 忽略, 防止误判成"双击第二击"全屏
-      if (lptv._longDrag) { lptv._longDrag = false; return; }
       var t = e.target;
       if (t.closest && t.closest("#lptv-controls,#lptv-nextch,#lptv-panel,#lptv-epg,#lptv-settings,#lptv-toast,#lptv-hint,#lptv-osd,#lptv-vol,#lptv-digit,#lptv-topbar,#lptv-win-grip,#lptv-rec-badge")) return;
       var now = Date.now();
@@ -3385,10 +3321,18 @@
         // 跨启动状态合并 (favs/lastPid/resumeLast 存 Python 侧)
         var api2 = pyApi();
         var resumeFlow = function () {
+          var played = false;
           if (cfg.resumeLast !== false && cfg.lastPid && cfg.lastPid !== urlPid &&
               chs.some(function (c) { return c.pid === cfg.lastPid; })) {
             dbg("resume last: " + cfg.lastPid);
             setTimeout(function () { switchChannel(cfg.lastPid); }, 800);
+            played = true;
+          }
+          // Android 原生 APK（__lptvBridge）：本地页无 ?pid=，且未恢复上次频道时，
+          // 自动播放首频道——否则 iframe 一直空 → 视频区纯黑（原生 APK 无画面）。
+          if (!played && !urlPid && window.__lptvBridge && lptv.currentPid) {
+            dbg("android auto-play first: " + lptv.currentPid);
+            setTimeout(function () { switchChannel(lptv.currentPid); }, 900);
           }
           markActive();
         };

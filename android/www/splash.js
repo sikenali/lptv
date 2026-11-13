@@ -1,5 +1,5 @@
 /* ---------------------------------------------------------------------------
- * LPTV 启动动画 —— 四字母图标 (L/P/T/V) 组合, 从左到右水波浪跳动 (全覆盖不露YSP)
+ * LPTV 启动动画 —— 单图标 (icon.png) 上下跳动 + 下方渐变横线左右往来 (全覆盖不露YSP)
  *
  * 由 electron/preload.js 在页面 document-start 同步执行（隔离世界共享 DOM），
  * 直接建 #lptv-splash 遮罩，早于YSP自己的 HTML / JS 解析与首帧绘制。
@@ -9,10 +9,8 @@
  * 文档导航，本脚本不会重复出现。
  *
  * 配置（由 main.js 在本文件之前注入）：
- *   window.__LPTV_SPLASH_CFG = { icon: 'data:image/png;base64,...',  // 窗口图标
- *                                title: 'LPTV',
- *                                letters: [{letter:'L', src:'data:image/png;base64,...'}, ...] }
- *   letters: 四个字母图标 data URI (或相对 URL), 用于注水波浪动画。
+ *   window.__LPTV_SPLASH_CFG = { icon: 'data:image/png;base64,...',  // 窗口/动画图标
+ *                                title: 'LPTV' }
  * --------------------------------------------------------------------------- */
 (function () {
   'use strict';
@@ -134,7 +132,7 @@
       wave.appendChild(bar);
       mask.appendChild(wave);
       /* 共享给 inject.js 频道切换动画复用(同一图标+配色):
-         写入共享 DOM, 跨隔离世界读该节点即可取到图标 src。 */
+         写入共享 DOM, 跨隔离世界读该节点即可取到 data URI。 */
       try {
         var holder = document.createElement('div');
         holder.id = 'lptv-icon-assets';

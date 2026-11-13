@@ -3321,10 +3321,18 @@
         // 跨启动状态合并 (favs/lastPid/resumeLast 存 Python 侧)
         var api2 = pyApi();
         var resumeFlow = function () {
+          var played = false;
           if (cfg.resumeLast !== false && cfg.lastPid && cfg.lastPid !== urlPid &&
               chs.some(function (c) { return c.pid === cfg.lastPid; })) {
             dbg("resume last: " + cfg.lastPid);
             setTimeout(function () { switchChannel(cfg.lastPid); }, 800);
+            played = true;
+          }
+          // Android 原生 APK（__lptvBridge）：本地页无 ?pid=，且未恢复上次频道时，
+          // 自动播放首频道——否则 iframe 一直空 → 视频区纯黑（原生 APK 无画面）。
+          if (!played && !urlPid && window.__lptvBridge && lptv.currentPid) {
+            dbg("android auto-play first: " + lptv.currentPid);
+            setTimeout(function () { switchChannel(lptv.currentPid); }, 900);
           }
           markActive();
         };
