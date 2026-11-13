@@ -12,9 +12,9 @@ electron/dist/
 # 其构建产物由 android/android/.gitignore(Android 模板) 排除
 android/node_modules/
 android/package-lock.json
-# lzc 打包：lzc/content/（CDE 骨架 rim/cde-supervisor + 内置 web + 打包脚本）为本地
-# 打包产物，不入库不推远端；assemble_lpk.sh 从本地磁盘读取，CI 检测缺失则跳过 LPK
-# 仅产 AppImage。轻量配置（lzc/manifest.yml、package.yml、icon.png、rlptv/）仍入库。
+# lzc 打包：lzc/content/（lzc/build.sh 从 git 8ba5558^ 提取的 LPTV content + AppImage）
+# 为构建产物，不入库不推远端。轻量配置入库供本地/CI 出包：
+#   lzc/build.sh、lzc-build.yml、lzc-manifest.yml、package.yml、chrome.png。
 lzc/content/
 
 # 部署配置（非核心，按需参考）

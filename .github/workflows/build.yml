@@ -57,6 +57,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # lzc/build.sh 用 git archive 8ba5558^ 提取 LPTV content，需完整历史
+          fetch-depth: 0
 
       # ---- 环境 ----
       - name: Setup Node.js
@@ -98,23 +101,19 @@ jobs:
           echo "path=$(pwd)/$FILE" >> $GITHUB_OUTPUT
           echo "AppImage: $(basename "$FILE") ($(du -h "$FILE" | cut -f1))"
 
-      # ---- LPK（lzc/content/ 已含完整 CDE 骨架：rim/cde-supervisor/drop/dummyscreen 等，
-      #      不再下载骨架 release，直接用 content 脚本出包）----
+      # ---- LPK（lzc/build.sh 从 git 8ba5558^ 提取完整 LPTV content（支持 rlptv 的
+      #      rim/launch_lptv.sh/run.sh）+ lzc-cli project build 打包；不依赖外部仓库，
+      #      本地与 CI 行为一致）----
       - name: Assemble LPK
         id: assemble-lpk
         run: |
           set -euo pipefail
-          if [ ! -f "lzc/content/assemble_lpk.sh" ]; then
-            echo "lzc/content 不在仓库(本地打包产物, 不入库) → 跳过 LPK 组装, 仅产出 AppImage"
-            exit 0
-          fi
           VERSION="${{ steps.version.outputs.v }}"
-          APP="${{ steps.verify-appimage.outputs.path }}"
-          [ -f "$APP" ] || { echo "AppImage 缺失" >&2; exit 1; }
-          export APP
-          bash lzc/content/assemble_lpk.sh
+          npm install -g @lazycatcloud/lzc-cli
+          cd lzc
+          lzc-cli project build -f lzc-build.yml
 
-          OUT="$(pwd)/lzc/cloud.lazycat.catlink.lptv-${VERSION}.lpk"
+          OUT="$(pwd)/cloud.lazycat.catlink.lptv-${VERSION}.lpk"
           [ -f "$OUT" ] || { echo "LPK 未生成" >&2; exit 1; }
           echo "path=$OUT" >> $GITHUB_OUTPUT
           ls -lh "$OUT"
