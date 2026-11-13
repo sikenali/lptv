@@ -241,14 +241,57 @@ function calibrateOrigin() {
   } catch (e) { winOrigin = { x: 0, y: 0 }; }
 }
 
+// ---- 虚拟屏实际尺寸查询 -------------------------------------------------
+// Electron 的 screen 模块在窗口创建时(虚拟屏初始 ~1600)就缓存了 display，
+// xpra resize-display=auto 在客户端连接后把虚拟屏调到 1920，但 Electron
+// **不感知**（screen.on 不触发，getPrimaryDisplay().bounds 仍返回 1600）。
+// 因此全屏/最大化的目标尺寸不能依赖 Electron 缓存，须直接查询 X 服务器：
+// xrandr (首选) → xdpyinfo → Electron 缓存 → env 兜底。
+function queryActualScreenSize() {
+  // 1. xrandr: "Screen 0: ... current 1920 x 1080 ..."
+  try {
+    const { execSync } = require('child_process');
+    const out = execSync('xrandr --query 2>/dev/null', { timeout: 3000, encoding: 'utf8' });
+    const m = out.match(/current\s+(\d+)\s+x\s+(\d+)/);
+    if (m) {
+      const w = parseInt(m[1], 10), h = parseInt(m[2], 10);
+      if (w > 0 && h > 0) return { w, h };
+    }
+  } catch (e) {}
+  // 2. xdpyinfo: "dimensions:    1920x1080 pixels"
+  try {
+    const { execSync } = require('child_process');
+    const out = execSync('xdpyinfo 2>/dev/null | grep dimensions', { timeout: 3000, encoding: 'utf8' });
+    const m = out.match(/dimensions:\s+(\d+)x(\d+)/);
+    if (m) {
+      const w = parseInt(m[1], 10), h = parseInt(m[2], 10);
+      if (w > 0 && h > 0) return { w, h };
+    }
+  } catch (e) {}
+  // 3. Electron 缓存（可能陈旧，仅作兜底）
+  try {
+    const { screen } = require('electron');
+    const b = screen.getPrimaryDisplay().bounds;
+    if (b.width > 0 && b.height > 0) return { w: b.width, h: b.height };
+  } catch (e) {}
+  // 4. env 兜底
+  return { w: parseInt(process.env.LPTV_SCREEN_W || '1920', 10) || 1920,
+           h: parseInt(process.env.LPTV_SCREEN_H || '1080', 10) || 1080 };
+}
+
 function displayBounds() {
   try {
     const { screen } = require('electron');
     const b = screen.getPrimaryDisplay().bounds;
+    if (IS_CONTAINER) {
+      // 容器: Electron 缓存可能陈旧，用 xrandr 实际虚拟屏尺寸
+      const s = queryActualScreenSize();
+      return { x: b.x, y: b.y, w: s.w, h: s.h };
+    }
     return { x: b.x, y: b.y, w: b.width, h: b.height };
   } catch (e) {
-    return { x: 0, y: 0, w: parseInt(process.env.LPTV_SCREEN_W || '1920', 10) || 1920,
-             h: parseInt(process.env.LPTV_SCREEN_H || '1080', 10) || 1080 };
+    const s = queryActualScreenSize();
+    return { x: 0, y: 0, w: s.w, h: s.h };
   }
 }
 // 最大化: 铺满工作区(保留任务栏); 全屏: 铺满整个桌面(桌面全屏, 覆盖任务栏区)。
@@ -257,10 +300,15 @@ function workAreaBounds() {
   try {
     const { screen } = require('electron');
     const b = screen.getPrimaryDisplay().workArea;
+    if (IS_CONTAINER) {
+      // 容器: workArea==bounds（无 WM），用实际虚拟屏尺寸
+      const s = queryActualScreenSize();
+      return { x: b.x, y: b.y, w: s.w, h: s.h };
+    }
     return { x: b.x, y: b.y, w: b.width, h: b.height };
   } catch (e) {
-    return { x: 0, y: 0, w: parseInt(process.env.LPTV_SCREEN_W || '1920', 10) || 1920,
-             h: parseInt(process.env.LPTV_SCREEN_H || '1080', 10) || 1080 };
+    const s = queryActualScreenSize();
+    return { x: 0, y: 0, w: s.w, h: s.h };
   }
 }
 
@@ -552,7 +600,30 @@ function createWindow() {
     screen.on('display-metrics-changed', () => reapplyGeometry('metrics'));
     screen.on('display-added', () => reapplyGeometry('added'));
     screen.on('display-removed', () => reapplyGeometry('removed'));
+    // ---- 轮询兜底：Electron screen 模块不感知 xpra 虚拟屏 RandR 变化 ----
+    // 即使 screen.on 不触发，每 2s 用 xrandr 直接查询虚拟屏实际尺寸，
+    // 变化时（客户端连接/分辨率切换）若处于全屏/最大化则重新铺满。
+    let lastScreen = null;
+    setInterval(() => {
+      try {
+        if (!win || win.isDestroyed()) return;
+        const s = queryActualScreenSize();
+        if (lastScreen && (s.w !== lastScreen.w || s.h !== lastScreen.h)) {
+          fsDiag('poll_screen_changed', { actual: s, last: lastScreen });
+          reapplyGeometry('poll');
+        }
+        lastScreen = s;
+      } catch (e) {}
+    }, 2000);
   } catch (e) {}
+  // ---- 启动诊断：捕获 Electron 看到的 display vs 实际虚拟屏尺寸 ----
+  // 容器模式下 ready-to-show 可能不触发（xpra 无 WM），用定时器兜底，
+  // 确认 displayBounds() 是否返回实际 1920（若返回 1600 → Electron 缓存陈旧）。
+  setTimeout(() => {
+    try {
+      fsDiag('startup_3s', { actual: queryActualScreenSize() });
+    } catch (e) {}
+  }, 3000);
   // 本地桌面兜底：ready-to-show 迟迟不触发（极少数首帧异常）也要显示窗口，
   // 避免窗口永不出现（比白闪更糟）。
   if (!IS_CONTAINER) {
