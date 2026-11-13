@@ -1128,51 +1128,6 @@
   #lptv-win-grip:hover{opacity:.9}
   #lptv-win-grip::before{content:"";position:absolute;right:5px;bottom:5px;width:9px;height:9px;
     border-right:2px solid rgba(255,255,255,.8);border-bottom:2px solid rgba(255,255,255,.8)}
-
-  /* ===== 移动端(安卓 html5/触摸/窄屏)适配 =====
-     依赖 resize-display=auto 把 xpra 虚拟屏调成客户端视口 → 本注入层
-     window.innerWidth/Height 即手机视口尺寸，可用媒体查询/JS 判断横竖屏。
-     竖屏/窄屏(max-width:768px)走紧凑移动布局；横屏手机视口同桌面，
-     用 .lptv-touch(JS 检测触摸事件后加) 放大触摸目标。 */
-  @media (max-width:768px){
-    /* 频道面板/节目单：全宽抽屉，底部滑入更自然 */
-    #lptv-panel{width:100vw;max-width:min(430px,100vw)}
-    #lptv-epg{width:100vw;max-width:min(450px,100vw)}
-    /* 控制栏：贴宽，按钮加大 */
-    #lptv-controls{max-width:94vw;padding:6px 8px;gap:5px}
-    .lptv-btn{height:40px;padding:0 10px}
-    .lptv-btn-ico{width:44px}
-    .lptv-btn-main{width:56px;height:56px}
-    .lptv-ctl-now{display:none}
-    #lptv-c-vol{width:64px}
-    /* 设置弹窗：全屏，侧栏改顶部横排 tab */
-    .lptv-modal-card{flex-direction:column;width:100vw;height:100vh;max-width:none;border-radius:0}
-    .lptv-modal-side{width:100%;flex-direction:row;gap:4px;padding:7px 10px;border-right:none;
-      border-bottom:1px solid var(--line);overflow-x:auto;flex-shrink:0}
-    .lptv-side-item{flex-shrink:0;white-space:nowrap;padding:8px 12px}
-    .lptv-modal-main{flex:1;min-height:0;padding:38px 16px 16px}
-    /* 顶栏紧凑：隐藏 meta 徽标 */
-    #lptv-topbar .lptv-tb-meta{display:none}
-    /* OSD/音量：竖屏偏上居中 */
-    #lptv-osd{right:14px;top:56px;max-width:80vw}
-    #lptv-digit{right:14px;top:34px;font-size:calc(34.0px * var(--fs-scale))}
-    #lptv-vol{right:14px;top:92px;width:170px}
-    /* 下一台预览/Toast */
-    #lptv-nextch{min-width:210px;bottom:86px}
-    #lptv-toast{max-width:88vw}
-    /* 触摸无 hover：隐藏气泡提示（JS 改为点按） */
-    .lptv-btn[data-tip]:hover::after,.lptv-btn[data-tip]:hover::before,
-    .lptv-tb-btn[data-tip]:hover::after,.lptv-tb-btn[data-tip]:hover::before{display:none}
-  }
-  /* 触摸设备(JS 检测到 touchstart/pointerType=touch 后给 #lptv-root 加 .lptv-touch)：
-     放大按钮/行高，横屏手机也能有 ≥44px 触摸目标 */
-  #lptv-root.lptv-touch .lptv-btn{height:42px;padding:0 12px}
-  #lptv-root.lptv-touch .lptv-btn-ico{width:46px}
-  #lptv-root.lptv-touch .lptv-btn-main{width:58px;height:58px}
-  #lptv-root.lptv-touch .lptv-ch{padding:10px 8px}
-  #lptv-root.lptv-touch .lptv-epg-row{padding:12px 14px}
-  #lptv-root.lptv-touch .lptv-tb-btn{width:42px;height:36px}
-  #lptv-root.lptv-touch .lptv-side-item{padding:11px 13px}
   `;
 
   function el(tag, attrs) {
@@ -1439,23 +1394,6 @@
     root.appendChild(floatCtl);
     root.appendChild(el("div", { id: "lptv-win-grip", title: "调整窗口大小" }));
     document.body.appendChild(root);
-
-    // 移动端触摸适配: 探测到触摸事件后给 root 加 .lptv-touch (放大触摸目标)。
-    // 安卓走 xpra html5 客户端, 触摸经 xpra 转发到本 Electron 渲染器 → 事件可探测。
-    // capture 捕获全部(含官方 video), UA 仅在容器内是桌面 UA 不可用, 故靠事件。
-    (function () {
-      var done = false;
-      function markTouch(e) {
-        if (done) return;
-        if (e.pointerType === "touch" || e.type === "touchstart" || e.type === "touchmove") {
-          done = true;
-          root.classList.add("lptv-touch");
-        }
-      }
-      document.addEventListener("pointerdown", markTouch, { passive: true, capture: true });
-      document.addEventListener("touchstart", markTouch, { passive: true, capture: true });
-      document.addEventListener("touchmove", markTouch, { passive: true, capture: true });
-    })();
 
     // 原生 title 提示 → 样式化 data-tip 悬浮提示 (避免原生气泡遮挡)
     // 覆盖 .lptv-btn (底部/浮窗控制栏) 与 .lptv-tb-btn (顶栏), 保证任何控件
