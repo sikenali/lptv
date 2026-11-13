@@ -527,6 +527,32 @@ function createWindow() {
     fsDiag('ready_to_show');
     try { if (!win.isDestroyed()) win.show(); } catch (e) {}
   });
+  // ---- 虚拟屏跟随客户端分辨率（xpra resize-display=auto）------------------
+  // xpra 在客户端连接后把 Xdummy 虚拟屏调整到客户端尺寸(如 1920x1080)，但
+  // Electron 的 screen 模块在窗口创建时(虚拟屏初始 ~1600)就初始化了 display，
+  // **不感知后续 RandR 变化** → 全屏 setBounds 只铺到 1600，右侧露出客户端
+  // 桌面(错位)。监听 display 变化，虚拟屏 resize 后若处于全屏/最大化，用新
+  // 尺寸重新 setPos 铺满。容器模式才需要（本地桌面真 WM 无此问题）。
+  try {
+    const { screen } = require('electron');
+    const reapplyGeometry = (why) => {
+      try {
+        if (!win || win.isDestroyed()) return;
+        if (st.fs) {
+          const d = displayBounds();
+          fsDiag('display_changed_' + why, { disp: d, fullscreen: true });
+          setPos(d.x, d.y, d.w, d.h);
+        } else if (st.max) {
+          const d = workAreaBounds();
+          fsDiag('display_changed_' + why, { disp: d, maximized: true });
+          setPos(d.x, d.y, d.w, d.h);
+        }
+      } catch (e) {}
+    };
+    screen.on('display-metrics-changed', () => reapplyGeometry('metrics'));
+    screen.on('display-added', () => reapplyGeometry('added'));
+    screen.on('display-removed', () => reapplyGeometry('removed'));
+  } catch (e) {}
   // 本地桌面兜底：ready-to-show 迟迟不触发（极少数首帧异常）也要显示窗口，
   // 避免窗口永不出现（比白闪更糟）。
   if (!IS_CONTAINER) {
