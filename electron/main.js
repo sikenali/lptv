@@ -310,7 +310,11 @@ function injectUi() {
   // splash，避免 __LPTV_SPLASH_CFG 被覆盖成无 banner 且 __lptvSplash 被重置后再闪现。
   const inject = readText(assetFile('inject.js'));
   if (!inject) return;
-  win.webContents.executeJavaScript(inject).catch((e) => {
+  // 暴露环境标志给渲染层：本地桌面(有真实 WM)顶栏用 Electron 原生 -webkit-app-region:drag
+  // （最流畅、焦点正确）；容器/xpra(无 WM) 用 begin_window_drag + send_moveresize.py 主动发
+  // _NET_WM_MOVERESIZE（send_moveresize.py 在宿主 KWin 上实测不响应，故本地桌面必须走原生）。
+  const pre = 'window.__LPTV_IS_CONTAINER=' + (IS_CONTAINER ? 'true' : 'false') + ';\n';
+  win.webContents.executeJavaScript(pre + inject).catch((e) => {
     console.error('[LPTV] inject failed:', e && e.message);
   });
 }
@@ -419,9 +423,22 @@ function createWindow() {
         });
     } catch (e) { console.error('[LPTV] _NET_WM_ICON write error:', e); }
   };
-  // 窗口 map 后写一次（ready-to-show 后 xpra 已接管），再延迟兜底覆盖迟映射/重建
-  win.once('ready-to-show', () => { try { writeNetWmIcon(win); } catch (e) {} });
-  setTimeout(() => { try { if (win && !win.isDestroyed()) writeNetWmIcon(win); } catch (e) {} }, 3000);
+  // 写 _NET_WM_ICON：单次 + 单兜底在容器（xpra 无 WM）里偶发落空 —— xpra 可能
+  // 在窗口 map 前接管、官方 SPA 重渲染会重建/替换窗口（XID 变化），或迟到映射。
+  // 改多点重写：ready-to-show 后 0.8/1.6/2.4/3.2/4.0s 各写一次（每次重取 XID），
+  // 再加 show 事件，确保窗口自身 _NET_WM_ICON 稳定为 LPTV（xpra windowicon 读
+  // 的正是该 "icons" 属性，容器客户端任务栏据此显示 LPTV 而非 rchrome/微信）。
+  // 真 WM 下 setIcon() 已落属性；此 libX11 直写是 xpra 无 WM 容器的真正来源。
+  const _iconRetry = (n) => {
+    try {
+      if (!win || win.isDestroyed()) return;
+      writeNetWmIcon(win);
+      if (n < 5) setTimeout(() => _iconRetry(n + 1), 800);   // ~4s 内共 5 次，覆盖重建/迟映射
+    } catch (e) {}
+  };
+  win.once('ready-to-show', () => _iconRetry(0));
+  win.on('show', () => { try { writeNetWmIcon(win); } catch (e) {} });
+  setTimeout(() => { try { if (win && !win.isDestroyed()) writeNetWmIcon(win); } catch (e) {} }, 6000);
 
   win.webContents.setUserAgent(CHROME_UA);
 

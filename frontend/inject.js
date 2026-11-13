@@ -1071,6 +1071,10 @@
     border-bottom:1px solid var(--line);
     opacity:0;transform:translateY(-100%);transition:opacity .25s,transform .25s;
     pointer-events:none;color:var(--tx);user-select:none}
+  /* 本地桌面(有真实 WM, 宿主 KWin): 顶栏启用 Electron 原生拖拽, 最流畅、焦点正确。
+     容器/xpra(无 WM) 不给 #lptv-root 加 .lptv-native-drag, 走 begin_window_drag +
+     send_moveresize.py 主动发 _NET_WM_MOVERESIZE(仅 xpra 可靠)。 */
+  #lptv-root.lptv-native-drag #lptv-topbar{-webkit-app-region:drag;app-region:drag}
   #lptv-topbar.show{opacity:1;transform:none;pointer-events:auto}
   /* 设置「启动时显示顶栏」: 顶栏常显 (含 idle/无 hover 时), 不参与隐藏 */
   #lptv-root.tb-always #lptv-topbar{opacity:1!important;transform:none!important;pointer-events:auto!important}
@@ -1189,6 +1193,9 @@
     document.head.appendChild(style);
 
     var root = el("div", { id: "lptv-root" });
+    // 本地桌面(有真实 WM): 顶栏用 Electron 原生 -webkit-app-region:drag(最流畅)。
+    // 容器/xpra(无 WM) 不加此类, 由 begin_window_drag + send_moveresize.py 主动发事件。
+    if (window.__LPTV_IS_CONTAINER === false) root.classList.add("lptv-native-drag");
 
     var osd = el("div", { id: "lptv-osd", html:
       '<div class="lptv-osd-num"><b>00</b></div><div class="lptv-osd-name"></div><div class="lptv-osd-sub"></div>' });
@@ -2610,15 +2617,19 @@
       if (a && a.close_window) a.close_window();
       else window.close();
     });
-    // 无边框窗口拖动：应用主动发 _NET_WM_MOVERESIZE（与 rwx/微信 CSD 同机制）。
-    // 按住顶栏 mousedown → bridge.begin_window_drag → main 进程 spawn
-    // send_moveresize.py（ctypes+libX11 XSendEvent）发 _NET_WM_MOVERESIZE 给根窗口，
-    // xpra 服务端 (x11/models/base.py) 收到后转发给客户端(Windows)执行 begin_move_drag，
-    // 客户端随后跟踪鼠标完成拖动。不依赖 screenX/screenY（脚本用 XQueryPointer 取真实
-    // 指针），也不受 setBounds/winOrigin 偏移影响。
-    // 注：CSS -webkit-app-region:drag 保留（本地桌面可用），但 xpra 下 Electron 不落
-    // _NET_WM_MOVERESIZE，故以 begin_window_drag 为准；两者互斥由按钮区 no-drag 保障。
+    // 无边框窗口拖动：环境区分。
+    //   本地桌面(有真实 WM, 宿主 KWin)：顶栏 CSS -webkit-app-region:drag（Electron 原生,
+    //     最流畅、焦点正确）——buildUI 已给 #lptv-root 加 .lptv-native-drag，无需主动发。
+    //   容器/xpra(无 WM)：Electron 原生 drag 不落 _NET_WM_MOVERESIZE，改由应用主动发。
+    //     按住顶栏 mousedown → bridge.begin_window_drag → main 进程 spawn
+    //     send_moveresize.py（ctypes+libX11 XSendEvent）发 _NET_WM_MOVERESIZE 给根窗口，
+    //     xpra 服务端 (x11/models/base.py) 收到后转发给客户端(Windows)执行 begin_move_drag，
+    //     客户端随后跟踪鼠标完成拖动。不依赖 screenX/screenY（脚本用 XQueryPointer 取真实
+    //     指针），也不受 setBounds/winOrigin 偏移影响。两者互斥由按钮区 no-drag 保障。
     (function () {
+      // 本地桌面(有真实 WM)：走 Electron 原生 -webkit-app-region:drag，不主动发事件
+      // （send_moveresize.py 在 KWin 上实测不响应，导致拖动失灵/焦点不对）。
+      if (window.__LPTV_IS_CONTAINER === false) return;
       var tb = document.querySelector("#lptv-topbar");
       if (!tb) return;
       tb.addEventListener("mousedown", function (e) {
