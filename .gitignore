@@ -26,3 +26,9 @@ deploy/
 android/release.keystore
 android/keystore.properties
 __pycache__/
+
+# 本地独立工程/产物（非本仓库核心，体积大，不入库）
+# catlink/：catlink 客户端构建工程（spec/build/CA，619M）
+# lptv-features/：LPTV 宣传片/特性演示工程（含 18M mp4，31M）
+catlink/
+lptv-features/
