@@ -272,6 +272,33 @@ function setPos(x, y, w, h) {
                   width: Math.max(Math.round(w), 1), height: Math.max(Math.round(h), 1) });
 }
 
+// ---- 全屏/窗口几何诊断 ---------------------------------------------------
+// 排查 cde 容器全屏错位：记录 Electron 看到的屏幕 bounds/workArea、窗口实际
+// bounds、winOrigin，以及 setBounds 请求值。落 DATA_DIR/lptv.fs.log + 容器日志。
+// 目的：确认 screen.getPrimaryDisplay() 报的是 xpra 虚拟屏还是客户端真实分辨率，
+// 以及 winOrigin 模型 getBounds()=setBounds()+winOrigin 是否成立。
+function fsDiag(tag, extra) {
+  try {
+    const s = screen.getPrimaryDisplay();
+    const b = win && !win.isDestroyed() ? win.getBounds() : null;
+    const line = {
+      t: new Date().toISOString(), tag,
+      disp: { x: s.bounds.x, y: s.bounds.y, w: s.bounds.width, h: s.bounds.height },
+      work: { x: s.workArea.x, y: s.workArea.y, w: s.workArea.width, h: s.workArea.height },
+      origin: winOrigin ? { x: winOrigin.x, y: winOrigin.y } : null,
+      win: b ? { x: b.x, y: b.y, w: b.width, h: b.height } : null,
+      isContainer: !!IS_CONTAINER,
+    };
+    if (extra) line.extra = extra;
+    const str = '[LPTV-fs] ' + JSON.stringify(line);
+    console.log(str);
+    try {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+      fs.appendFileSync(path.join(DATA_DIR, 'lptv.fs.log'), str + '\n');
+    } catch (e) {}
+  } catch (e) {}
+}
+
 function stateLoad() {
   return readJson(STATE_FILE) || {};
 }
@@ -497,6 +524,7 @@ function createWindow() {
       if (IS_CONTAINER) winOrigin = win.getBounds();
       else if (winOrigin === null) winOrigin = { x: 0, y: 0 };
     } catch (e) {}
+    fsDiag('ready_to_show');
     try { if (!win.isDestroyed()) win.show(); } catch (e) {}
   });
   // 本地桌面兜底：ready-to-show 迟迟不触发（极少数首帧异常）也要显示窗口，
@@ -616,11 +644,13 @@ function registerIpc() {
       const b = st.maxSaved;
       if (b) setPos(b.x, b.y, b.width, b.height);
       st.max = false;
+      fsDiag('maximize_restore', { saved: b });
     } else {
       st.maxSaved = win.getBounds();
       const d = workAreaBounds();
       setPos(d.x, d.y, d.w, d.h);
       st.max = true;
+      fsDiag('maximize_enter', { target: d });
     }
     return { ok: true, maximized: st.max };
   });
@@ -633,13 +663,16 @@ function registerIpc() {
       const b = st.fsSaved;
       if (b) setPos(b.x, b.y, b.width, b.height);
       st.fs = false;
+      fsDiag('fullscreen_restore', { saved: b });
     } else {
       // 桌面全屏: 铺满整个桌面(display bounds, 覆盖任务栏区)
       st.fsSaved = win.getBounds();
       const d = displayBounds();
+      fsDiag('fullscreen_before', { target: d, saved: st.fsSaved });
       setPos(d.x, d.y, d.w, d.h);
       if (st.pin) win.setAlwaysOnTop(true);
       st.fs = true;
+      fsDiag('fullscreen_after');
     }
     return { ok: true, fullscreen: st.fs };
   });
