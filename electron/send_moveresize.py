@@ -23,8 +23,13 @@ from ctypes import c_int, c_uint, c_ulong, c_void_p, c_long, Structure, Union, b
 ClientMessage = 33
 SubstructureRedirectMask = 1 << 20
 SubstructureNotifyMask = 1 << 19
-# _NET_WM_MOVERESIZE direction: 0=move
-MoveResizeMove = 0
+# _NET_WM_MOVERESIZE direction: xpra 的 MoveResize.MOVE=8（注意：EWMH 规范里 MOVE=0，
+# 但 xpra 客户端 (gtk3/window/base.py) 直接用 raw direction 对照 MoveResize 枚举：
+#   if direction in (MoveResize.MOVE=8, MoveResize.MOVE_KEYBOARD=10) -> begin_move_drag
+#   else -> begin_resize_drag（direction=0 会被当成 SIZE_TOPLEFT=左上角缩放！）
+# 所以必须发 8，否则窗口会"缩放"而不是"移动"。xpra 自带示例
+# (gtk/examples/initiate_moveresize.py) 也是 sendClientMessage(..., MoveResize.MOVE=8)。
+MoveResizeMove = 8
 SourceIndicationApplication = 0
 
 
