@@ -8,6 +8,7 @@ import android.view.WindowInsetsController;
 import android.view.WindowManager;
 import android.webkit.WebView;
 
+import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
 
 /**
@@ -19,11 +20,24 @@ import com.getcapacitor.BridgeActivity;
  *  - 全屏：隐藏状态栏 + 沉浸式隐藏导航栏（本类 + styles.xml windowFullscreen）。
  *  - 无画面定位：开启 WebView 调试，便于用 chrome://inspect 查看央视频 iframe 的
  *    控制台/网络，确认黑屏根因（DRM/编解码/自动播放/被拒请求）。
+ *  - 央视频 iframe 被拒（ERR_BLOCKED_BY_RESPONSE，frame-ancestors 'self'）：
+ *    替换 WebViewClient 为 LptvWebViewClient，拦截央视频响应去除该 CSP 头。
  */
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // ---- 央视频 iframe 嵌入修复：去除 frame-ancestors CSP 头 ----
+        // 必须在 super.onCreate 之后（BridgeActivity 已创建 WebView）。
+        try {
+            Bridge bridge = getBridge();
+            if (bridge != null) {
+                bridge.setWebViewClient(new LptvWebViewClient(bridge));
+            }
+        } catch (Exception e) {
+            android.util.Log.w("LPTV", "install LptvWebViewClient failed: " + e.getMessage());
+        }
 
         // ---- 全屏：隐藏状态栏 + 导航栏（沉浸式，滑动可临时唤出） ----
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
