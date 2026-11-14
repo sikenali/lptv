@@ -13,8 +13,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,12 +25,15 @@ import java.util.Map;
  * 视频区黑屏。盒子 Electron 版用 loadURL 顶层导航天然绕过，但 APK 采用 iframe 模型
  * （保留 LPTV 自建 UI 覆盖层），故需拦截央视频响应、去掉 frame-ancestors 头。
  *
- * 关键：Capacitor 的 shouldInterceptRequest 对远程（非本地）URL 返回 null，
- * 即响应头不会经过我们——必须【自己发起请求】拿到响应，剥离 CSP 后构造
- * WebResourceResponse 返回，才能真正改写响应头。
+ * 关键点：
+ *  1. Capacitor 的 shouldInterceptRequest 对远程(非本地)URL 返回 null，响应头不经过我们，
+ *     必须【自己发起请求】拿到响应，剥离 CSP 后构造 WebResourceResponse 返回。
+ *  2. 只拦截【HTML 文档】请求（iframe/主文档导航，Accept 含 text/html），
+ *     不拦 JS/CSS/图片/API 子资源——避免 gzip 压缩字节被错误透传导致脚本挂掉。
+ *  3. 自建请求【不发送 Accept-Encoding: gzip】，让服务器返回明文，
+ *     避免返回 gzip 字节流而 WebView 不解压。
  *
- * 仅对央视频域名（www.yangshipin.cn / m.yangshipin.cn / 相关子域）做此拦截，
- * 其余请求完全交给 Capacitor 默认处理（返回 null → 系统默认网络加载）。
+ * 仅对央视频域名（www.yangshipin.cn / m.yangshipin.cn / 相关子域）做此拦截。
  */
 public class LptvWebViewClient extends BridgeWebViewClient {
 
@@ -40,13 +41,30 @@ public class LptvWebViewClient extends BridgeWebViewClient {
         super(bridge);
     }
 
-    /** 仅处理央视频主站的 CSP 头（iframe 被拒的根因）。 */
+    /** 央视频主站域名。 */
     private static boolean isYangshipinHost(String host) {
         if (host == null) {
             return false;
         }
         return host.equals("yangshipin.cn")
                 || host.endsWith(".yangshipin.cn");
+    }
+
+    /** 仅拦截 HTML 文档（iframe/主文档导航），不拦 JS/CSS/图片/API。 */
+    private static boolean isHtmlDocument(WebResourceRequest request) {
+        Map<String, String> headers = request.getRequestHeaders();
+        if (headers == null) {
+            return false;
+        }
+        String accept = null;
+        for (Map.Entry<String, String> e : headers.entrySet()) {
+            if (e.getKey() != null && e.getKey().equalsIgnoreCase("accept")) {
+                accept = e.getValue();
+                break;
+            }
+        }
+        // 文档导航 Accept 通常含 text/html；子资源(JS/CSS/图片/API)不含
+        return accept != null && accept.toLowerCase().contains("text/html");
     }
 
     @Override
@@ -57,12 +75,11 @@ public class LptvWebViewClient extends BridgeWebViewClient {
             return local;
         }
 
-        // 非央视频 URL：返回 null，走系统默认网络加载（不改写响应头）
-        if (!isYangshipinHost(request.getUrl().getHost())) {
+        // 仅央视频 HTML 文档（iframe 导航）才拦截；其余(子资源/XHR)走系统默认
+        if (!isYangshipinHost(request.getUrl().getHost()) || !isHtmlDocument(request)) {
             return null;
         }
 
-        // 央视频 URL：自己发起请求，剥离 frame-ancestors 后返回改写后的响应
         try {
             return fetchYangshipin(request);
         } catch (Exception e) {
@@ -72,7 +89,7 @@ public class LptvWebViewClient extends BridgeWebViewClient {
         }
     }
 
-    /** 用 HttpURLConnection 自己拉取央视频页面，剥离 frame-ancestors CSP 后返回。 */
+    /** 用 HttpURLConnection 自己拉取央视频 HTML 文档，剥离 frame-ancestors CSP 后返回。 */
     private WebResourceResponse fetchYangshipin(WebResourceRequest request) throws IOException {
         HttpURLConnection conn = (HttpURLConnection) new URL(request.getUrl().toString()).openConnection();
         try {
@@ -80,23 +97,25 @@ public class LptvWebViewClient extends BridgeWebViewClient {
             conn.setConnectTimeout(15000);
             conn.setReadTimeout(20000);
             conn.setRequestMethod("GET");
-            // 透传请求头（含 UA / Referer / Cookie / Accept 等），保持与 WebView 一致
+
+            // 透传请求头（UA / Referer / Cookie 等），但不发 Accept-Encoding，
+            // 让服务器返回明文，避免 gzip 字节被 WebView 误解析。
             Map<String, String> reqHeaders = request.getRequestHeaders();
             if (reqHeaders != null) {
                 for (Map.Entry<String, String> e : reqHeaders.entrySet()) {
-                    if (e.getKey() != null && e.getValue() != null) {
-                        // 某些头不能手工设置（由 HttpURLConnection 管理）
-                        String k = e.getKey().toLowerCase();
-                        if (k.equals("host") || k.equals("connection") || k.equals("content-length")) {
-                            continue;
-                        }
-                        conn.setRequestProperty(e.getKey(), e.getValue());
+                    if (e.getKey() == null || e.getValue() == null) {
+                        continue;
                     }
+                    String k = e.getKey().toLowerCase();
+                    if (k.equals("host") || k.equals("connection") || k.equals("content-length")
+                            || k.equals("accept-encoding") || k.equals("accept-language")) {
+                        continue;
+                    }
+                    conn.setRequestProperty(e.getKey(), e.getValue());
                 }
             }
 
             int code = conn.getResponseCode();
-            // 读取响应体（注意：错误流也要读，但 3xx/4xx 对 iframe 无意义，主要 200）
             InputStream is = code >= 400 ? conn.getErrorStream() : conn.getInputStream();
             byte[] body = readAll(is);
 
@@ -126,15 +145,12 @@ public class LptvWebViewClient extends BridgeWebViewClient {
             }
 
             String mime = conn.getContentType();
-            String encoding = conn.getContentEncoding();
+            String encoding = null; // 服务器返回明文（未发 Accept-Encoding），不设 gzip
             if (mime != null && mime.contains(";")) {
                 mime = mime.substring(0, mime.indexOf(';')).trim();
             }
             if (mime == null) {
                 mime = "text/html";
-            }
-            if (encoding == null) {
-                encoding = "utf-8";
             }
 
             // WebResourceResponse 构造器 (API 21+)：含 statusCode/reasonPhrase/headers
