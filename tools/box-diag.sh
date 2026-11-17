@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# -----------------------------------------------------------------------------
+# box-diag.sh — LPTV 盒子端白屏定位脚本（在懒猫盒子/LPTV 容器内执行）
+#
+# 用法：
+#   bash box-diag.sh
+# 或逐条手工执行。
+#
+# 注意：必须在 LPTV 容器内跑（/lzcapp 存在）；在开发机上跑无效。
+# -----------------------------------------------------------------------------
+set +e
+# 自动探测 rim 真实监听端口（优先 lptv 容器的 rim，其次任意 rim），失败回退 8888。
+detect_port() {
+  local p
+  p="$(ss -ltnp 2>/dev/null | grep -iE 'rim|8888|8889|7891|8080' | grep -oE ':[0-9]{2,5}\b' | head -1 | tr -d ':')"
+  [ -n "$p" ] && { echo "$p"; return 0; }
+  p="$(ss -ltn 2>/dev/null | grep -E ':8888|:8889|:7891' | grep -oE ':[0-9]{4,5}\b' | head -1 | tr -d ':')"
+  echo "${p:-8888}"
+}
+PORT="${LPTV_PORT:-$(detect_port)}"
+echo "rim 探测端口：$PORT（可用 LPTV_PORT=<port> 覆盖）"
+
+if [ ! -d /lzcapp ]; then
+  echo "错误：当前不在懒猫 LPTV 容器内（/lzcapp 不存在）。" >&2
+  echo "请在盒子上进入 lptv 容器后执行（lzc-cli exec 或容器终端），不要在开发机上跑。" >&2
+  exit 1
+fi
+echo "==== 1. 进程：rim / cde-supervisor / LPTV 是否在跑 ===="
+ps aux | grep -E 'rim|cde-supervisor|LPTV' | grep -v grep
+echo
+echo "==== 2. rim HTTP 路由自检（区分 502=rim没起 vs 404/200=rim已起）===="
+for path in "rlptv/update-needed" "rlptv/state" "rlptv/install/status"; do
+  code=$(curl -s -o /tmp/diag_body -w '%{http_code}' "http://localhost:${PORT}/${path}")
+  echo "  GET /${path} -> HTTP ${code}"
+  [ "$code" != "000" ] && head -c 200 /tmp/diag_body && echo
+done
+echo
+echo "==== 2b. rim 监听端口（ss 实测，确认真实端口/是否监听）===="
+ss -ltnp 2>/dev/null | grep -iE 'rim|cde-supervisor' || ss -ltn 2>/dev/null | grep -E ':8888|:8889|:7891' || echo "  （未见 rim 监听端口）"
+echo
+echo "==== 3. 安装目录关键文件与权限（exec 位必须是 -rwxr-xr-x 即 755）===="
+ls -l /lzcapp/pkg/content/rim /lzcapp/pkg/content/cde-supervisor \
+      /lzcapp/pkg/content/appimage/LPTV.AppImage 2>&1
+stat -c '%a %n' /lzcapp/pkg/content/rim /lzcapp/pkg/content/cde-supervisor 2>&1
+echo
+echo "==== 4. LPTV 自解包哨兵验证（须存在 resources/frontend/inject.js）===="
+APPDIR=$(mktemp -d)
+( cd "$APPDIR" && /lzcapp/pkg/content/appimage/LPTV.AppImage --appimage-extract >/dev/null 2>&1 )
+ls -l "$APPDIR/squashfs-root/resources/frontend/inject.js" 2>&1
+rm -rf "$APPDIR"
+echo
+echo "==== 5. 客户端侧线索（可选，浏览器 F12）===="
+echo "  打开应用后按 F12 -> Network 看 /rim/rlptv/* 状态码（502=rim没起/未注册；200=正常；404=路由缺失）"
+echo "  Console 是否有 JS 报错（区分接口 502 还是 SPA 自身崩溃）"
+echo
+echo "==== 判定提示 ===="
+echo "  * ps 无 rim/cde-supervisor      -> 会话没起来（看 cde 日志）"
+echo "  * curl /rim/rlptv/* 全 502      -> rim 没起或没注册 rlptv 路由"
+echo "  * curl 404 但 200 到 /wechat/*  -> 盒端只认 rwx/rwps/rchrome，lptv 未接入"
+echo "  * exec 位非 755                 -> 打包丢了权限（Windows lzc-cli 重打包的坑）"
+echo "  * 哨兵缺失                       -> 装的是占位/dummy AppImage"

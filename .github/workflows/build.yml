@@ -1,0 +1,326 @@
+# ---------------------------------------------------------------------------
+# GitHub Actions 流水线
+#
+# 产物（混合方案：CI 构建非 LPK 产物，LPK 本地构建后经 gh release 推送）：
+#   Linux  → LPTV-linux-x64-*.AppImage
+#   Android→ lptv-*.apk (Capacitor WebView + 官方YSP iframe)
+#   Windows→ LPTV-*-portable.exe
+#   macOS  → LPTV-mac-{arm64,x64}-*.dmg
+#   LPK    → 本地构建（lpk/rchrome + lzc-cli，绕开 lzc-cde 私有仓库依赖），
+#            不产出于 CI，随本地 gh release 推送（见仓库根 release.sh）
+#
+# 流程：
+#   linux-build   : AppImage（LPK 本地构建，CI 跳过）
+#   android-build : 构建 APK（无需骨架）
+#   windows-build : 构建 portable exe（原生 Windows）
+#   macos-build   : 构建 arm64 + x64 dmg
+#   （无 CI release job：GitHub Release 由本地 gh release 创建合并）
+#
+# APK 方案说明：
+#   Capacitor WebView + bridge.js。桥接层读取 bundles/channels.json 和
+#   bundles/logos/{pid}.webp，注入 window.lptv API，inject.js 正常运行。
+#   index.html 用 iframe 加载YSP播放页，#lptv-root 覆盖层承载 UI。
+# ---------------------------------------------------------------------------
+name: Build AppImage LPK & APK
+
+on:
+  push:
+    branches: [master, main]
+    tags: ['v*']
+  pull_request:
+    branches: [master, main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号（如 1.0.1）'
+        required: false
+        type: string
+
+env:
+  NODE_VERSION: '20'
+  JDK_VERSION:  '17'
+  ANDROID_SDK_VERSION: 'commandlinetools-linux-11076708_latest'
+
+# CI 不再创建 GitHub Release（本地 gh release 接管），无需 GITHUB_TOKEN 写权限。
+permissions:
+  contents: read
+
+jobs:
+  # ==================================================================
+  # Linux：AppImage + LPK
+  # ==================================================================
+  linux-build:
+    name: Linux (AppImage + LPK)
+    runs-on: ubuntu-22.04
+    outputs:
+      appimage_path: ${{ steps.verify-appimage.outputs.path }}
+      lpk_path:      ${{ steps.assemble-lpk.outputs.path }}
+      version:       ${{ steps.version.outputs.v }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # 历史已压平为单提交；fetch-depth: 0 无副作用（仅拉 1 个提交）
+          fetch-depth: 0
+
+      # ---- 环境 ----
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgtk-3-0 libnss3 libasound2 libatk1.0-0 \
+            libcups2 libxss1 libdrm2 libgbm1 libxkbcommon0 \
+            libnotify-bin
+
+      # ---- 版本（支持手动覆盖）----
+      - name: Get version
+        id: version
+        run: |
+          INPUT_VERSION="${{ github.event.inputs.version }}"
+          DEFAULT_VERSION="$(node -p "require('./electron/package.json').version")"
+          VERSION="${INPUT_VERSION:-$DEFAULT_VERSION}"
+          echo "v=$VERSION" >> $GITHUB_OUTPUT
+          # 同步版本号到所有构建文件
+          node tools/set_version.js "$VERSION"
+          echo "Version: $VERSION (default=$DEFAULT_VERSION)"
+
+      # ---- AppImage ----
+      - name: Build AppImage
+        run: |
+          cd electron
+          npm ci --ignore-scripts || npm install --ignore-scripts
+          npm run dist
+      - name: Verify AppImage
+        id: verify-appimage
+        run: |
+          FILE=$(ls electron/dist/LPTV-*.AppImage 2>/dev/null | head -1)
+          [ -n "$FILE" ] || { echo "错误：未找到 AppImage" >&2; exit 1; }
+          chmod +x "$FILE"
+          echo "path=$(pwd)/$FILE" >> $GITHUB_OUTPUT
+          echo "AppImage: $(basename "$FILE") ($(du -h "$FILE" | cut -f1))"
+
+      # ---- LPK（本地构建：lpk/rchrome + lzc-cli project build，CHROME_APPIMAGE=本地
+      #      LPTV.AppImage。CI 不构建 LPK——绕开 lzc-cde 私有仓库依赖；LPK 本地构建后
+      #      经本地 gh release 推送（见 release.sh））----
+      - name: Assemble LPK（本地构建，CI 跳过）
+        id: assemble-lpk
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.v }}"
+          echo "LPK 本地构建（CI 跳过）：cd lpk/rchrome && CHROME_APPIMAGE=<LPTV.AppImage> lzc-cli project build -f lzc-build.yml"
+          echo "LPK 不产出于 CI（本地构建，经 gh release 推送）。"
+          echo "path=" >> $GITHUB_OUTPUT
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: lptv-linux
+          path: |
+            ${{ steps.verify-appimage.outputs.path }}
+          retention-days: 7
+
+  # ==================================================================
+  # Windows：单文件 portable exe（双击即用、免安装）
+  # ==================================================================
+  windows-build:
+    name: Windows (portable exe)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    outputs:
+      exe_path: ${{ steps.verify-exe.outputs.path }}
+      version:  ${{ steps.version.outputs.v }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ---- 环境 ----
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # ---- 版本（与 linux/android 保持一致）----
+      - name: Get version
+        id: version
+        run: |
+          INPUT_VERSION="${{ github.event.inputs.version }}"
+          DEFAULT_VERSION="$(node -p "require('./electron/package.json').version")"
+          VERSION="${INPUT_VERSION:-$DEFAULT_VERSION}"
+          echo "v=$VERSION" >> $GITHUB_OUTPUT
+          node tools/set_version.js "$VERSION"
+          echo "Version: $VERSION (default=$DEFAULT_VERSION)"
+
+      # ---- 构建 portable exe（原生 Windows，无需 wine）----
+      - name: Build portable exe
+        run: |
+          cd electron
+          npm ci --ignore-scripts || npm install --ignore-scripts
+          npx electron-builder --win portable
+      - name: Verify exe
+        id: verify-exe
+        run: |
+          FILE=$(ls electron/dist/LPTV-*-portable.exe 2>/dev/null | head -1)
+          [ -n "$FILE" ] || { echo "错误：未找到 portable exe" >&2; exit 1; }
+          echo "path=$(cygpath -w "$(pwd)/$FILE")" >> $GITHUB_OUTPUT
+          echo "exe: $(basename "$FILE") ($(du -h "$FILE" | cut -f1))"
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lptv-windows
+          path: ${{ steps.verify-exe.outputs.path }}
+          retention-days: 7
+
+  # ==================================================================
+  # macOS：arm64 + x64（dmg）
+  # ==================================================================
+  macos-build:
+    name: macOS (arm64 + x64)
+    runs-on: macos-15
+    outputs:
+      mac_path:  ${{ steps.verify-mac.outputs.path }}
+      version:   ${{ steps.version.outputs.v }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ---- 环境 ----
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # ---- 版本（与其余平台保持一致）----
+      - name: Get version
+        id: version
+        run: |
+          INPUT_VERSION="${{ github.event.inputs.version }}"
+          DEFAULT_VERSION="$(node -p "require('./electron/package.json').version")"
+          VERSION="${INPUT_VERSION:-$DEFAULT_VERSION}"
+          echo "v=$VERSION" >> $GITHUB_OUTPUT
+          node tools/set_version.js "$VERSION"
+          echo "Version: $VERSION (default=$DEFAULT_VERSION)"
+
+      # ---- 构建双架构 dmg（原生 macOS，无需 wine）----
+      # --x64 --arm64 各产出一份；electron-builder 按 arch 下载对应 Electron 二进制
+      - name: Build macOS (arm64 + x64)
+        run: |
+          cd electron
+          npm ci --ignore-scripts || npm install --ignore-scripts
+          npx electron-builder --mac --x64 --arm64
+      - name: Verify macOS artifacts
+        id: verify-mac
+        run: |
+          DMG=$(ls electron/dist/LPTV-mac-*.dmg 2>/dev/null | head -1)
+          [ -n "$DMG" ] || { echo "错误：未找到 macOS dmg" >&2; exit 1; }
+          echo "path=electron/dist" >> $GITHUB_OUTPUT
+          ls -lh electron/dist/LPTV-mac-*.dmg
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lptv-macos
+          path: electron/dist/LPTV-mac-*.dmg
+          retention-days: 7
+
+  # ==================================================================
+  # Android：APK
+  # ==================================================================
+  android-build:
+    name: Android (APK)
+    runs-on: ubuntu-22.04
+    outputs:
+      apk_path: ${{ steps.assemble-apk.outputs.path }}
+      version:  ${{ steps.version.outputs.v }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ---- 环境：Node + JDK + Android SDK ----
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Setup JDK
+        id: java
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JDK_VERSION }}
+          distribution: temurin
+      - name: Setup Android SDK
+        run: |
+          SDK_DIR="$HOME/android-sdk"
+          mkdir -p "$SDK_DIR"
+          curl -sL "https://dl.google.com/android/repository/${{ env.ANDROID_SDK_VERSION }}.zip" \
+            -o /tmp/cmdline-tools.zip
+          mkdir -p "$SDK_DIR/cmdline-tools/latest"
+          unzip -q /tmp/cmdline-tools.zip -d "$SDK_DIR/cmdline-tools/latest/.."
+          export PATH="$SDK_DIR/cmdline-tools/latest/bin:$PATH"
+          export ANDROID_HOME="$SDK_DIR"
+          sdkmanager --install "platforms;android-34" "build-tools;34.0.0" \
+                    "platform-tools" --sdk_root="$SDK_DIR" --no_history 2>&1 | tail -5
+          # 接受全部 SDK 许可：直接写许可哈希文件（sdkmanager --licenses 交互在 CI 常失效）
+          mkdir -p "$SDK_DIR/licenses"
+          printf '24333f8a63b6825ea9c5514f83c2829b004d1fee\n8933bad161af4178b1185d1afe37b1b61a9ad5ff\n' \
+            > "$SDK_DIR/licenses/android-sdk-license"
+          printf '84831b9409646a918e30573bab4c9c91346d8abd\n' \
+            > "$SDK_DIR/licenses/android-sdk-preview-license"
+          # 写入 GITHUB_ENV 供后续步骤使用
+          echo "ANDROID_HOME=$SDK_DIR" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=$SDK_DIR" >> $GITHUB_ENV
+          # setup-java 设置了 JAVA_HOME，但 build.sh 需要它
+          echo "JAVA_HOME=$JAVA_HOME" >> $GITHUB_ENV
+
+      # ---- 版本（支持手动覆盖）----
+      - name: Get version
+        id: version
+        run: |
+          INPUT_VERSION="${{ github.event.inputs.version }}"
+          DEFAULT_VERSION="$(node -p "require('./electron/package.json').version")"
+          VERSION="${INPUT_VERSION:-$DEFAULT_VERSION}"
+          echo "v=$VERSION" >> $GITHUB_OUTPUT
+          # 同步版本号到所有构建文件
+          node tools/set_version.js "$VERSION"
+          echo "Version: $VERSION (default=$DEFAULT_VERSION)"
+
+      # ---- 构建 APK ----
+      # build.sh 输出到 android/LPTV-{abi}-{ver}-{type}.apk
+      - name: Build APK
+        id: assemble-apk
+        run: |
+          # setup-java 已把 JAVA_HOME 写入 job env；勿用 steps.java.outputs.java-home
+          # （v4 输出名非 java-home，会解析为空并覆盖掉正确的 JAVA_HOME）
+          export ANDROID_HOME="${{ env.ANDROID_HOME }}"
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$JAVA_HOME/bin:$PATH"
+          cd android
+          npm ci --ignore-scripts || npm install --ignore-scripts
+          cd ..
+          bash android/build.sh
+          # build.sh 已将 APK 复制到 android/LPTV-{abi}-{ver}-{type}.apk
+          APK=$(ls android/LPTV-*-*.apk 2>/dev/null | head -1)
+          [ -n "$APK" ] || { echo "错误：APK 未生成，检查 android/build.sh 输出" >&2; exit 1; }
+          echo "path=$APK" >> $GITHUB_OUTPUT
+          echo "APK: $(basename "$APK") ($(du -h "$APK" | cut -f1))"
+
+      - name: Upload Android artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lptv-android
+          path: ${{ steps.assemble-apk.outputs.path }}
+          retention-days: 7
+
+# ==================================================================
+# 说明：GitHub Release 由本地 release.sh 创建（LPK/AppImage 本地构建 +
+#  gh run download 拉 CI 的 exe/dmg/apk + gh release upload 合并推送），
+#  CI 不创建 release——避免与本地 release 冲突，且 CI 不产 LPK。
+# ==================================================================

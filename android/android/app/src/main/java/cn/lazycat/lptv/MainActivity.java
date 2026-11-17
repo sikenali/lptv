@@ -1,0 +1,82 @@
+package cn.lazycat.lptv;
+
+import android.os.Build;
+import android.os.Bundle;
+import android.view.View;
+import android.view.WindowInsets;
+import android.view.WindowInsetsController;
+import android.view.WindowManager;
+import android.webkit.WebView;
+
+import com.getcapacitor.Bridge;
+import com.getcapacitor.BridgeActivity;
+
+/**
+ * LPTV Android 主 Activity。
+ *
+ * 原生 APK 为 Capacitor WebView 封装（央视频 iframe 模型），非 xpra/html5 客户端。
+ * 适配项（对应需求：全屏 + 横屏 + 无画面定位）：
+ *  - 横屏：由 AndroidManifest android:screenOrientation="landscape" 强制（apply_tv.sh 固化）。
+ *  - 全屏：隐藏状态栏 + 沉浸式隐藏导航栏（本类 + styles.xml windowFullscreen）。
+ *  - 无画面定位：开启 WebView 调试，便于用 chrome://inspect 查看央视频 iframe 的
+ *    控制台/网络，确认黑屏根因（DRM/编解码/自动播放/被拒请求）。
+ *  - 央视频 iframe 被拒（ERR_BLOCKED_BY_RESPONSE，frame-ancestors 'self'）：
+ *    替换 WebViewClient 为 LptvWebViewClient，拦截央视频响应去除该 CSP 头。
+ */
+public class MainActivity extends BridgeActivity {
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        // ---- 央视频 iframe 嵌入修复：去除 frame-ancestors CSP 头 ----
+        // 必须在 super.onCreate 之后（BridgeActivity 已创建 WebView）。
+        try {
+            Bridge bridge = getBridge();
+            if (bridge != null) {
+                bridge.setWebViewClient(new LptvWebViewClient(bridge));
+            }
+        } catch (Exception e) {
+            android.util.Log.w("LPTV", "install LptvWebViewClient failed: " + e.getMessage());
+        }
+
+        // ---- 央视频 iframe 自动播放：WebView 默认要求用户手势才播放（mediaPlaybackRequiresUserGesture=true），
+        //      央视频播放器 play() 会被拦 → 黑屏无频道。Electron 用 autoplay-policy=no-user-gesture-required，
+        //      WebView 无命令行开关，须原生放开。index.html 的 iframe 已有 allow="autoplay"，此为双保险。
+        //      注意：该方法在 WebSettings 上（WebView.getSettings()），非 WebView 直接方法。
+        try {
+            Bridge bridge2 = getBridge();
+            if (bridge2 != null && bridge2.getWebView() != null) {
+                bridge2.getWebView().getSettings().setMediaPlaybackRequiresUserGesture(false);
+            }
+        } catch (Exception e) {
+            android.util.Log.w("LPTV", "setMediaPlaybackRequiresUserGesture(false) failed: " + e.getMessage());
+        }
+
+        // ---- 全屏：隐藏状态栏 + 导航栏（沉浸式，滑动可临时唤出） ----
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            // Android 11+：edge-to-edge + 隐藏系统栏
+            getWindow().setDecorFitsSystemWindows(false);
+            WindowInsetsController ctrl = getWindow().getInsetsController();
+            if (ctrl != null) {
+                ctrl.hide(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars());
+                ctrl.setSystemBarsBehavior(
+                        WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+            }
+        } else {
+            // 旧版本：沉浸式 sticky 标志
+            getWindow().getDecorView().setSystemUiVisibility(
+                    View.SYSTEM_UI_FLAG_FULLSCREEN
+                    | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                    | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                    | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                    | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                    | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
+        }
+
+        // ---- 无画面定位：开启 WebView 调试（chrome://inspect 看央视频 iframe 控制台） ----
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+            WebView.setWebContentsDebuggingEnabled(true);
+        }
+    }
+}
