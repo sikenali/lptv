@@ -2923,6 +2923,11 @@
 
   function bindEvents() {
     var root = lptv.ui.root;
+    // 顶栏拖拽锁: 按住顶栏拖拽区期间 true。此时 mousemove 不移除 .show,
+    // 保证 -webkit-app-region:drag 区域在拖拽全程保活——否则拖拽中鼠标
+    // clientY>56 (窗口滞后/KWin 移动阈值) 会移除 .show → drag 区域消失 →
+    // 拖拽中断 ("变成小手后拖不动")。
+    var dragLock = false;
 
     root.addEventListener("mousemove", function (e) {
       wake();
@@ -2931,7 +2936,8 @@
       topbarPointer(e);
       showFloatCtl();
       // 鼠标离开顶部区域: idle 时半透明, 非 idle 时加 dim 类半透明
-      if (!lptv.tbAlways && e.clientY > 56) {
+      // dragLock(顶栏拖拽中)时不移除, 保活 drag 区域。
+      if (!lptv.tbAlways && !dragLock && e.clientY > 56) {
         var tb2 = document.getElementById("lptv-topbar");
         if (tb2) tb2.classList.remove("show");
       } else if (e.clientY <= 56) {
@@ -2944,13 +2950,22 @@
     /* 指针离开窗口: 已"进入过区域"的滑窗立即隐藏 (不等延迟) */
     document.addEventListener("mouseout", function (e) {
       if (!e.relatedTarget && !e.toElement) {
+        dragLock = false;
         if (lptv._panelIn) schedulePanelHide(0);
         if (lptv._epgIn) scheduleEpgHide(0);
         scheduleHideControls();
         hideFloatCtl();
       }
     });
-    root.addEventListener("mousedown", wake);
+    root.addEventListener("mousedown", function (e) {
+      wake();
+      // 顶栏拖拽区(非窗控按钮 no-drag 区)按下 → 锁住 drag 区域。
+      // 拖拽中 mousemove 的 clientY>56 不再移除 .show, drag 区域保活。
+      var tb = document.getElementById("lptv-topbar");
+      if (tb && tb.contains(e.target) && !e.target.closest("#lptv-tb-btns")) dragLock = true;
+    });
+    // 松开(任意处)解除拖拽锁
+    document.addEventListener("mouseup", function () { dragLock = false; });
 
     /* ---- 触摸平板适配 (需求6) ----
      * 触摸屏无 hover, 原 mousemove 边缘滑出面板/节目单不生效。
