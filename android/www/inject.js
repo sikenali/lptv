@@ -1253,6 +1253,10 @@
     // 本地桌面(有真实 WM): 顶栏用 Electron 原生 -webkit-app-region:drag(最流畅)。
     // 容器/xpra(无 WM) 不加此类, 由 begin_window_drag + send_moveresize.py 主动发事件。
     if (window.__LPTV_IS_CONTAINER === false) root.classList.add("lptv-native-drag");
+    // 容器(软件合成)强制流畅模式: 毛玻璃在软渲染下是全屏逐帧重采样, 容器内
+    // 关闭(桌面硬件加速才保留毛玻璃)。启动即加 .perf, 避免 setPerfMode 前毛玻璃
+    // 短暂激活造成启动卡顿。
+    if (containerForcesPerf()) root.classList.add("perf");
     // APK/触摸: 标记 root, 顶栏 CSS display:none 完全隐藏。
     if (IS_TOUCH) root.classList.add("touch");
 
@@ -2326,8 +2330,16 @@
       });
     }
   }
+  // 容器(CDE/xpra)永远是纯软件合成(main.js IS_CONTAINER→disable-gpu), 毛玻璃
+  // (backdrop-filter)是软渲染下代价最高的全屏逐帧重采样——用户关闭流畅模式
+  // (perfMode:false)会让容器里全屏播放卡顿(覆盖层 vw 定宽, 全屏更宽→更多像素
+  // 逐帧重采样)。容器内强制流畅模式(关闭毛玻璃/阴影/动画), 桌面硬件加速才尊重
+  // 用户设置。__LPTV_IS_CONTAINER 由 main.js 注入, 与 IS_CONTAINER 一致。
+  function containerForcesPerf() {
+    return window.__LPTV_IS_CONTAINER === true;
+  }
   function setPerfMode(on) {
-    lptv.ui.root.classList.toggle("perf", !!on);
+    lptv.ui.root.classList.toggle("perf", !!on || containerForcesPerf());
   }
   function setTopbarAlways(on) {
     lptv.tbAlways = !!on;
