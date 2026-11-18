@@ -1114,8 +1114,13 @@
     pointer-events:none;color:var(--tx);user-select:none}
   /* 本地桌面(有真实 WM, 宿主 KWin): 顶栏启用 Electron 原生拖拽, 最流畅、焦点正确。
      容器/xpra(无 WM) 不给 #lptv-root 加 .lptv-native-drag, 走 begin_window_drag +
-     send_moveresize.py 主动发 _NET_WM_MOVERESIZE(仅 xpra 可靠)。 */
-  #lptv-root.lptv-native-drag #lptv-topbar{-webkit-app-region:drag;app-region:drag}
+     send_moveresize.py 主动发 _NET_WM_MOVERESIZE(仅 xpra 可靠)。
+     仅 .show(顶栏可见)时才是 drag 区域: Windows 的 -webkit-app-region:drag hit-test
+     忽略 transform, 隐藏顶栏(translateY(-100%))仍在 y=0..42 占位为 drag 区域,
+     吞没 mousemove → root 处理器不触发 → 顶栏永远拿不到 .show → hover 不显示。
+     (Linux hit-test 尊重 transform, 隐藏时 drag 区移出屏, 故无此问题。)
+     限制到 .show: 隐藏时不占位, mousemove 可达 root 触发 hover 显示。 */
+  #lptv-root.lptv-native-drag #lptv-topbar.show{-webkit-app-region:drag;app-region:drag}
   #lptv-topbar.show{opacity:1;transform:none;pointer-events:auto}
   /* APK/触摸: 顶栏完全隐藏 (窗口按钮在手机端无意义, 仅留底部控制栏)。 */
   #lptv-root.touch #lptv-topbar{display:none}
@@ -1231,7 +1236,13 @@
   }
 
   // 触摸/APK 检测: 无 hover, 顶栏(窗口按钮)在手机端无意义 → 完全隐藏, 仅底部控制栏。
-  var IS_TOUCH = ("ontouchstart" in window) || (navigator.maxTouchPoints > 0);
+  // 用 (hover:none) and (pointer:coarse) 判"触摸为主"设备(手机/平板/触控平板模式):
+  //   - 桌面(鼠标/触控板, 即使带触屏): hover 存在 → 非触摸 → 顶栏显示。
+  //   - APK(Capacitor): __lptvBridge 可靠判 APK; 且 Android 触摸满足 media query。
+  // 不要用 navigator.maxTouchPoints>0: 带触屏的 Windows 笔记本会误判为触摸,
+  // 顶栏被 display:none 永不显示。
+  var IS_TOUCH = !!window.__lptvBridge ||
+    (window.matchMedia && window.matchMedia("(hover: none) and (pointer: coarse)").matches);
 
   function buildUI() {
     var style = el("style", { id: "lptv-style" });
@@ -2945,7 +2956,8 @@
      * 触摸屏无 hover, 原 mousemove 边缘滑出面板/节目单不生效。
      * 补: ①左右缘轻扫/tap 开关抽屉 ②点画面切换控制栏显隐
      *     ③抽屉打开时点外部关闭。桌面鼠标逻辑保持不变。 */
-    var TOUCH = ("ontouchstart" in window) || (navigator.maxTouchPoints > 0);
+    var TOUCH = !!window.__lptvBridge ||
+      (window.matchMedia && window.matchMedia("(hover: none) and (pointer: coarse)").matches);
     if (TOUCH) {
       var _tsX = 0, _tsY = 0, _tsT = 0, _tsTarget = null;
       root.addEventListener("touchstart", function (e) {
