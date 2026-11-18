@@ -162,8 +162,21 @@ if (fs.existsSync(GPU_BROKEN_MARKER)) {
 // 容器内强制走软件合成（已验证稳定），视频解码由 VA-API 硬解独立于合成路径不受影响。
 // 本地桌面(独立 AppImage, GPU 正常)不受此分支影响。
 if (IS_CONTAINER) {
-  app.commandLine.appendSwitch('disable-gpu');
-  console.log('[LPTV] cde/catlink 容器 → 禁用GPU(软件合成，Xdummy无EGL支持)');
+  // 容器"启用 Chrome 硬件加速（实验性）"：run.sh 把它导出为
+  // CATLINK_CHROME_HARDWARE_ACCELERATION。开启且无 gpu.broken 崩溃标记时
+  // 不强制 disable-gpu，交 Chromium 自动探测（硬件可用则硬件合成，否则干净
+  // 回退软件）。EGL 崩（白屏）由 child-process-gone 写 gpu.broken → 下次启动
+  // 禁 GPU 回退软件，自愈。gpu.broken 存在则维持软件（历史崩溃恢复中）。
+  // 关闭/未设则软件合成（已验证稳定，Xdummy 无 EGL 支持）。
+  if (process.env.CATLINK_CHROME_HARDWARE_ACCELERATION === '1' && !gpuDisabled) {
+    console.log('[LPTV] 容器启用 Chrome 硬件加速(实验性) → 交 Chromium 自动探测' +
+      '(可用则硬件, 否则回退软件; 崩溃由 gpu.broken 自愈)');
+  } else if (gpuDisabled) {
+    console.log('[LPTV] gpu.broken 标记 → 容器保持软件合成(硬件自愈中)');
+  } else {
+    app.commandLine.appendSwitch('disable-gpu');
+    console.log('[LPTV] cde/catlink 容器 → 禁用GPU(软件合成，Xdummy无EGL支持)');
+  }
 } else if (DRI_RENDER) {
   // 本地桌面有 DRI 节点 → 保持硬件加速（含 VAAPI 硬解视频）
   console.log('[LPTV] 检测到 DRI 节点 ' + DRI_RENDER + ' → 硬件加速保持启用');
