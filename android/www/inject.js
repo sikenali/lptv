@@ -1101,11 +1101,13 @@
 
   /* 顶部毛玻璃功能区: 拖拽区 + 窗口控制按钮 (与 .topbar 一致) */
   #lptv-topbar{position:absolute;top:0;left:0;right:0;height:42px;z-index:12;
-    display:flex;align-items:center;gap:10px;padding:0 6px 0 12px;
+    /* 隐藏用 display:none(从布局移除): 任何平台都不占位为 drag 区域,
+       mousemove 可达 root 触发 hover 显示(解决 Windows hit-test 忽略 transform)。
+       显示(.show)才 display:flex。 */
+    display:none;align-items:center;gap:10px;padding:0 6px 0 12px;
     background:linear-gradient(180deg,rgba(10,12,18,.86),rgba(10,12,18,.28));
     backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
     border-bottom:1px solid var(--line);
-    opacity:0;transform:translateY(-100%);transition:opacity .25s,transform .25s;
     /* 手型光标: 顶栏是可拖拽区。idle 时 #lptv-root.idle{cursor:none} 会级联隐藏顶栏
        光标, 且顶栏 -webkit-app-region:drag 会吞掉 mousemove → wake() 不触发 →
        光标一直 hidden、"拖动没反应"。cursor:grab 直接覆盖(1 id 优先级 > 继承的 none),
@@ -1115,13 +1117,11 @@
   /* 本地桌面(有真实 WM, 宿主 KWin): 顶栏启用 Electron 原生拖拽, 最流畅、焦点正确。
      容器/xpra(无 WM) 不给 #lptv-root 加 .lptv-native-drag, 走 begin_window_drag +
      send_moveresize.py 主动发 _NET_WM_MOVERESIZE(仅 xpra 可靠)。
-     仅 .show(顶栏可见)时才是 drag 区域: Windows 的 -webkit-app-region:drag hit-test
-     忽略 transform, 隐藏顶栏(translateY(-100%))仍在 y=0..42 占位为 drag 区域,
-     吞没 mousemove → root 处理器不触发 → 顶栏永远拿不到 .show → hover 不显示。
-     (Linux hit-test 尊重 transform, 隐藏时 drag 区移出屏, 故无此问题。)
-     限制到 .show: 隐藏时不占位, mousemove 可达 root 触发 hover 显示。 */
-  #lptv-root.lptv-native-drag #lptv-topbar.show{-webkit-app-region:drag;app-region:drag}
-  #lptv-topbar.show{opacity:1;transform:none;pointer-events:auto}
+     -webkit-app-region:drag 始终开启(不经 .show 切换): 动态切换该属性 Electron/OS
+     首次拖拽后不重新接合 → "首次拖动可以, 再次拖不动"。始终开启则稳定接合。
+     隐藏时 display:none 已从布局移除(无 drag 区域), 故不会吞 mousemove 阻 hover。 */
+  #lptv-root.lptv-native-drag #lptv-topbar{-webkit-app-region:drag;app-region:drag}
+  #lptv-topbar.show{display:flex;opacity:1;transform:none;pointer-events:auto}
   /* APK/触摸: 顶栏完全隐藏 (窗口按钮在手机端无意义, 仅留底部控制栏)。 */
   #lptv-root.touch #lptv-topbar{display:none}
   /* 设置「启动时显示顶栏」: 顶栏常显 (含 idle/无 hover 时), 不参与隐藏 */
