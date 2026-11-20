@@ -71,6 +71,14 @@ const IS_CONTAINER = !!(
   lazycatSignals()
 );
 
+// ---- 启动计时（点开应用→界面出现）：launch_chrome.sh 置 LPTV_START_TS(ms 时间戳)
+// 并 export 给 Electron。main.js 据此记录各阶段相对耗时，[LPTV-startup] 打到容器
+// 日志，供精确测量 ~20s 去向（解包/Electron/页面加载各占多少）。
+const LPTV_START_TS = parseInt(process.env.LPTV_START_TS || '0', 10);
+const startupLog = (label) => {
+  if (LPTV_START_TS > 0) console.log('[LPTV-startup] ' + label + '=' + (Date.now() - LPTV_START_TS) + 'ms');
+};
+
 // ---- 渲染后端（Electron → X11/XDummy → xpra 捕获）-----------------
 // 注意：不要强制 use-gl=egl！实测本环境（catlink :100 / cde 容器）DRI 节点存在但
 // EGL 初始化崩，GPU 进程反复 exit_code=133(SIGTRAP) → 页面加载不了 → 白屏。
@@ -554,10 +562,10 @@ function createWindow() {
   // 注入后被导航替换(白忙+可能闪 UI)。真正注入点 = YSP DOM 就绪 ≈ dom-ready。
   win.webContents.on('dom-ready', () => {
     try {
-      if (/^https?:\/\//.test(win.webContents.getURL())) injectUi();
+      if (/^https?:\/\//.test(win.webContents.getURL())) { startupLog('dom_ready'); injectUi(); }
     } catch (e) {}
   });
-  win.webContents.on('did-finish-load', () => { pageLoad.finish = Date.now(); clearGpuBrokenMarker(); });
+  win.webContents.on('did-finish-load', () => { pageLoad.finish = Date.now(); startupLog('page_loaded'); clearGpuBrokenMarker(); });
   win.webContents.on('did-fail-load', (e, code, desc, url) => {
     pageLoad.fail = { code, desc: String(desc || ''), url: String(url || ''), t: Date.now() };
   });
@@ -581,6 +589,7 @@ function createWindow() {
   win.on('closed', () => { win = null; });
 
   win.once('ready-to-show', () => {
+    startupLog('window_shown');
     // xpra corral 已把窗口放到初始位置：把它记为坐标偏移基准（仅容器模式，
     // 且 ready-to-show 的校准优先于早前 setPos 的粗校）。本地桌面恒为 {0,0}。
     try {
