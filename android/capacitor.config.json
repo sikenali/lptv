@@ -1,0 +1,10 @@
+{
+  "appId": "cn.lazycat.lptv",
+  "appName": "LPTV",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#04070d",
+    "allowMixedContent": true,
+    "preferRelativeTargets": true
+  }
+}

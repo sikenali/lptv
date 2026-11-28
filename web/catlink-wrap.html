@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+<title>LPTV</title>
+<style>
+  html,body{margin:0;height:100%;background:#04070d;overflow:hidden}
+  #lptv-xpra{position:fixed;inset:0;width:100%;height:100%;border:0;background:#04070d}
+  /* 等待动画: 与启动 splash 同款(logo 上下跳动 + 渐变加载轨道), 盖在 xpra 客户端之上,
+     等远端 LPTV 窗口真正绘出首页内容(不是"窗口刚映射、画布还空白")后淡出, 直接露
+     全屏主界面 —— 动画 → 主界面无缝, 中间不留白屏。
+     —— 目的: 打开 CDE/智慧屏时不显示 xpra 客户端自身的连接/工具 UI, 也不显示远端
+     窗口首帧前的空白画布, 只显示"等待动画 → 主界面"。 */
+  #lptv-wait{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:clamp(12px,2.6vw,20px);
+    background:#04070d;transition:opacity .45s ease}
+  #lptv-wait.out{opacity:0;pointer-events:none}
+  #lptv-wait::before{content:"";position:absolute;inset:-24%;pointer-events:none;
+    background:radial-gradient(48% 36% at 50% 46%, rgba(28,86,196,.22), rgba(0,0,0,0) 72%)}
+  #lptv-wait .ico{width:clamp(84px,20vw,132px);height:clamp(84px,20vw,132px);object-fit:contain;
+    filter:drop-shadow(0 0 24px rgba(120,160,255,.28));animation:lptvBounce 1.5s infinite}
+  #lptv-wait .bar{width:min(340px,64vw);height:4px;border-radius:2px;position:relative;
+    overflow:hidden;
+    background:linear-gradient(90deg,rgba(255,77,66,.4),rgba(247,201,72,.4),rgba(42,212,137,.4),rgba(79,168,255,.4));
+    box-shadow:0 0 12px rgba(120,160,255,.2)}
+  #lptv-wait .bar::after{content:"";position:absolute;top:0;left:0;height:100%;width:42%;
+    border-radius:2px;background:linear-gradient(90deg,#FF4D42,#F7C948,#2AD489,#4FA8FF);
+    box-shadow:0 0 14px rgba(160,190,255,.6);animation:lptvSlide 1.4s ease-in-out infinite}
+  #lptv-wait .tip{margin-top:6px;font-size:15px;font-family:sans-serif;
+    color:rgba(255,255,255,.55);letter-spacing:.5px}
+  @keyframes lptvBounce{0%{transform:translateY(0);animation-timing-function:cubic-bezier(.33,0,.66,.33)}
+    50%{transform:translateY(-14%);animation-timing-function:cubic-bezier(.33,.66,.66,1)}
+    100%{transform:translateY(0)}}
+  @keyframes lptvSlide{0%{transform:translateX(0)}50%{transform:translateX(138%)}100%{transform:translateX(0)}}
+  @media (prefers-reduced-motion:reduce){
+    #lptv-wait .ico{animation:none}
+    #lptv-wait .bar::after{animation:none}}
+</style>
+</head>
+<body>
+<iframe id="lptv-xpra" src="/catlink/?floating_menu=false" allow="autoplay; fullscreen"></iframe>
+<div id="lptv-wait">
+  <img class="ico" src="icon.png" alt="LPTV" draggable="false">
+  <div class="bar"></div>
+  <div class="tip">LPTV正在路上...</div>
+</div>
+<script>
+(function(){
+  var f=document.getElementById('lptv-xpra'), w=document.getElementById('lptv-wait');
+  var revealed=false, t=null, uiHidden=false;
+
+  // 光标修复(1): xpra 网页客户端在 detectZoom.zoom() != 1 时会把远端光标按
+  // devicePixelRatio 放大 (HiDPI/Retina 客户端上光标变成数倍大, 视觉落点也偏)。
+  // 被嵌入 iframe 后 outerWidth 取的是外层浏览器窗口、innerWidth 是 iframe,
+  // 两者必然不相等 → 判定 zoom != 1, 于是每次换光标都乘 dpr 放大。
+  // detectZoom 只被光标缩放使用 (Window.js set_cursor), 覆写成 1 不影响画面渲染。
+  //
+  // 光标修复(2) —— 智慧屏白色圆圈真正的根因与权威修复:
+  // 远端桌面在 xpra HTML5 客户端里以"窗口"绘制, xpra 只对每个窗口 div 设 CSS
+  // 光标 (Window.js set_cursor 的 inline cursor, 无 !important), 窗口外的根区域
+  // (#screen) 没有任何 cursor 规则 → 始终走浏览器默认光标。智慧屏浏览器的默认
+  // 光标就是白色圆圈(遥控指针): 所以"窗口外显示圆圈, 窗口内被 xpra 同步来的
+  // DOM 光标(箭头/手型)覆盖成鼠标指针"。
+  // 旧修复试图让远端 Chrome DOM 显示白色圆圈 PNG 再经 Chrome→X11→xpra→客户端
+  // 转发, 链路脆(远端 DOM/Chrome X11 光标/xpra 的 skip_default/客户端 set_cursor
+  // 任一环都可能失效)且只覆盖窗口区, 永远碰不到窗口外的圆圈 → 治标不治本。
+  // 权威修复: 在 xpra 客户端文档内把窗口内外统一成"浏览器默认光标"。窗口外的
+  // 根区域(#screen)没有任何 cursor 规则, 走的就是浏览器默认光标 —— 智慧屏浏览器
+  // 的默认光标就是白色圆圈, 所以窗口外显示圆圈。这里对整页显式 cursor:default,
+  // 让窗口内也用同一颗默认光标 → 与窗口外大小/样式完全一致(同一系统光标, 不是
+  // 自绘 PNG, 不依赖 data-URI 光标支持, 也覆盖 xpra 的 inline cursor)。
+  // default 而非 auto: auto 会在文本输入等上下文变成 I 字/手型, 破坏"处处圆圈";
+  // default 恒定用默认光标。空闲 1.5s 由本页 cursor:none 隐藏, 移动/按下恢复。
+  // 仅智慧屏 UA 生效; CDE 桌面不加, 保持系统鼠标指针。
+  function installTvCursor(d){
+    try{
+      if(d.__lptvTvCursor) return;
+      // 只对智慧屏浏览器生效 (xpra 客户端向服务端上报的 UA 即智慧屏浏览器 UA)。
+      if(!/LazyCatTvOsClient|Lazycat_ContentView/i.test(navigator.userAgent)) return;
+      if(!d.getElementById('lptv-tv-cursor')){
+        var s=d.createElement('style');
+        s.id='lptv-tv-cursor';
+        // 两条规则都用类选择器, 特异性相同; 空闲隐藏在后, 二者并存时靠顺序胜出
+        // (若用 #screen 的 id 选择器, 其特异性会压过空闲隐藏, cursor:none 永不生效)。
+        // 光标用中心热点白圈 (热点=圆圈视觉中心): 浏览器原生 cursor:default 的白圈
+        // 热点在圆圈顶部, 导致"点击要偏下才点得中"。中心热点使点击点=圆圈中心。
+        s.textContent='html.lptv-tv-cursor,html.lptv-tv-cursor *{cursor:url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAwUlEQVR42u2XQRKDMAhFA+Oh8QTh1rhx0VpBIFHTmfytAg/E+C1l6mVBIoaMaxxNtkQLi0hVuwEIg0CPwicgqxcEosU/kv9IuY+zAGQUZms3TuJUCPQs2qEbNhaQlSlReNNlVya4NccxMA3ggUBHIk4CcI+xUeNBdzkFvKl7dzyWlzUBhgfo8RY8d4JlcuFdXbTCP/YtWCxTISJVRGrQ6Xx5CMs/WI+AFaNhHc9kuCf+S0c0hCeMuuI1sCtj/BdMTW1poasj/L1HEwAAAABJRU5ErkJggg==") 16 16, default!important}'+
+          'html.lptv-tv-cursor-hidden,html.lptv-tv-cursor-hidden *{cursor:none!important}';
+        (d.head||d.documentElement).appendChild(s);
+        try{ d.documentElement.classList.add('lptv-tv-cursor'); }catch(e){}
+      }
+      if(d.__lptvTvCursorBound) return;
+      d.__lptvTvCursorBound=true;
+      var t=null;
+      function wake(){
+        try{ d.documentElement.classList.remove('lptv-tv-cursor-hidden'); }catch(e){}
+        clearTimeout(t);
+        t=setTimeout(function(){
+          try{ d.documentElement.classList.add('lptv-tv-cursor-hidden'); }catch(e){}
+        },1500);
+      }
+      d.addEventListener('mousemove',wake,true);
+      d.addEventListener('mousedown',wake,true);
+      d.addEventListener('touchstart',wake,true);
+      d.addEventListener('pointermove',wake,true);
+      d.addEventListener('pointerdown',wake,true);
+      // 键盘/遥控数字键同样唤醒客户端侧光标: 远端 inject.js 已唤醒其光标, 但
+      // 智慧屏客户端这层 cursor:none 是独立文档 CSS, 只监听鼠标/指针时按数字键
+      // 仍看不到指针(用户反馈的"鼠标消失后数字键不能唤醒")。
+      d.addEventListener('keydown',wake,true);
+      wake();
+      d.__lptvTvCursor=true;
+    }catch(e){}
+  }
+  function patchCursor(){
+    try{
+      var cw=f.contentWindow;
+      if(cw && cw.detectZoom && !cw.detectZoom.__lptvFixed){
+        cw.detectZoom.zoom=function(){ return 1; };
+        cw.detectZoom.__lptvFixed=true;
+      }
+    }catch(e){}
+    try{
+      var d=f.contentDocument;
+      if(d && d.documentElement) installTvCursor(d);
+    }catch(e){}
+  }
+  f.addEventListener('load', function(){ patchCursor(); hideXpraUI(); autoConnect(); });
+
+  // 永久隐藏 xpra 客户端自身的界面元素: 连接进度/悬浮菜单/登录遮罩/通知/窗口预览,
+  // 以及远端窗口的标题栏(.windowhead)与窗口边框/阴影(.window.border) —— 目标是只留
+  // 全屏远端画面, 不留任何 xpra chrome。每次 ready() 都按 id 检测, 若被客户端重渲染
+  // 移除则重新注入(幂等)。登录遮罩也隐藏: 本地 xpra 无需密码。
+  function hideXpraUI(){
+    var d=f.contentDocument;
+    if(!d || !d.head) return;
+    if(d.getElementById('lptv-hide-xpra-ui')) return;
+    var s=d.createElement('style');
+    s.id='lptv-hide-xpra-ui';
+    // 连接失败时 xpra 会露出自己的连接表单/错误条: 一并隐藏, 只保留远端画面。
+    // (首次打开时 CDE/xpra 可能还没起, 连接表单会在 15s 兜底露出时闪现 —— 见下方重试逻辑)
+    // connect.html 自身的连接表单/白底/断开原因也一并隐藏: 会话被冲掉或 lpk 升级后
+    // xpra 会跳到该页, 自动点击 Connect 期间不能让用户看到 xpra 的连接界面。
+    s.textContent='#connect,#connect_form,#connection,#connection_error,#progress,'+
+      '#float_menu,#float_menu_button,#login-overlay,'+
+      '.notifications,#window_preview,#about,#upload_form,.windowhead,'+
+      '.form-signin,.bg-image,#alert-disconnect{display:none!important}'+
+      'div.window{border:none!important;border-radius:0!important;box-shadow:none!important}'+
+      'html,body,#screen{background:#04070d!important}';
+    d.head.appendChild(s);
+  }
+
+  // 自动点击 xpra 的 Connect: lpk 升级/重装同版本会让容器内 xpra 服务端重启,
+  // 已连接的网页客户端掉线后会跳到 xpra 自带的 connect.html; 两个客户端(CDE/智慧屏)
+  // 互相 steal 会话时, 被冲掉的一方也会停在该页。用户不应该看到 xpra 的连接界面,
+  // 也不应该手动去点 —— 发现按钮就自动点击, 让客户端自己重连回远端主界面。
+  // connect.html 的主按钮是 #main_action_button(onclick=doConnect());
+  // 密码登录遮罩的按钮是 #login_connect(onclick=login_connect())。后者只在遮罩
+  // 真正 fadeIn(inline display=block)时点, 避免初始隐藏状态下 login_callback 为空
+  // 导致 TypeError。记录同一按钮元素避免导航前的重复点击。
+  var _acAt = 0;
+  function autoConnect(){
+    try{
+      var d=f.contentDocument; if(!d) return;
+      hideXpraUI();   // 轮询兜底: 漏掉 load 事件时也把 xpra 连接界面藏住
+      // 全局节流: 服务端未就绪时 connect.html 可能反复重定向, 不必每次导航都点,
+      // 3s 内最多点一次, 避免连接请求/页面导航风暴。
+      var now=Date.now();
+      if(now-_acAt<3000) return;
+      var btn=d.getElementById('main_action_button');
+      if(btn){
+        _acAt=now;
+        try{ btn.click(); }catch(e){}
+        return;
+      }
+      var lo=d.getElementById('login-overlay');
+      var lc=d.getElementById('login_connect');
+      if(lo && lc && lo.style && lo.style.display && lo.style.display!=='none'){
+        _acAt=now;
+        try{ lc.click(); }catch(e){}
+      }
+    }catch(e){}
+  }
+
+  // 远端窗口候选: xpra 为每个远端窗口在 #screen 里建一个带 canvas 的 div。
+  // 注意不能用 children.length —— #screen 自带静态的 #shadow_pointer, 从第一帧
+  // 就 >0, 会把动画立刻撤掉, 露出 xpra 的连接界面。只认带 canvas、可见、
+  // 有实际尺寸且至少占画布一半的窗口(排除 xpra 自己的小窗/会话提示)。
+  function screenWindows(d){
+    var scr=d.getElementById('screen'); if(!scr) return [];
+    var ww=d.documentElement.clientWidth||0, hh=d.documentElement.clientHeight||0;
+    var out=[];
+    for(var i=0;i<scr.children.length;i++){
+      var el=scr.children[i];
+      if(el.tagName!=='DIV') continue;
+      if(el.style.display==='none') continue;
+      if(!el.querySelector('canvas')) continue;
+      if(el.offsetWidth<80 || el.offsetHeight<80) continue;
+      if(!(ww>0 && hh>0 && el.offsetWidth>=ww*0.5 && el.offsetHeight>=hh*0.5)) continue;
+      out.push(el);
+    }
+    return out;
+  }
+
+  // 采样窗口画布, 判断远端是否已真正绘出画面。只读 24x24 缩略图(几 KB),
+  // 启动期每 200ms 一次, 开销可忽略。返回值:
+  //   null                     读不到(跨域/画布已转 OffscreenCanvas 等)
+  //   {painted:false}          画布尚未出帧(全透明)
+  //   {painted:true, mean, spread, bright}
+  // 关键点: 远端窗口在首次绘制前就已映射(xpra 必须看到窗口才投射), 此时画布
+  // 是空白(白底/透明)。只看"窗口存在"就撤动画 → 会露出这段空白(用户看到的
+  // 白屏)。必须等画布真的出现内容。
+  var _scv=null, _sctx=null;
+  function samplePainted(el){
+    var cv=null, best=0;
+    var cs=el.querySelectorAll('canvas');
+    for(var i=0;i<cs.length;i++){
+      var a=(cs[i].width||0)*(cs[i].height||0);
+      if(a>best){best=a;cv=cs[i];}
+    }
+    if(!cv || !cv.width || !cv.height) return null;
+    if(!_scv){
+      _scv=document.createElement('canvas');
+      _scv.width=24; _scv.height=24;
+      try{ _sctx=_scv.getContext('2d',{willReadFrequently:true}); }catch(e){ _sctx=null; }
+    }
+    if(!_sctx) return null;
+    var d;
+    try{
+      _sctx.clearRect(0,0,24,24);
+      _sctx.drawImage(cv,0,0,cv.width,cv.height,0,0,24,24);
+      d=_sctx.getImageData(0,0,24,24).data;
+    }catch(e){ return null; }
+    var alpha=0,n=0,sum=0,mn=255,mx=0,bright=0;
+    for(var i=0;i<d.length;i+=4){
+      var a=d[i+3]; alpha+=a;
+      if(a<24) continue;
+      var l=d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114;
+      sum+=l; n++;
+      if(l<mn)mn=l; if(l>mx)mx=l;
+      if(l>60)bright++;
+    }
+    if(!alpha) return {painted:false};
+    return {
+      painted:true,
+      mean:n?sum/n:0,
+      spread:mx-mn,
+      bright:n?bright/n:0
+    };
+  }
+
+  // 等待动画不销毁: 掉线/升级重启后 xpra 会跳回 connect.html, 远端窗口消失
+  // 时重新盖上动画, 窗口回来再淡出 —— 任何时候都不露出 xpra 自身界面。
+  var waitHidden=false;
+  function hideWait(){
+    if(waitHidden) return;
+    waitHidden=true;
+    w.classList.add('out');
+    setTimeout(function(){ if(waitHidden) w.style.display='none'; }, 520);
+  }
+  function showWait(){
+    if(!waitHidden) return;
+    waitHidden=false;
+    w.style.display='';
+    void w.offsetWidth;          // 强制回流, 让淡入过渡从当前状态开始
+    w.classList.remove('out');
+  }
+  function reveal(){
+    if(revealed)return; revealed=true;
+    if(t){clearInterval(t);t=null;}
+    try{ console.log('[LPTV-wrap] reveal t='+(Date.now()-t0)+'ms splash='+splashSeen); }catch(e){}
+    hideWait();
+    tryFullscreen();
+  }
+  // 只有智慧屏（TV）才自动进入浏览器全屏：智慧屏本身就是整屏电视，标题栏没有意义。
+  // CDE 桌面客户端保持普通窗口（用户要求：只显示 LPTV 窗口内容，不铺满整块屏幕，
+  // 也不需要按 Esc 才能缩回窗口）。全屏后 iframe 画布变大 → xpra 虚拟屏跟随客户端
+  // desktop-size → 远端 LPTV 窗口重新铺满整屏；但 CDE 下这会把整块远程桌面（含窗口
+  // 外的黑色背景）铺满屏幕，反而看不到"只有 LPTV 窗口"的效果。
+  // 浏览器/webview 通常要求用户手势: 加载时先尝试一次, 失败则在首次点击/按键
+  // 重试; 成功后不再打扰(用户按 Esc 退出全屏后不会又被强制拉回去)。
+  function isSmartScreen(){
+    return /LazyCatTvOsClient|Lazycat_ContentView/i.test(navigator.userAgent);
+  }
+  var fsDone=false;
+  function tryFullscreen(){
+    if(!isSmartScreen()) return;   // CDE/桌面：保持窗口模式
+    if(fsDone || document.fullscreenElement) return;
+    var de=document.documentElement;
+    var p=null;
+    try{
+      if(de.requestFullscreen) p=de.requestFullscreen({navigationUI:'hide'});
+      else if(de.webkitRequestFullscreen) p=de.webkitRequestFullscreen();
+    }catch(e){ return; }
+    if(p && p.then){
+      p.then(function(){ fsDone=true; }).catch(function(){});
+    }else if(document.fullscreenElement || de.webkitFullscreenElement){
+      fsDone=true;
+    }
+  }
+  document.addEventListener('fullscreenchange', function(){
+    if(document.fullscreenElement) fsDone=true;
+  });
+  function fsGesture(){
+    if(fsDone) return;
+    document.removeEventListener('pointerdown', fsGesture, true);
+    document.removeEventListener('keydown', fsGesture, true);
+    tryFullscreen();
+  }
+  document.addEventListener('pointerdown', fsGesture, true);
+  document.addEventListener('keydown', fsGesture, true);
+  // iframe 是独立文档: 点/按在 xpra 画面里的事件不会冒泡到外层 document,
+  // 因此手势重试也要绑到 iframe 文档(同源可访问; 每次 load 重绑)。
+  function bindIframeGesture(){
+    try{
+      var d=f.contentDocument;
+      if(!d || d.__lptvFsBound) return;
+      d.__lptvFsBound=true;
+      d.addEventListener('pointerdown', fsGesture, true);
+      d.addEventListener('keydown', fsGesture, true);
+    }catch(e){}
+  }
+  f.addEventListener('load', bindIframeGesture);
+  // 就绪判定: 等远端画布真正绘出内容才撤动画 —— 目标"等待动画 → 主界面"无缝,
+  // 中间不留白屏/空窗。两个阶段:
+  //  1) 先认出远端启动遮罩(深色底 #04070d): 证明 LPTV 窗口已映射且已出帧;
+  //  2) 同一窗口画布出现首页内容(明暗跨度 + 内容亮像素) → 首页已画出, 立刻淡出动画。
+  // 快速启动(遮罩还没被采样到就已经出首页)时, 内容连续命中且跨度很大也直接露出。
+  // 读不到画布/长时间透明则按时间兜底, 绝不卡死。
+  var t0=Date.now();
+  var splashSeen=false, splashId=null, splashAt=0, contentHits=0, readFails=0, blankTicks=0;
+  function byId(wins,id){
+    for(var i=0;i<wins.length;i++){ if((wins[i].id||'')===id) return wins[i]; }
+    return null;
+  }
+  function ready(){
+    try{
+      var d=f.contentDocument;
+      if(!d) return false;
+      hideXpraUI();
+      patchCursor();
+      bindIframeGesture();
+      var wins=screenWindows(d);
+      if(!wins.length) return false;
+
+      // 1) 还没认出启动遮罩: 逐窗口采样。远端 LPTV 窗口一映射, 首帧就是窗口
+      //    底色/启动遮罩(整屏均匀深色) —— 这个信号只在"该窗口已真正出帧"时出现,
+      //    空白画布(透明/白底)不会命中。
+      if(!splashSeen){
+        var sampled=false;
+        for(var i=0;i<wins.length;i++){
+          var s0=samplePainted(wins[i]);
+          if(s0===null) continue;
+          sampled=true;
+          if(s0.painted && s0.spread<=26 && s0.mean<=45){
+            splashSeen=true; splashId=wins[i].id||''; splashAt=Date.now(); contentHits=0;
+            try{ console.log('[LPTV-wrap] splash painted wid='+splashId+' t='+(Date.now()-t0)+'ms'); }catch(e){}
+            return false;
+          }
+        }
+        if(!sampled){
+          readFails++;
+          if(readFails>=8) return true;
+          return false;
+        }
+        readFails=0;
+        // 没采到遮罩(首帧已是首页): 只有跨度很大(明确是 UI)才提前露出, 否则等到 5s
+        var el=null, bestArea=0;
+        for(var i=0;i<wins.length;i++){
+          var a=(wins[i].offsetWidth||0)*(wins[i].offsetHeight||0);
+          if(a>=bestArea){bestArea=a;el=wins[i];}
+        }
+        var s1=el?samplePainted(el):null;
+        if(s1 && s1.painted && s1.spread>=22 && s1.bright>=0.05){
+          contentHits++;
+          if(s1.spread>=45 && s1.bright>=0.10 && contentHits>=3 && Date.now()-t0>=1500) return true;
+        } else {
+          contentHits=0;
+        }
+        return Date.now()-t0>=5000;
+      }
+
+      // 2) 遮罩已确认: 盯同一窗口, 画布出现首页内容(明暗跨度 + 内容亮像素) → 露出。
+      //    空白画布无论白底/深底都是均匀色块(跨度≈0); 启动遮罩(深底+径向微光)亮度
+      //    跨度小且没有 >60 的亮像素; 浅色/深色主题首页都有卡片/文字, 跨度与亮像素
+      //    都明显。单看 mean/bright 不行 —— 未绘制的白底画布 mean/bright 都很高。
+      var target=byId(wins,splashId);
+      if(!target) target=wins[wins.length-1];
+      var s=samplePainted(target);
+      if(s===null){
+        readFails++;
+        if(readFails>=8) return true;
+        return false;
+      }
+      readFails=0;
+      if(!s.painted){
+        blankTicks++;
+        // 占位画布采样恒为透明 → 2.4s 后按窗口存在兜底
+        if(blankTicks>=12) return true;
+        return false;
+      }
+      blankTicks=0;
+      var hasContent=(s.spread>=22 && s.bright>=0.05);
+      if((target.id||'')===splashId && hasContent) return true;
+      // 遮罩确认后最多再等 3.5s: 首页即使主题偏暗/采样跨度偏低也不会卡住
+      return Date.now()-splashAt>=3500;
+    }catch(e){ return true; } // 跨域读不到: 直接露出, 交给 xpra 自身 UI
+  }
+  // 最短展示 900ms: 即使远端很快出首页, 也不让等待动画一闪而过。
+  t=setInterval(function(){
+    if(ready() && Date.now()-t0>=900) reveal();
+  }, 200);
+  // 连接界面自动点击兜底: 掉线跳转到 connect.html 后, load 事件可能因文档内
+  // 重定向/缓存而漏触发; 低频轮询再兜一层, 只在连接按钮存在时动作(幂等)。
+  setInterval(autoConnect, 1200);
+
+  // 露出后再掉线/升级重启（xpra 跳回 connect.html）: 远端窗口消失时重新盖上
+  // 等待动画，窗口回来再淡出。配合 hideXpraUI 保证"任何操作都不露出 xpra 界面"
+  // （首次安装打开、安装替换升级、会话被冲掉后自动重连等）。
+  setInterval(function(){
+    if(!revealed) return;
+    try{
+      var d=f.contentDocument;
+      if(!d) return;
+      hideXpraUI();
+      var wins=screenWindows(d);
+      if(wins.length) hideWait(); else showWait();
+    }catch(e){}
+  }, 800);
+  // 首次打开时 CDE/xpra 可能还在启动, xpra 客户端第一次连接会失败并停在
+  // 自己的连接表单上(错误: invalid address)。此时没有远端窗口, ready() 永远 false,
+  // 15s 兜底一露出就是 xpra 界面 —— 这就是"智慧屏首次打开显示 xpra"的原因。
+  // 处理: 没出远端窗口时按 8/16/24/32s 重新加载客户端重试; 40s 后才兜底露出,
+  // 期间一直显示等待动画 (连接表单已隐藏, 不会闪 xpra UI)。
+  var retryN = 0;
+  function retryConnect(){
+    if(revealed) return;
+    retryN++;
+    if(retryN>4) return;
+    try{ console.log("[LPTV-wrap] retry " + retryN + " t=" + (Date.now()-t0) + "ms"); }catch(e){}
+    try{ f.src = f.src; }catch(e){}
+  }
+  setTimeout(retryConnect, 8000);
+  setTimeout(retryConnect, 16000);
+  setTimeout(retryConnect, 24000);
+  setTimeout(retryConnect, 32000);
+  setTimeout(function(){ if(!revealed) reveal(); }, 40000);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LPTV mobile mode assertion</title>
+<style>html,body{margin:0;height:100%;background:#04070d}</style>
+</head>
+<body>
+<!-- 官方频道侧栏 stub：让 switchChannel 走非 bridge 直连路径（findOfficialButtons
+     点侧栏项），覆盖"冷启动直达播放"的真实代码路径。 -->
+<div class="tv-main-con-r-list-left"><div>CCTV-1 综合</div></div>
+<video id="test-video" muted playsinline></video>
+<script>
+  // 覆写只读媒体属性: 让 swState 判定"已就绪"，无需真实网络源/触发 loadeddata。
+  // currentSrc 带 pid → srcOk=true → loadedNew=true → ready=true → finishSwitching。
+  var _tv = document.getElementById('test-video');
+  Object.defineProperty(_tv, 'readyState', { get: function () { return 4; }, configurable: true });
+  Object.defineProperty(_tv, 'videoWidth', { get: function () { return 1280; }, configurable: true });
+  Object.defineProperty(_tv, 'currentSrc', {
+    get: function () { return 'https://ysp.local/tv?pid=600001859'; }, configurable: true
+  });
+  window.__LPTV_ENV = { mobile: true, container: true, smart: false };
+  // 不设 __lptvBridge → switchChannel 走 findOfficialButtons 直连，而非 bridge 强制收尾。
+  var stub = {
+    get_channels: function () {
+      var list = [];
+      for (var i = 1; i <= 30; i++) {
+        list.push({ name: 'CCTV-' + i + ' 测试', pid: String(600001800 + i) });
+      }
+      list[0] = { name: 'CCTV-1 综合', pid: '600001859' };
+      return Promise.resolve(list);
+    },
+    get_ui_state: function () {
+      return Promise.resolve({ ok: true, lastPid: '600001859', fit: 'cover' });
+    },
+    play_channel: function () { return Promise.resolve({ ok: true }); },
+    fullscreen_toggle: function () { return Promise.resolve({ ok: true, fullscreen: false }); },
+    set_quality: function () { return Promise.resolve({ ok: true }); },
+    set_state: function () { return Promise.resolve({ ok: true }); }
+  };
+  window.lptv = new Proxy(stub, {
+    get: function (t, p) {
+      if (p in t) return t[p];
+      return function () { return Promise.resolve({ ok: true }); };
+    }
+  });
+</script>
+<script src="../inject.js"></script>
+<script>
+(function () {
+  var started = Date.now();
+  function rootEl() { return document.getElementById('lptv-root'); }
+  function state() { var r = rootEl(); return r ? r.getAttribute('data-state') : ''; }
+  function measure() {
+    var root = rootEl();
+    var play = document.getElementById('lptv-view-playing');
+    var leftView = document.getElementById('lptv-view-left');
+    var rightView = document.getElementById('lptv-view-right');
+    var center = document.querySelector('#lptv-view-playing .lv-bar-col.center');
+    var leftPanel = document.querySelector('#lptv-view-left .lv-left-panel');
+    var rightPanel = document.querySelector('#lptv-view-right .lv-right-panel');
+    var barBtn = document.querySelector('#lptv-view-playing .lv-bar-btn');
+    var leftScene = document.querySelector('#lptv-view-left .lv-left-scene .lv-scene-bottom');
+    var barVol = document.getElementById('lv-b-vol');
+    var barHome = document.getElementById('lv-b-home');
+    var list = document.getElementById('lv-left-list');
+    var out = {
+      mobileClass: !!(root && root.classList.contains('mobile')),
+      state: state(),
+      zoom: root ? root.style.zoom : '',
+      centerDisplay: center ? getComputedStyle(center).display : '',
+      leftBg: leftView ? getComputedStyle(leftView).backgroundColor : '',
+      leftPanelW: leftPanel ? parseFloat(getComputedStyle(leftPanel).width) : 0,
+      rightPanelW: rightPanel ? parseFloat(getComputedStyle(rightPanel).width) : 0,
+      barBtnH: barBtn ? parseFloat(getComputedStyle(barBtn).height) : 0,
+      // 场景底部控件在当前设计里可能已不存在（不存在即等价于隐藏），
+      // 旧断言把它记成空串导致误报失败。
+      leftSceneDisplay: leftScene ? getComputedStyle(leftScene).display : 'none',
+      barVolDisplay: barVol ? getComputedStyle(barVol).display : '',
+      barHomeDisplay: barHome ? getComputedStyle(barHome).display : '',
+      scrollTop: list ? list.scrollTop : 0,
+      trace: window.__trace || null
+    };
+    // 浅色主题下视频侧仍需透明（不能 rgba(236,242,250,.55) 洗白）
+    try {
+      if (root) root.setAttribute('data-theme', 'light');
+      out.leftBgLight = leftView ? getComputedStyle(leftView).backgroundColor : '';
+      if (root) root.removeAttribute('data-theme');
+    } catch (e) { out.leftBgLight = ''; }
+    var vw = window.innerWidth || 800;
+    var tr = out.trace || {};
+    var vol = tr.volAfter || {};
+    out.pass = out.mobileClass && out.state === 'leftPanel' && out.zoom === '1'
+      && out.centerDisplay === 'none'
+      && (out.leftBg === 'rgba(0, 0, 0, 0)' || out.leftBg === 'transparent')
+      && (out.leftBgLight === 'rgba(0, 0, 0, 0)' || out.leftBgLight === 'transparent')
+      && Math.abs(out.leftPanelW - vw * 0.55) <= 4
+      && Math.abs(out.rightPanelW - vw * 0.60) <= 4
+      && out.barBtnH >= 44
+      && out.leftSceneDisplay === 'none'
+      && out.barVolDisplay === 'none'
+      && out.barHomeDisplay === 'none'
+      && out.scrollTop > 0
+      && tr.showControlsAfterTap === true
+      && (tr.afterTap === 'playing' || tr.afterTap === 'switching')
+      && tr.bootPid === '600001859'
+      && vol.v === 1 && vol.m === false;
+    document.body.dataset.test = JSON.stringify(out);
+    document.body.dataset.pass = out.pass ? '1' : '0';
+  }
+  function finish() {
+    var root = rootEl();
+    var play = document.getElementById('lptv-view-playing');
+    var video = window.__lptv ? window.__lptv.video : null;
+    // 音量覆盖断言：切台完成后元素应恒 1.0/不静音；再发一次音量键也应保持不变。
+    var volBefore = video ? { v: video.volume, m: !!video.muted } : null;
+    try { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'VolumeUp', bubbles: true })); } catch (e) {}
+    var volAfter = video ? { v: video.volume, m: !!video.muted } : null;
+    window.__trace = {
+      bootPid: window.__lptv ? window.__lptv.currentPid : '',
+      bootState: state(),
+      volBefore: volBefore,
+      volAfter: volAfter
+    };
+    try {
+      if (play) {
+        play.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 10, clientY: 10 }));
+      }
+    } catch (e) {}
+    window.__trace.afterTap = state();
+    window.__trace.showControlsAfterTap = !!(root && root.classList.contains('show-controls'));
+    var chBtn = document.getElementById('lv-b-ch');
+    try { if (chBtn) chBtn.click(); } catch (e) {}
+    window.__trace.afterCh = state();
+    window.__trace.hasCh = !!chBtn;
+    setTimeout(function () {
+      var list = document.getElementById('lv-left-list');
+      try {
+        if (list) {
+          list.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientY: 300 }));
+          document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientY: 220 }));
+          document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, clientY: 220 }));
+        }
+      } catch (e) {}
+      measure();
+    }, 250);
+  }
+  // 等直达播放真正完成：state=playing 且 currentPid 已由 switchChannel 设为目标台。
+  // 完成时补发 playing/loadeddata —— 真实移动端由官方视频自然触发 playing，其
+  // handler 在 IS_MOBILE 下把元素锁 1.0/不静音；stub 视频没有真实源，这里模拟。
+  function waitSwitchDone() {
+    var r = rootEl();
+    var s = state();
+    var pid = window.__lptv ? window.__lptv.currentPid : '';
+    if ((s === 'playing' && pid === '600001859') || Date.now() - started > 5000) {
+      try {
+        _tv.dispatchEvent(new Event('loadeddata'));
+        _tv.dispatchEvent(new Event('playing'));
+      } catch (e) {}
+      finish();
+      return;
+    }
+    setTimeout(waitSwitchDone, 100);
+  }
+  setTimeout(waitSwitchDone, 200);
+})();
+</script>
+</body>
+</html>

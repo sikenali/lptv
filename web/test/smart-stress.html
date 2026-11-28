@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LPTV smart-screen switch stress</title>
+<style>html,body{margin:0;height:100%;background:#04070d}</style>
+</head>
+<body>
+<!-- 官方频道侧栏 stub：覆盖智慧屏 Electron 的官方侧栏点击路径。 -->
+<div class="tv-main-con-r-list-left">
+  <div data-pid="600001859" class="tvSelect">CCTV-1 综合</div>
+  <div data-pid="600001802">CCTV-2 测试</div>
+  <div data-pid="600001803">CCTV-3 测试</div>
+  <div data-pid="600001804">CCTV-4 测试</div>
+</div>
+<video id="test-video" muted playsinline></video>
+<script>
+  var _pid = '600001859';
+  var _tv = document.getElementById('test-video');
+  Object.defineProperty(_tv, 'readyState', { get: function () { return window.__stubVideoMode === 'stalled' ? 0 : 4; }, configurable: true });
+  Object.defineProperty(_tv, 'videoWidth', { get: function () { return window.__stubVideoMode === 'stalled' ? 0 : 1280; }, configurable: true });
+  Object.defineProperty(_tv, 'paused', { get: function () { return window.__stubVideoMode === 'stalled'; }, configurable: true });
+  Object.defineProperty(_tv, 'currentSrc', { get: function () { return 'https://ysp.local/tv?pid=' + _pid; }, configurable: true });
+  try {
+    _tv.play = function () { return Promise.resolve(); };
+    _tv.pause = function () {};
+  } catch (e) {}
+
+  var _items = Array.prototype.slice.call(document.querySelectorAll('.tv-main-con-r-list-left > div'));
+  function selectItem(it) {
+    _items.forEach(function (x) { x.classList.remove('tvSelect'); });
+    it.classList.add('tvSelect');
+  }
+  _items.forEach(function (it) {
+    it.addEventListener('click', function () {
+      var pid = it.getAttribute('data-pid');
+      var mode = window.__stubMode || 'normal';
+      var delay = window.__stubDelay || 100;
+      selectItem(it);
+      if (mode === 'selected') return; // 官方已选中同名项：不换流、不发事件
+      if (mode === 'stalled') {
+        setTimeout(function () { _pid = pid; window.__lptv._loadedPid = pid; }, 30);
+        return;
+      }
+      setTimeout(function () {
+        _pid = pid;
+        window.__lptv._loadedPid = pid;
+        try { _tv.dispatchEvent(new Event('loadedmetadata')); } catch (e) {}
+        setTimeout(function () {
+          try { _tv.dispatchEvent(new Event('loadeddata')); } catch (e) {}
+          try { _tv.dispatchEvent(new Event('playing')); } catch (e) {}
+        }, 20);
+      }, delay);
+    });
+  });
+  // 官方 SPA 对 pushState/popstate 的响应（sidebar 缺失时的兜底路径）。
+  window.addEventListener('popstate', function () {
+    var m = location.search.match(/[?&]pid=(\d+)/);
+    if (!m) return;
+    var pid = m[1];
+    _pid = pid;
+    window.__lptv._loadedPid = pid;
+    try { _tv.dispatchEvent(new Event('loadedmetadata')); } catch (e) {}
+    setTimeout(function () {
+      try { _tv.dispatchEvent(new Event('loadeddata')); } catch (e) {}
+      try { _tv.dispatchEvent(new Event('playing')); } catch (e) {}
+    }, 20);
+  });
+
+  window.__LPTV_ENV = { smart: true, container: true, mobile: false };
+  var stub = {
+    get_channels: function () {
+      return Promise.resolve([
+        { name: 'CCTV-1 综合', pid: '600001859' },
+        { name: 'CCTV-2 测试', pid: '600001802' },
+        { name: 'CCTV-3 测试', pid: '600001803' },
+        { name: 'CCTV-4 测试', pid: '600001804' }
+      ]);
+    },
+    get_ui_state: function () { return Promise.resolve({ ok: true, lastPid: '600001859', fit: 'cover' }); },
+    get_version: function () { return Promise.resolve('1.0.2-test'); },
+    get_asset_image: function () { return Promise.resolve({ ok: false, src: '' }); },
+    play_channel: function () { return Promise.resolve({ ok: true }); },
+    fullscreen_toggle: function () { return Promise.resolve({ ok: true, fullscreen: false }); },
+    set_quality: function () { return Promise.resolve({ ok: true }); },
+    set_state: function () { return Promise.resolve({ ok: true }); }
+  };
+  window.lptv = new Proxy(stub, {
+    get: function (t, p) {
+      if (p in t) return t[p];
+      return function () { return Promise.resolve({ ok: true }); };
+    }
+  });
+</script>
+<script src="../inject.js"></script>
+<script>
+(function () {
+  var t0 = Date.now();
+  var trace = window.__trace = { switches: [] };
+  function root() { return document.getElementById('lptv-root'); }
+  function state() { var r = root(); return r ? r.getAttribute('data-state') : ''; }
+  function q(sel) { return document.querySelector(sel); }
+  function click(el) {
+    if (!el) return false;
+    try { el.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 10, clientY: 10 })); return true; }
+    catch (e) { try { el.click(); return true; } catch (e2) { return false; } }
+  }
+  function waitFor(fn, timeout) {
+    var t = Date.now();
+    return new Promise(function (resolve) {
+      (function poll() {
+        var v = null;
+        try { v = fn(); } catch (e) {}
+        if (v) return resolve(v);
+        if (Date.now() - t > timeout) return resolve(null);
+        setTimeout(poll, 60);
+      })();
+    });
+  }
+  function finish(pass, extra) {
+    trace.elapsed = Date.now() - t0;
+    trace.pass = !!pass;
+    if (extra) trace.extra = extra;
+    try { console.log('[stress] RESULT ' + JSON.stringify(trace)); } catch (e) {}
+    document.body.dataset.test = JSON.stringify(trace);
+    document.body.dataset.pass = pass ? '1' : '0';
+  }
+  var pids = ['600001802', '600001803', '600001804', '600001859'];
+  var modes = ['normal', 'slow', 'seamless', 'selected', 'missing'];
+  var delays = [120, 1600, 80, 80, 80];
+
+  (async function () {
+    await waitFor(function () { return root() && q('.lv-card[data-pid]'); }, 6000);
+    if (!root()) return finish(false, 'boot');
+    var rounds = 20;
+    for (var i = 0; i < rounds; i++) {
+      var pid = pids[i % pids.length];
+      var mode = modes[i % modes.length];
+      var delay = delays[i % delays.length];
+      // 准备 stub 模式
+      window.__stubMode = mode;
+      window.__stubDelay = delay;
+      window.__stubVideoMode = mode === 'stalled' ? 'stalled' : 'ok';
+      var off = q('.tv-main-con-r-list-left > div[data-pid="' + pid + '"]');
+      if (mode === 'missing' && off && off.parentNode) off.parentNode.removeChild(off);
+      if (mode === 'selected' && off) {
+        Array.prototype.forEach.call(document.querySelectorAll('.tv-main-con-r-list-left > div'), function (x) { x.classList.remove('tvSelect'); });
+        off.classList.add('tvSelect');
+      }
+
+      // 通过 UI 点击频道面板项（真实用户路径）
+      click(q('#lv-b-ch'));
+      await waitFor(function () { return state() === 'leftPanel'; }, 2500);
+      var uiItem = q('.lv-left-item[data-pid="' + pid + '"]');
+      if (!uiItem) { trace.switches.push({ i: i, pid: pid, mode: mode, fail: 'no-ui-item' }); return finish(false, 'no-ui-item'); }
+      var tClick = Date.now();
+      click(uiItem);
+      var timeout = mode === 'stalled' ? 45000 : 15000;
+      await waitFor(function () { return state() === 'playing' && window.__lptv && window.__lptv.currentPid === pid; }, timeout);
+      var wait = Date.now() - tClick;
+      var rec = { i: i, pid: pid, mode: mode, delay: delay, state: state(), pidNow: window.__lptv ? window.__lptv.currentPid : '', wait: wait };
+      trace.switches.push(rec);
+      if (rec.state !== 'playing' || rec.pidNow !== pid) {
+        trace.maxWait = Math.max.apply(null, trace.switches.map(function (x) { return x.wait; }));
+        return finish(false, 'switch ' + i + ' mode=' + mode);
+      }
+      // 恢复被移除的官方项，供后续轮次使用
+      if (mode === 'missing' && off && !off.parentNode) {
+        document.querySelector('.tv-main-con-r-list-left').appendChild(off);
+      }
+    }
+    trace.maxWait = Math.max.apply(null, trace.switches.map(function (x) { return x.wait; }));
+    trace.rounds = rounds;
+    finish(true, 'ok');
+  })();
+})();
+</script>
+</body>
+</html>

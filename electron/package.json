@@ -1,0 +1,88 @@
+{
+  "name": "lptv",
+  "productName": "LPTV",
+  "version": "1.0.0",
+  "description": "LPTV 远程电视客户端 (Electron)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sikenali/lptv.git"
+  },
+  "main": "main.js",
+  "author": "LPTV",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron . --no-sandbox",
+    "dist": "electron-builder --linux AppImage --publish never"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "cn.lazycat.lptv",
+    "productName": "LPTV",
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "xpra-client-info.js",
+      "channels.json",
+      "assets/**"
+    ],
+    "extraResources": [
+      {
+        "from": "write_netwm_icon.py",
+        "to": "write_netwm_icon.py"
+      },
+      {
+        "from": "send_moveresize.py",
+        "to": "send_moveresize.py"
+      },
+      {
+        "from": "strip_decorations.py",
+        "to": "strip_decorations.py"
+      },
+      {
+        "from": "../web",
+        "to": "frontend",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "AudioVideo",
+      "icon": "assets/icon.png",
+      "executableName": "lptv",
+      "artifactName": "LPTV-${os}-${arch}-${version}.${ext}",
+      "desktop": {
+        "Name": "LPTV",
+        "Comment": "LPTV 远程电视"
+      }
+    },
+    "win": {
+      "target": [
+        "portable"
+      ],
+      "icon": "assets/icon.png",
+      "artifactName": "LPTV-${version}-portable.${ext}"
+    },
+    "portable": {
+      "artifactName": "LPTV-${version}-portable.${ext}"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.entertainment",
+      "icon": "assets/icon.png",
+      "artifactName": "LPTV-${os}-${arch}-${version}.${ext}"
+    }
+  }
+}

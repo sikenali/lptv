@@ -1,0 +1,43 @@
+# 构建产物（体积大，可随时重建/重新下载，不入库）
+# LPK 包
+*.lpk
+# AppImage
+*.AppImage
+# APK
+*.apk
+# Electron 构建
+electron/node_modules/
+electron/dist/
+# Android 构建依赖（node_modules/锁文件）；原生工程 android/android/ 需入库供 CI 构建，
+# 其构建产物由 android/android/.gitignore(Android 模板) 排除
+android/node_modules/
+android/package-lock.json
+# Capacitor webDir 由 android/build.sh 从共享 web/ 生成，不入库
+android/www/
+# lzc 打包已废弃：本地用 lzc-cde/lpk 的 rchrome 脚本构建 LPK（见 lpk/）。
+# lpk/ 为本地打包工具（拷贝自 lzc-cde/lpk，含 rim go 源码/drop.c/ui/rchrome 配置），
+# 不推送（GitHub CI 不构建 LPK，LPK 本地构建后经 gh release 推送）。
+lpk/
+# release.sh 下载 CI 产物（exe/dmg/apk）的临时目录
+release-tmp/
+
+# 部署配置（非核心，按需参考）
+deploy/
+
+# Android 签名（敏感，不入库）
+android/release.keystore
+android/keystore.properties
+__pycache__/
+
+# 本地独立工程/产物（非本仓库核心，体积大，不入库）
+# catlink/：catlink 客户端构建工程（spec/build/CA，619M）
+# lptv-features/：LPTV 宣传片/特性演示工程（含 18M mp4，31M）
+catlink/
+lptv-features/
+
+# Electron/Chromium 崩溃 core dump（调试 SIGKILL/崩溃时可达 1GB+，不入库）
+core
+core.*
+
+# Calicat 设计数据临时目录（get_design_data 落盘用，不入库）
+scratch/
