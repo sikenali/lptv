@@ -227,20 +227,26 @@
     var list = document.querySelectorAll("video");
     var cand = null;
     var old = (_sw && _sw.oldVideo) || null;
+    // 优先认"真正有画面"的视频元素（videoWidth>0），再取内在分辨率最大的：
+    // 官方页可能同时存在隐藏的预载/预览 video，也有 videoWidth；若按布局尺寸选，
+    // 可能选中隐藏元素，把隐藏画面铺满全屏，而真正在播的 video 仍留在官方布局里
+    // → 两层画面叠在一起（用户反馈"类似双层的显示"）。布局可见性只作为兜底/同分
+    // 时的辅助，不能让一个没有画面的预览元素压过有画面的主流。
+    var bestFrame = null, bestVis = null, first = null;
     for (var i = 0; i < list.length; i++) {
       var v = list[i];
       // 切台期间优先认新元素: 官方换台可能新建 <video>，旧元素还留着上一路画面；
       // 若继续认旧元素，会把旧画面当成新台已就绪 (或永远等不到新元素的 loadeddata)。
       if (uiState === "switching" && old && v === old && list.length > 1) continue;
-      // 优先认"可见"的视频元素: 官方页可能有隐藏的预载/预览 video（也有 videoWidth），
-      // 若按内在分辨率选中隐藏元素，会把隐藏画面铺满全屏，而真正在播的 video 仍留在
-      // 官方布局里 → 两层画面叠在一起（用户反馈"类似双层的显示"）。
+      if (!first) first = v;
       var vis = (v.offsetWidth > 0 && v.offsetHeight > 0) || v.style.display !== 'none';
-      if (!cand) cand = v;
-      var candVis = (cand.offsetWidth > 0 && cand.offsetHeight > 0) || cand.style.display !== 'none';
-      if (vis && !candVis) { cand = v; continue; }
-      if (vis === candVis && v.videoWidth && (!cand.videoWidth || v.videoWidth > cand.videoWidth)) cand = v;
+      if (v.videoWidth > 0) {
+        if (!bestFrame || v.videoWidth > bestFrame.videoWidth ||
+            (v.videoWidth === bestFrame.videoWidth && vis)) bestFrame = v;
+      }
+      if (vis && (!bestVis || v.videoWidth > bestVis.videoWidth)) bestVis = v;
     }
+    cand = bestFrame || bestVis || first;
     if (!cand) return;
     // 只让当前画面源可见: 官方换台/预载可能同时存在多个 <video>，未被我们铺满的
     // 其它元素仍按官方布局渲染，会形成第二层画面。隐藏它们（不影响解码/播放），
@@ -4807,6 +4813,15 @@
   }
 
   lptv.switchChannel = function (pid) { switchChannel(pid); };
+  // 客户端掉线再快速重连时，主进程不整页 reload（避免移动端 WebView 频繁重连
+  // 形成 reload 风暴），而是调用本方法：页面若已被 client-gone 暂停，按上次频道
+  // 恢复播放；仍在播则什么都不做。
+  lptv.resumeLastChannel = function () {
+    var v = lptv.video;
+    if (v && !v.paused && v.readyState >= 2) return;
+    var pid = cfg.lastPid || (lptv.channels && lptv.channels[0] && lptv.channels[0].pid);
+    if (pid) switchChannel(pid);
+  };
   lptv.getPlayUrl = function () {
     if (lptv.playUrl) return lptv.playUrl;
     if (lptv.currentHls && lptv.currentHls.url) return lptv.currentHls.url;

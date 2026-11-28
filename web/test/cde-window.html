@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LPTV CDE window-mode assertion</title>
+<style>html,body{margin:0;height:100%;background:#04070d;overflow:hidden}</style>
+</head>
+<body>
+<!-- CDE 桌面：客户端窗口是普通窗口，应用窗口必须铺满客户端画布（不能露远程桌面黑边）。
+     这里用两个 video 模拟官方页"主画面 + 预载/预览画面"，验证注入层只保留一个可见画面源。 -->
+<div class="tv-main-con-r-list-left">
+  <div data-pid="600001859" class="tvSelect">CCTV-1 综合</div>
+  <div data-pid="600001802">CCTV-2 测试</div>
+</div>
+<video id="test-video" muted playsinline></video>
+<!-- 官方页可能同时存在的第二个 video（预载/预览）：有内在分辨率，但不应成为可见层 -->
+<video id="preview-video" muted playsinline style="position:absolute;left:0;top:0;width:320px;height:180px;opacity:1"></video>
+<script>
+  var _pid = '600001859';
+  var _tv = document.getElementById('test-video');
+  Object.defineProperty(_tv, 'readyState', { get: function () { return 4; }, configurable: true });
+  Object.defineProperty(_tv, 'videoWidth', { get: function () { return 1280; }, configurable: true });
+  Object.defineProperty(_tv, 'videoHeight', { get: function () { return 720; }, configurable: true });
+  Object.defineProperty(_tv, 'currentSrc', { get: function () { return 'https://ysp.local/tv?pid=' + _pid; }, configurable: true });
+  try { _tv.play = function () { return Promise.resolve(); }; _tv.pause = function () {}; } catch (e) {}
+
+  var _pv = document.getElementById('preview-video');
+  Object.defineProperty(_pv, 'readyState', { get: function () { return 4; }, configurable: true });
+  Object.defineProperty(_pv, 'videoWidth', { get: function () { return 640; }, configurable: true });
+  Object.defineProperty(_pv, 'videoHeight', { get: function () { return 360; }, configurable: true });
+  Object.defineProperty(_pv, 'currentSrc', { get: function () { return 'https://ysp.local/tv?pid=600001802'; }, configurable: true });
+  try { _pv.play = function () { return Promise.resolve(); }; _pv.pause = function () {}; } catch (e) {}
+
+  var _items = document.querySelectorAll('.tv-main-con-r-list-left > div');
+  _items.forEach(function (it) {
+    it.addEventListener('click', function () {
+      _pid = it.getAttribute('data-pid');
+      _items.forEach(function (x) { x.classList.remove('tvSelect'); });
+      it.classList.add('tvSelect');
+      try { _tv.dispatchEvent(new Event('loadedmetadata')); } catch (e) {}
+      setTimeout(function () {
+        try { _tv.dispatchEvent(new Event('loadeddata')); } catch (e) {}
+        try { _tv.dispatchEvent(new Event('playing')); } catch (e) {}
+      }, 30);
+    });
+  });
+
+  // CDE 桌面模式：smart=false，容器=true，非移动端。
+  window.__LPTV_ENV = { smart: false, container: true, mobile: false };
+  window.__LPTV_IS_CONTAINER = true;
+  window.__LPTV_SOFTWARE_GPU = true;
+  var stub = {
+    get_channels: function () {
+      return Promise.resolve([
+        { name: 'CCTV-1 综合', pid: '600001859' },
+        { name: 'CCTV-2 测试', pid: '600001802' }
+      ]);
+    },
+    get_ui_state: function () { return Promise.resolve({ ok: true, lastPid: '600001859', fit: 'cover' }); },
+    get_version: function () { return Promise.resolve('1.0.0-test'); },
+    get_asset_image: function () { return Promise.resolve({ ok: false, src: '' }); },
+    play_channel: function () { return Promise.resolve({ ok: true }); },
+    fullscreen_toggle: function () { return Promise.resolve({ ok: true, fullscreen: true }); },
+    set_quality: function () { return Promise.resolve({ ok: true }); },
+    set_state: function () { return Promise.resolve({ ok: true }); }
+  };
+  window.lptv = new Proxy(stub, {
+    get: function (t, p) {
+      if (p in t) return t[p];
+      return function () { return Promise.resolve({ ok: true }); };
+    }
+  });
+</script>
+<script src="../inject.js"></script>
+<script>
+(function () {
+  var started = Date.now();
+  var trace = window.__trace = {};
+  function root() { return document.getElementById('lptv-root'); }
+  function state() { var r = root(); return r ? r.getAttribute('data-state') : ''; }
+  function q(sel) { return document.querySelector(sel); }
+  function waitFor(fn, timeout) {
+    var t0 = Date.now();
+    return new Promise(function (resolve) {
+      (function poll() {
+        var v = null;
+        try { v = fn(); } catch (e) {}
+        if (v) return resolve(v);
+        if (Date.now() - t0 > (timeout || 5000)) return resolve(null);
+        setTimeout(poll, 80);
+      })();
+    });
+  }
+  function click(el) {
+    if (!el) return false;
+    try { el.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 10, clientY: 10 })); return true; }
+    catch (e) { try { el.click(); return true; } catch (e2) { return false; } }
+  }
+  function finish(pass, extra) {
+    trace.elapsed = Date.now() - started;
+    trace.pass = !!pass;
+    if (extra) trace.extra = extra;
+    document.body.dataset.test = JSON.stringify(trace);
+    document.body.dataset.pass = pass ? '1' : '0';
+  }
+  function near(a, b, tol) { return Math.abs(a - b) <= (tol || 2); }
+  function measure() {
+    var r = root();
+    var active = document.getElementById('test-video');
+    var preview = document.getElementById('preview-video');
+    var rr = r ? r.getBoundingClientRect() : null;
+    var ar = active ? active.getBoundingClientRect() : null;
+    var pr = preview ? preview.getBoundingClientRect() : null;
+    var bar = q('#lptv-view-playing .lv-play-controls');
+    var br = bar ? bar.getBoundingClientRect() : null;
+    var csA = active ? getComputedStyle(active) : null;
+    var csP = preview ? getComputedStyle(preview) : null;
+    return {
+      vw: window.innerWidth, vh: window.innerHeight,
+      rootW: rr ? rr.width : 0, rootH: rr ? rr.height : 0,
+      videoW: ar ? ar.width : 0, videoH: ar ? ar.height : 0,
+      previewW: pr ? pr.width : 0, previewH: pr ? pr.height : 0,
+      rootFill: !!(rr && near(rr.width, window.innerWidth) && near(rr.height, window.innerHeight)),
+      videoFill: !!(ar && near(ar.width, window.innerWidth) && near(ar.height, window.innerHeight)),
+      controlsInside: !!(br && br.left >= -1 && br.top >= -1 &&
+        br.right <= window.innerWidth + 1 && br.bottom <= window.innerHeight + 1),
+      activeVisible: csA ? csA.visibility : '',
+      previewVisible: csP ? csP.visibility : '',
+      activePosition: csA ? csA.position : '',
+      activeTransform: csA ? csA.transform : '',
+      activeFit: csA ? csA.objectFit : '',
+      activeIsLptv: !!(window.__lptv && window.__lptv.video === active),
+      state: state()
+    };
+  }
+
+  (async function () {
+    // 1) 首页加载
+    await waitFor(function () { return root() && q('.lv-card[data-pid]'); }, 6000);
+    trace.bootState = state();
+    trace.homeCards = document.querySelectorAll('.lv-card[data-pid]').length;
+    if (trace.bootState !== 'home' || !trace.homeCards) return finish(false, 'boot');
+
+    // 2) 点频道进入播放（CDE 真实路径：官方侧栏点击）
+    click(q('.lv-card[data-pid="600001859"]'));
+    await waitFor(function () { return state() === 'playing' && window.__lptv.currentPid === '600001859'; }, 8000);
+    trace.afterCard = state();
+    if (trace.afterCard !== 'playing') return finish(false, 'play');
+
+    // 3) 等注入层完成视频认领/样式（切台遮罩期间可能先认到预览 video；进入播放态后
+    //    保活会重新认回真正有画面的主流，测试必须等到主流重新可见）
+    await waitFor(function () {
+      var a = document.getElementById('test-video');
+      return a && window.__lptv && window.__lptv.video === a &&
+        getComputedStyle(a).visibility === 'visible' && a.style.position === 'fixed';
+    }, 10000);
+
+    var m = trace.measure = measure();
+    trace.checks = {
+      rootFill: m.rootFill,
+      videoFill: m.videoFill,
+      controlsInside: m.controlsInside,
+      activeVisible: m.activeVisible === 'visible',
+      previewHidden: m.previewVisible === 'hidden',
+      activeFixed: m.activePosition === 'fixed',
+      activeNoTransform: m.activeTransform === 'none',
+      activeCover: m.activeFit === 'cover',
+      activeIsLptv: m.activeIsLptv
+    };
+    var ok = true;
+    for (var k in trace.checks) if (!trace.checks[k]) ok = false;
+
+    // 4) 换台后仍只保留一个可见视频层，且新画面仍铺满
+    click(q('#lv-b-ch'));
+    await waitFor(function () { return state() === 'leftPanel'; }, 2500);
+    var item = q('.lv-left-item[data-pid="600001802"]');
+    click(item);
+    await waitFor(function () { return state() === 'playing' && window.__lptv.currentPid === '600001802'; }, 8000);
+    await waitFor(function () {
+      var a = document.getElementById('test-video');
+      return a && window.__lptv && window.__lptv.video === a &&
+        getComputedStyle(a).visibility === 'visible' && a.style.position === 'fixed';
+    }, 10000);
+    var m2 = trace.measureAfterSwitch = measure();
+    trace.checksAfterSwitch = {
+      playing: m2.state === 'playing',
+      rootFill: m2.rootFill,
+      videoFill: m2.videoFill,
+      previewHidden: m2.previewVisible === 'hidden',
+      activeIsLptv: m2.activeIsLptv
+    };
+    for (var k2 in trace.checksAfterSwitch) if (!trace.checksAfterSwitch[k2]) ok = false;
+
+    finish(ok, ok ? 'ok' : 'geometry/video-layer');
+  })();
+})();
+</script>
+</body>
+</html>

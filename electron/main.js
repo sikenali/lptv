@@ -778,6 +778,42 @@ function createWindow() {
     }
   });
 
+  // ---- 渲染进程崩溃自愈 ----------------------------------------------------
+  // 容器（xpra 软件合成 + 视频软解 + 客户端画布/方向频繁变化）实测会出现
+  // renderer SIGSEGV；Chromium 不会自动重建渲染进程，窗口会永久黑屏 —— 移动端
+  // 表现就是"没有画面"（客户端连上后只收到黑帧）。这里捕获 render-process-gone
+  // 并重载页面重建 renderer（带 splash 遮罩，避免官方页裸闪）。
+  // 短时间内反复崩溃时退避，避免 reload 风暴；60s 窗口内计数归零。
+  let rendererCrashCount = 0, rendererCrashSince = 0;
+  win.webContents.on('render-process-gone', (e, details) => {
+    const reason = (details && details.reason) || 'unknown';
+    const exitCode = details && details.exitCode;
+    console.log('[LPTV] renderer gone reason=' + reason + ' exitCode=' + exitCode);
+    if (!win || win.isDestroyed()) return;
+    // 正常关闭/导航（clean-exit）不重载，避免退出流程被拉回来
+    if (reason === 'clean-exit') return;
+    const now = Date.now();
+    if (!rendererCrashSince || now - rendererCrashSince > 60000) {
+      rendererCrashSince = now;
+      rendererCrashCount = 0;
+    }
+    rendererCrashCount++;
+    const delay = rendererCrashCount > 5 ? Math.min(5000, 500 * (rendererCrashCount - 5)) : 200;
+    console.log('[LPTV] renderer reload #' + rendererCrashCount + ' in ' + delay + 'ms');
+    splashReloadPending = true;
+    setTimeout(() => {
+      try { if (win && !win.isDestroyed()) win.reload(); } catch (err) {}
+    }, delay);
+  });
+  // 渲染进程无响应（卡死但未退出）：只记录，不强制重载 —— 视频软解/大页面
+  // 偶发 >10s 无响应时 reload 反而打断播放。真正的崩溃由上面的 handler 处理。
+  win.webContents.on('unresponsive', () => {
+    try { console.log('[LPTV] renderer unresponsive'); } catch (e) {}
+  });
+  win.webContents.on('responsive', () => {
+    try { console.log('[LPTV] renderer responsive'); } catch (e) {}
+  });
+
   // 窗口伪装（对应 --class=LPTV / WM_NAME / _NET_WM_ICON，xpra SPA 才能显示任务栏图标）
   app.setName('LPTV');
   win.setTitle('LPTV');
@@ -1110,6 +1146,7 @@ function createWindow() {
       let hadClient = false;       // 曾确认有客户端; 断开后才允许触发收尾
       let everHadClient = false;   // 是否曾经连过（区分首次连接与断开后重连）
       let goneMisses = 0;
+      let lastClientSeenAt = 0;    // 最后一次确认客户端在线的时间（判断掉线时长）
       const followTimer = setInterval(() => {
         if (following) return;
         following = true;
@@ -1137,6 +1174,8 @@ function createWindow() {
             return;
           }
           goneMisses = 0;
+          const seenBefore = lastClientSeenAt;
+          lastClientSeenAt = Date.now();
           const mode = clientMode(c);
           if (mode !== pageEnvMode) {
             // 客户端模式与"页面实际读到的环境"不符：页面只在 document-start 读
@@ -1164,7 +1203,23 @@ function createWindow() {
             if (reattach && mode === 'mobile') {
               // 移动端重连：reload 重走启动自动播放上次频道，避免留下冻结画面
               // （移动端控制条没有播放按钮）。CDE/智慧屏同模式重连保持原行为。
-              fsDiag('mobile_reattach');
+              // 但移动端 WebView 掉线重连可能很频繁（实测每 4-5s 一次）：短时间
+              // 内重连说明页面/视频还在，连续 reload 会形成 reload 风暴，反而
+              // 把渲染进程拖崩 → 黑屏。掉线 <8s 时只重新铺几何，不重载。
+              const goneFor = seenBefore ? Date.now() - seenBefore : 0;
+              if (goneFor && goneFor < 8000) {
+                fsDiag('mobile_reattach_fast', { goneMs: goneFor });
+                // 掉线期间若已触发 client-gone（视频暂停/回播放态），重连后补播，
+                // 不靠整页 reload。仍在播放时 resumeLastChannel 内部直接返回。
+                try {
+                  win.webContents.executeJavaScript(
+                    '(function(){try{var l=window.__lptv;if(l&&l.resumeLastChannel)l.resumeLastChannel();}catch(e){}})()'
+                  ).catch(() => {});
+                } catch (e) {}
+                reapplyGeometry('xprareconnect');
+                return;
+              }
+              fsDiag('mobile_reattach', { goneMs: goneFor });
               splashReloadPending = true;   // reload 期间重新授予 splash，避免官方页裸闪
               try { win.reload(); } catch (e) {}
               return;

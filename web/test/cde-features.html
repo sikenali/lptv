@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LPTV CDE feature assertion</title>
+<style>html,body{margin:0;height:100%;background:#04070d;overflow:hidden}</style>
+</head>
+<body>
+<!-- 官方页 stub：频道侧栏 + 一个可见视频，供注入层走 CDE/桌面真实路径。 -->
+<div class="tv-main-con-r-list-left">
+  <div data-pid="600001859" class="tvSelect">CCTV-1 综合</div>
+  <div data-pid="600001802">CCTV-2 测试</div>
+  <div data-pid="600001803">CCTV-3 测试</div>
+</div>
+<div id="official-copyright" style="display:none">应版权方要求，本频道暂停提供信号</div>
+<video id="test-video" muted playsinline style="position:absolute;left:0;top:0;width:640px;height:360px"></video>
+<script>
+  var _pid = '600001859';
+  var _tv = document.getElementById('test-video');
+  Object.defineProperty(_tv, 'readyState', { get: function () { return 4; }, configurable: true });
+  Object.defineProperty(_tv, 'videoWidth', { get: function () { return 1280; }, configurable: true });
+  Object.defineProperty(_tv, 'videoHeight', { get: function () { return 720; }, configurable: true });
+  Object.defineProperty(_tv, 'currentSrc', { get: function () { return 'https://ysp.local/tv?pid=' + _pid; }, configurable: true });
+  try { _tv.play = function () { return Promise.resolve(); }; _tv.pause = function () {}; } catch (e) {}
+  var _items = document.querySelectorAll('.tv-main-con-r-list-left > div');
+  _items.forEach(function (it) {
+    it.addEventListener('click', function () {
+      _pid = it.getAttribute('data-pid');
+      _items.forEach(function (x) { x.classList.remove('tvSelect'); });
+      it.classList.add('tvSelect');
+      try { _tv.dispatchEvent(new Event('loadedmetadata')); } catch (e) {}
+      setTimeout(function () {
+        try { _tv.dispatchEvent(new Event('loadeddata')); } catch (e) {}
+        try { _tv.dispatchEvent(new Event('playing')); } catch (e) {}
+      }, 30);
+    });
+  });
+  window.__LPTV_ENV = { smart: false, container: true, mobile: false };
+  window.__LPTV_IS_CONTAINER = true;
+  window.__LPTV_SOFTWARE_GPU = true;
+  try { localStorage.removeItem('lptv.cfg.v3'); } catch (e) {}
+  var calls = window.__stubCalls = { fullscreen: 0, play: 0 };
+  var stub = {
+    get_channels: function () {
+      return Promise.resolve([
+        { name: 'CCTV-1 综合', pid: '600001859' },
+        { name: 'CCTV-2 测试', pid: '600001802' },
+        { name: 'CCTV-3 测试', pid: '600001803' },
+        { name: 'CCTV-4 测试', pid: '600001804' }
+      ]);
+    },
+    get_ui_state: function () { return Promise.resolve({ ok: true, lastPid: '600001859', fit: 'cover', theme: 'dark' }); },
+    get_version: function () { return Promise.resolve('1.0.0-test'); },
+    get_asset_image: function () { return Promise.resolve({ ok: false, src: '' }); },
+    play_channel: function () { calls.play++; return Promise.resolve({ ok: true }); },
+    fullscreen_toggle: function () { calls.fullscreen++; return Promise.resolve({ ok: true, fullscreen: true }); },
+    is_fullscreen: function () { return Promise.resolve({ ok: true, fullscreen: true }); },
+    set_quality: function () { return Promise.resolve({ ok: true }); },
+    set_state: function () { return Promise.resolve({ ok: true }); }
+  };
+  window.lptv = new Proxy(stub, {
+    get: function (t, p) {
+      if (p in t) return t[p];
+      return function () { return Promise.resolve({ ok: true }); };
+    }
+  });
+</script>
+<script src="../inject.js"></script>
+<script>
+(function () {
+  var started = Date.now();
+  var trace = window.__trace = {};
+  function root() { return document.getElementById('lptv-root'); }
+  function state() { var r = root(); return r ? r.getAttribute('data-state') : ''; }
+  function q(sel) { return document.querySelector(sel); }
+  function click(el) {
+    if (!el) return false;
+    try { el.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 10, clientY: 10 })); return true; }
+    catch (e) { try { el.click(); return true; } catch (e2) { return false; } }
+  }
+  function key(k) {
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: k, code: k, bubbles: true }));
+  }
+  function waitFor(fn, timeout) {
+    var t0 = Date.now();
+    return new Promise(function (resolve) {
+      (function poll() {
+        var v = null;
+        try { v = fn(); } catch (e) {}
+        if (v) return resolve(v);
+        if (Date.now() - t0 > (timeout || 5000)) return resolve(null);
+        setTimeout(poll, 60);
+      })();
+    });
+  }
+  function finish(pass, extra) {
+    trace.elapsed = Date.now() - started;
+    trace.pass = !!pass;
+    if (extra) trace.extra = extra;
+    document.body.dataset.test = JSON.stringify(trace);
+    document.body.dataset.pass = pass ? '1' : '0';
+  }
+  function cfgLS() {
+    try { return JSON.parse(localStorage.getItem('lptv.cfg.v3') || '{}'); } catch (e) { return {}; }
+  }
+  function ymd() {
+    var d = new Date();
+    return d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0');
+  }
+
+  (async function () {
+    // 1) 首页加载 + 主题按钮/设置按钮/卡片
+    var tBoot = Date.now();
+    await waitFor(function () { return root() && q('.lv-card[data-pid]'); }, 6000);
+    trace.bootMs = Date.now() - tBoot;
+    trace.bootState = state();
+    trace.homeCards = document.querySelectorAll('.lv-card[data-pid]').length;
+    trace.hasThemeBtn = !!q('#lv-theme-toggle');
+    trace.hasSettingsBtn = !!q('#lv-settings-btn');
+    if (trace.bootState !== 'home' || !trace.homeCards || !trace.hasThemeBtn || !trace.hasSettingsBtn) {
+      return finish(false, 'boot');
+    }
+
+    // 2) 主题切换（浅色 → 深色）
+    click(q('#lv-theme-toggle'));
+    await waitFor(function () { return root().getAttribute('data-theme') === 'light'; }, 3000);
+    trace.themeLight = root().getAttribute('data-theme') === 'light';
+    trace.themeCfgLight = cfgLS().theme === 'light';
+    click(q('#lv-theme-toggle'));
+    await waitFor(function () { return !root().getAttribute('data-theme'); }, 3000);
+    trace.themeDark = !root().getAttribute('data-theme');
+    trace.themeCfgDark = cfgLS().theme !== 'light';
+    if (!trace.themeLight || !trace.themeDark) return finish(false, 'theme');
+
+    // 3) 设置：打开、勾选项持久化、标签切换、Esc 关闭
+    click(q('#lv-settings-btn'));
+    await waitFor(function () { var s = q('#lptv-settings'); return s && s.classList.contains('open'); }, 2000);
+    trace.settingsOpen = !!(q('#lptv-settings') && q('#lptv-settings').classList.contains('open'));
+    var auto = q('#lptv-s-autoplay'), clickfs = q('#lptv-s-clickfs');
+    trace.hasAuto = !!auto; trace.hasClickfs = !!clickfs;
+    if (auto && !auto.checked) auto.click();
+    if (clickfs && !clickfs.checked) clickfs.click();
+    await waitFor(function () { var c = cfgLS(); return c.autoPlayOnLaunch === true && c.clickFullscreen === true; }, 2000);
+    trace.cfgAutoplay = cfgLS().autoPlayOnLaunch === true;
+    trace.cfgClickfs = cfgLS().clickFullscreen === true;
+    click(q('.lv-set-tab[data-tab="keys"]'));
+    await waitFor(function () { return q('#lptv-pane-keys') && q('#lptv-pane-keys').classList.contains('on'); }, 2000);
+    trace.paneKeys = !!(q('#lptv-pane-keys') && q('#lptv-pane-keys').classList.contains('on'));
+    click(q('.lv-set-tab[data-tab="about"]'));
+    await waitFor(function () { return q('#lptv-pane-about') && q('#lptv-pane-about').classList.contains('on'); }, 2000);
+    trace.paneAbout = !!(q('#lptv-pane-about') && q('#lptv-pane-about').classList.contains('on'));
+    key('Escape');
+    await waitFor(function () { var s = q('#lptv-settings'); return s && !s.classList.contains('open'); }, 2000);
+    trace.settingsClosed = !(q('#lptv-settings') && q('#lptv-settings').classList.contains('open'));
+    try { if (document.activeElement) document.activeElement.blur(); } catch (e) {}
+    if (!trace.settingsOpen || !trace.hasAuto || !trace.hasClickfs ||
+        !trace.cfgAutoplay || !trace.cfgClickfs || !trace.paneKeys || !trace.paneAbout || !trace.settingsClosed) {
+      return finish(false, 'settings');
+    }
+
+    // 4) 频道面板 → 切台（CDE 官方侧栏路径）
+    var tSwitch = Date.now();
+    click(q('#lv-b-ch'));
+    await waitFor(function () { return state() === 'leftPanel'; }, 2500);
+    trace.leftPanel = state();
+    var item = q('.lv-left-item[data-pid="600001802"]');
+    trace.leftItem = !!item;
+    click(item);
+    await waitFor(function () { return state() === 'playing' && window.__lptv.currentPid === '600001802'; }, 8000);
+    trace.switchMs = Date.now() - tSwitch;
+    trace.afterChannel = state();
+    trace.pidAfterChannel = window.__lptv.currentPid;
+    if (trace.leftPanel !== 'leftPanel' || !trace.leftItem ||
+        trace.afterChannel !== 'playing' || trace.pidAfterChannel !== '600001802') {
+      return finish(false, 'channel');
+    }
+
+    // 5) 节目单面板（EPG 缓存注入 → 行渲染）
+    var y = ymd();
+    window.__lptv.epg.cache['600001802|' + y] = [
+      { name: '测试节目一', start: '20:00', end: '20:30' },
+      { name: '测试节目二', start: '20:30', end: '21:00' }
+    ];
+    click(q('#lv-b-epg'));
+    await waitFor(function () { return state() === 'rightPanel'; }, 3000);
+    trace.rightPanel = state();
+    await waitFor(function () { return document.querySelectorAll('#lv-right-list .lv-right-item').length > 0; }, 3000);
+    trace.epgRows = document.querySelectorAll('#lv-right-list .lv-right-item').length;
+    key('Escape');
+    await waitFor(function () { return state() === 'playing'; }, 3000);
+    trace.epgClosed = state() === 'playing';
+    if (trace.rightPanel !== 'rightPanel' || trace.epgRows < 1 || !trace.epgClosed) return finish(false, 'epg');
+
+    // 6) 音量/静音
+    var volBefore = window.__lptv.video.volume;
+    key('ArrowLeft');
+    trace.volDown = window.__lptv.video.volume < volBefore;
+    key('ArrowRight');
+    trace.volUp = window.__lptv.video.volume >= volBefore;
+    key('m');
+    trace.mutedOn = window.__lptv.video.muted === true;
+    key('m');
+    trace.mutedOff = window.__lptv.video.muted === false;
+    if (!trace.volDown || !trace.mutedOn || !trace.mutedOff) return finish(false, 'volume/mute');
+
+    // 7) 全屏键 / 双击画面（stub 记录调用）
+    var fs0 = window.__stubCalls.fullscreen;
+    key('F11');
+    await waitFor(function () { return window.__stubCalls.fullscreen > fs0; }, 1000);
+    trace.f11Calls = window.__stubCalls.fullscreen > fs0;
+    var fs1 = window.__stubCalls.fullscreen;
+    click(root());
+    setTimeout(function () { click(root()); }, 120);
+    await waitFor(function () { return window.__stubCalls.fullscreen > fs1; }, 1500);
+    trace.dblClickCalls = window.__stubCalls.fullscreen > fs1;
+    if (!trace.f11Calls || !trace.dblClickCalls) return finish(false, 'fullscreen');
+
+    // 8) 数字键换台（1 → CCTV-1）
+    key('1');
+    await waitFor(function () { return window.__lptv.currentPid === '600001859' && state() === 'playing'; }, 5000);
+    trace.digitPid = window.__lptv.currentPid;
+    trace.digitState = state();
+    if (trace.digitPid !== '600001859') return finish(false, 'digit');
+
+    // 9) 版权受限提示：官方页出现提示语后，播放态应显示说明卡片
+    q('#official-copyright').style.display = '';
+    await waitFor(function () { var n = q('#lptv-signal-notice'); return n && n.classList.contains('on'); }, 5000);
+    trace.copyrightNotice = !!(q('#lptv-signal-notice') && q('#lptv-signal-notice').classList.contains('on'));
+    q('#official-copyright').style.display = 'none';
+    await waitFor(function () { var n = q('#lptv-signal-notice'); return n && !n.classList.contains('on'); }, 5000);
+    trace.copyrightCleared = !(q('#lptv-signal-notice') && q('#lptv-signal-notice').classList.contains('on'));
+    if (!trace.copyrightNotice || !trace.copyrightCleared) return finish(false, 'copyright');
+
+    // 10) 首页按钮回首页 → 卡片点击回播放
+    click(q('#lv-b-home'));
+    await waitFor(function () { return state() === 'home'; }, 2500);
+    trace.backHome = state();
+    var card = q('.lv-card[data-pid="600001803"]');
+    click(card);
+    await waitFor(function () { return state() === 'playing' && window.__lptv.currentPid === '600001803'; }, 8000);
+    trace.cardPlay = state();
+    trace.cardPid = window.__lptv.currentPid;
+    if (trace.backHome !== 'home' || trace.cardPlay !== 'playing' || trace.cardPid !== '600001803') {
+      return finish(false, 'home/card');
+    }
+
+    // 11) 性能：启动/切台耗时阈值 + 注入层帧采样结果（若有）
+    trace.perf = window.__lptvPerf || null;
+    trace.perfOk = trace.bootMs < 6000 && trace.switchMs < 8000;
+    if (!trace.perfOk) return finish(false, 'perf');
+
+    finish(true, 'ok');
+  })();
+})();
+</script>
+</body>
+</html>

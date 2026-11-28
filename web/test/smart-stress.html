@@ -55,8 +55,15 @@
     });
   });
   // 官方 SPA 对 pushState/popstate 的响应（sidebar 缺失时的兜底路径）。
+  // file:// 下 pushState 的绝对路径可能抛 SecurityError → 注入层会 location.href
+  // 导航到 /tv/home（file 根不存在），测试页会整页丢失。这里把 pushState 改成
+  // 只记录 URL、不导航，popstate 从记录值取 pid。
+  try {
+    history.pushState = function (s, t, u) { window.__pushedUrl = String(u || ''); };
+  } catch (e) {}
   window.addEventListener('popstate', function () {
-    var m = location.search.match(/[?&]pid=(\d+)/);
+    var u = window.__pushedUrl || location.search || '';
+    var m = String(u).match(/[?&]pid=(\d+)/);
     if (!m) return;
     var pid = m[1];
     _pid = pid;
@@ -133,7 +140,8 @@
   (async function () {
     await waitFor(function () { return root() && q('.lv-card[data-pid]'); }, 6000);
     if (!root()) return finish(false, 'boot');
-    var rounds = 20;
+    var rounds = parseInt((location.search.match(/[?&]rounds=(\d+)/) || [])[1] || '20', 10);
+    if (!(rounds > 0)) rounds = 20;
     for (var i = 0; i < rounds; i++) {
       var pid = pids[i % pids.length];
       var mode = modes[i % modes.length];
@@ -161,6 +169,7 @@
       var wait = Date.now() - tClick;
       var rec = { i: i, pid: pid, mode: mode, delay: delay, state: state(), pidNow: window.__lptv ? window.__lptv.currentPid : '', wait: wait };
       trace.switches.push(rec);
+      try { console.log('[stress] round ' + i + ' ' + JSON.stringify(rec)); } catch (e) {}
       if (rec.state !== 'playing' || rec.pidNow !== pid) {
         trace.maxWait = Math.max.apply(null, trace.switches.map(function (x) { return x.wait; }));
         return finish(false, 'switch ' + i + ' mode=' + mode);
