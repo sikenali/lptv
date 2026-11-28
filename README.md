@@ -91,6 +91,16 @@ bash release.sh
 cd android && bash build.sh
 ```
 
+### 测试
+
+```bash
+# 一键全量模拟测试：Node 单测 + 无头 Chrome 功能/性能断言
+bash scripts/test_all.sh
+```
+
+覆盖：CDE 窗口铺满/单视频层、CDE 主题/设置/频道/EPG/音量/静音/全屏/数字键/版权提示/首页回切、
+桌面/智慧屏/移动端 UI、20 次换台压力、卡死/无画面恢复、模式分类、窗口几何、catlink-wrap 全屏策略。
+
 ### Android TV
 
 横屏 TV 模式（`screenOrientation=landscape` + `leanback`/`touchscreen` + TV banner），iframe 加载 YSP 官方播放器（`bridge.play_channel`），WebView 硬解，v1 + v2 签名。
