@@ -479,7 +479,33 @@ function isChromiumXpraClient(c) {
 // 因此全屏/最大化的目标尺寸不能依赖 Electron 缓存，须直接查询 X 服务器：
 // xpra 客户端真实屏幕 (首选) → xrandr → xdpyinfo → Electron 缓存 → env 兜底。
 function queryActualScreenSize() {
-  // 0. xpra 客户端真实屏幕（智慧屏 1280x720 / 桌面 1920x1080）——权威，非 X max
+  // 容器：实际 X 显示尺寸优先。xpra 的 resize-display=yes 会把虚拟屏跟随客户端
+  // 画布；而 xpra info 的 client.screen.0.size 可能仍是设备屏幕（手机竖屏
+  // 360x760）或握手时的旧尺寸，实际画布却是横屏 800x320。若用客户端尺寸建窗，
+  // 会得到竖屏窗口，在横屏画布中被裁掉 → 移动端"没有画面"/大片空白。
+  // xdpyinfo/xrandr 读的是服务端真实虚拟屏（已随客户端画布 resize），权威。
+  if (IS_CONTAINER) {
+    try {
+      const { execSync } = require('child_process');
+      const out = execSync('xdpyinfo 2>/dev/null | grep dimensions',
+                           { timeout: 3000, encoding: 'utf8' });
+      const m = out.match(/dimensions:\s+(\d+)x(\d+)/);
+      if (m) {
+        const w = parseInt(m[1], 10), h = parseInt(m[2], 10);
+        if (w > 0 && h > 0) return { w, h };
+      }
+    } catch (e) {}
+    try {
+      const { execSync } = require('child_process');
+      const out = execSync('xrandr --query 2>/dev/null', { timeout: 3000, encoding: 'utf8' });
+      const m = out.match(/current\s+(\d+)\s+x\s+(\d+)/);
+      if (m) {
+        const w = parseInt(m[1], 10), h = parseInt(m[2], 10);
+        if (w > 0 && h > 0) return { w, h };
+      }
+    } catch (e) {}
+  }
+  // 0. xpra 客户端真实屏幕（智慧屏 1280x720 / 桌面 1920x1080）——非容器环境的权威来源
   try {
     const c = getXpraClient();
     if (c && c.w > 0 && c.h > 0) return { w: c.w, h: c.h };
@@ -524,9 +550,10 @@ function displayBounds() {
     const { screen } = require('electron');
     const b = screen.getPrimaryDisplay().bounds;
     if (IS_CONTAINER) {
-      // 容器: Electron 缓存可能陈旧，用 xrandr 实际虚拟屏尺寸
+      // 容器: Electron 缓存的 bounds 可能陈旧（含旧客户端尺寸/偏移），坐标一律
+      // 从 0,0 起，尺寸用实际 X 虚拟屏（xdpyinfo/xrandr）。窗口铺满虚拟屏。
       const s = queryActualScreenSize();
-      return { x: b.x, y: b.y, w: s.w, h: s.h };
+      return { x: 0, y: 0, w: s.w, h: s.h };
     }
     return { x: b.x, y: b.y, w: b.width, h: b.height };
   } catch (e) {

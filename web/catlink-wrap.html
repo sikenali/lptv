@@ -39,7 +39,10 @@
 </style>
 </head>
 <body>
-<iframe id="lptv-xpra" src="/catlink/?floating_menu=false" allow="autoplay; fullscreen"></iframe>
+<!-- keyboard=false: 移动端 WebView 的 UA 会让 xpra HTML5 客户端默认弹出屏幕键盘，
+     横屏手机画布只有 800x320，键盘占掉底部 ~210px → 视频只剩顶部一条（用户看到
+     "没有画面"）。LPTV 没有文本输入需求，关闭屏幕键盘。 -->
+<iframe id="lptv-xpra" src="/catlink/?floating_menu=false&keyboard=false" allow="autoplay; fullscreen"></iframe>
 <div id="lptv-wait">
   <img class="ico" src="icon.png" alt="LPTV" draggable="false">
   <div class="bar"></div>
@@ -145,7 +148,10 @@
     s.textContent='#connect,#connect_form,#connection,#connection_error,#progress,'+
       '#float_menu,#float_menu_button,#login-overlay,'+
       '.notifications,#window_preview,#about,#upload_form,.windowhead,'+
-      '.form-signin,.bg-image,#alert-disconnect{display:none!important}'+
+      '.form-signin,.bg-image,#alert-disconnect,'+
+      // 移动端 WebView：xpra 默认弹屏幕键盘，横屏 800x320 画布下键盘占掉
+      // 底部大半屏 → 视频只剩顶部一条（"没有画面"）。LPTV 无文本输入，隐藏。
+      '.simple-keyboard,#keyboard_button{display:none!important}'+
       'div.window{border:none!important;border-radius:0!important;box-shadow:none!important}'+
       'html,body,#screen{background:#04070d!important}';
     d.head.appendChild(s);
